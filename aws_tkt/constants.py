@@ -1,6 +1,6 @@
 git_repo_name="AWSTkt"
 git_repo_org_name="EssexManagement"
-codestar_connection_arn=None
+codestar_connection_id="2135aa52-7ca9-49d5-b338-9a5db089d963"
 
 ### -----------------------------------------
 
