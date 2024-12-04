@@ -1,58 +1,43 @@
+# Attention !
 
-# Welcome to your CDK Python project!
+This is for TICKET opened with AWS Tech-SUPPORT.
 
-This is a blank project for CDK development with Python.
+AWS Case # `173260180100988`
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
+Opened on 2024-11-26 06:16:41
 
-This project is set up like a standard Python project.  The initialization
-process also creates a virtualenv within this project, stored under the `.venv`
-directory.  To create the virtualenv it assumes that there is a `python3`
-(or `python` for Windows) executable in your path with access to the `venv`
-package. If for any reason the automatic creation of the virtualenv fails,
-you can create the virtualenv manually.
+Tital: _CodeBuild unable to_
 
-To manually create a virtualenv on MacOS and Linux:
+Severity: System impaired
 
-```
-$ python3 -m venv .venv
-```
+<BR/><BR/><BR/><BR/>
+<HR/><HR/><HR/><HR/>
 
-After the init process completes and the virtualenv is created, you can use the following
-step to activate your virtualenv.
+# HOW-TO
 
 ```
-$ source .venv/bin/activate
+source .venv/bin/activate
+npm i
+pip install -r requirements.txt
+npx cdk deploy --app "python pipeline_app.py" --all
 ```
 
-If you are a Windows platform, you would activate the virtualenv like this:
 
-```
-% .venv\Scripts\activate.bat
-```
+<BR/><BR/><BR/><BR/>
+<HR/><HR/><HR/><HR/>
 
-Once the virtualenv is activated, you can install the required dependencies.
+# Case Details
 
-```
-$ pip install -r requirements.txt
-```
+We have been struggling for 3 FULL business days now, with `AWS CodeBuild`.
 
-At this point you can now synthesize the CloudFormation template for this code.
+WHEN PROBLEM STARTED:<BR/>
+since we created standard "`psycopg`" and "`pandas`" LambdaLayers and started using it across ALL lambdas (across multiple stacks deployed by same `cdk deploy` command)
 
-```
-$ cdk synth
-```
+THE ISSUE:<BR/>
+cdk-synth INSIDE AWS-CODEBUILD project FAILS with no details (Docker exit-code only); FYI ONLY: cdk-synth from MacBook-Pro M1 is working just fine.
 
-To add additional dependencies, for example other CDK libraries, just add
-them to your `setup.py` file and rerun the `pip install -r requirements.txt`
-command.
+WHAT WE TRIED:<BR/>
+No benefit in Changing BUILD-IMAGE between `Standard` and `AL2_ARM_3`.  No benefit in increasing CodeBuild-instance-size to `X2_LARGE`.  So, we stopped creating `x86_64` Layers & Lambdas. Instead ONLY focused on `arm64` only.
 
-## Useful commands
 
- * `cdk ls`          list all stacks in the app
- * `cdk synth`       emits the synthesized CloudFormation template
- * `cdk deploy`      deploy this stack to your default AWS account/region
- * `cdk diff`        compare deployed stack with current state
- * `cdk docs`        open CDK documentation
-
-Enjoy!
+/End
