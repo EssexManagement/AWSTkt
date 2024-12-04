@@ -46,7 +46,7 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
     source_artifact :codepipeline.Artifact,
     git_repo_url :Optional[str] = None,
     cdk_app_pyfile :Optional[str] = None,
-    python_version :str = constants.CDK_APP_PYTHON_VERSION,
+    python_version :str = constants.CDK_APP_PYTHON_VERSION_STR,
     tier :str = "dev",
 ) -> tuple[codepipeline_actions.CodeBuildAction, codepipeline.Artifact]:
 
