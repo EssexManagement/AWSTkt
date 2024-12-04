@@ -81,6 +81,7 @@ class AwsTktPipelineStack(Stack):
             cb_proj_name = f"{stk_prefix}_{codebuild_projname}",
             source_artifact = my_source_artif,
             git_repo_url = f"{git_repo_org_name}/{git_repo_name}",
+            cdk_app_pyfile="layers_app.py"
         )
 
         my_pipeline_v2.add_stage(
