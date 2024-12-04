@@ -16,6 +16,7 @@ Severity: System impaired
 # HOW-TO
 
 ```
+python -m venv .venv
 source .venv/bin/activate
 npm i
 pip install -r requirements.txt
