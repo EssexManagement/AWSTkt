@@ -1,0 +1,7 @@
+# python -m pip install --upgrade pip
+# python -m pip install pip-tools
+# python -m piptools compile  --quiet requirements.in
+# python -m piptools sync
+
+aws-cdk-lib
+constructs
