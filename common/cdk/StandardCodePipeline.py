@@ -43,9 +43,6 @@ from aws_cdk import (
 def createStandardPipeline(
     cdk_scope: Construct,
     pipeline_name: str,
-    stack_id: Optional[str],
-    tier :str,
-    aws_env :str,
     git_repo_name: str,
     git_repo_org_name: str,
     codestar_connection_arn :str,
