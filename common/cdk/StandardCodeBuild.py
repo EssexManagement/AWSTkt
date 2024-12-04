@@ -90,8 +90,8 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
                     "commands": [
                         ### requests.exceptions.HTTPError: 409 Client Error: Conflict for url: http+docker://localhost/v1.44/containers/??????????v=False&link=False&force=False
                         ### Give CodeBuild permissions to access Docker daemon
-                        "nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2 & ",
-                        "timeout 15 sh -c 'until docker info; do echo .; sleep 1; done'", ### wait for Docker-daemon to finish RE-STARTING.
+                        # "nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2 & ",
+                        # "timeout 15 sh -c 'until docker info; do echo .; sleep 1; done'", ### wait for Docker-daemon to finish RE-STARTING.
                         f"cd {sub_proj_fldrpath}",
                         "pwd",
                         "env",
@@ -115,13 +115,6 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
                 'base-directory': f'{sub_proj_fldrpath}/cdk.out',
                 'files': ['**/*']
             },
-
-            # "cache": {
-            #     "paths": [
-            #         ".venv/**/*",
-            #         "node_modules/**/*",
-            #     ]
-            # }
 
         }),
         environment=aws_codebuild.BuildEnvironment(
