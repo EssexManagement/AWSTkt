@@ -10,10 +10,12 @@ from aws_cdk import (
 )
 
 CDK_APP_NAME = "AWSTkt"
+
 CDK_APP_PYTHON_VERSION = aws_lambda.Runtime.PYTHON_3_12
-LAMBDA_PYTHON_RUNTIME_VER_STR = aws_lambda.Runtime.PYTHON_3_12.name.replace("python","")
+CDK_APP_PYTHON_VERSION_STR = CDK_APP_PYTHON_VERSION.name
+
 LAMBDA_PYTHON_RUNTIME = aws_lambda.Runtime.PYTHON_3_12
-LAMBDA_PYTHON_RUNTIME_VER_STR = aws_lambda.Runtime.PYTHON_3_12.name.replace("python","")
+LAMBDA_PYTHON_RUNTIME_VER_STR = LAMBDA_PYTHON_RUNTIME.name.replace("python","")
 
 CODEBUILD_BUILD_IMAGE = aws_codebuild.LinuxBuildImage.AMAZON_LINUX_2_ARM_3
 CODEBUILD_BUILD_IMAGE_UBUNTU = aws_codebuild.LinuxBuildImage.STANDARD_7_0
