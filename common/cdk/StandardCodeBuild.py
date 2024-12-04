@@ -205,7 +205,7 @@ def enhance_CodeBuild_role_for_cdkdeploy(
     cb_role.add_to_principal_policy(
         aws_iam.PolicyStatement(
             actions=["secretsmanager:*"],
-            resources=[f"arn:{stk.partition}:secretsmanager:{stk.region}:{stk.account}:secret:{CDK_APP_NAME}*"],
+            resources=[f"arn:{stk.partition}:secretsmanager:{stk.region}:{stk.account}:secret:{constants.CDK_APP_NAME}*"],
     ))
     cb_role.add_to_principal_policy(
         aws_iam.PolicyStatement(
@@ -231,8 +231,8 @@ def enhance_CodeBuild_role_for_cdkdeploy(
         aws_iam.PolicyStatement(
             actions=["cloudformation:*"],
             resources=[
-                f"arn:{stk.partition}:cloudformation:{stk.region}:{stk.account}:stack/{CDK_APP_NAME}*",
-                f"arn:{stk.partition}:cloudformation:{stk.region}:{stk.account}:stackset/{CDK_APP_NAME}*",
+                f"arn:{stk.partition}:cloudformation:{stk.region}:{stk.account}:stack/{constants.CDK_APP_NAME}*",
+                f"arn:{stk.partition}:cloudformation:{stk.region}:{stk.account}:stackset/{constants.CDK_APP_NAME}*",
                 # f"arn:{stk.partition}:cloudformation:{stk.region}:{stk.account}:changeSet/*",
     ]))
 
@@ -245,35 +245,35 @@ def enhance_CodeBuild_role_for_cdkdeploy(
         aws_iam.PolicyStatement(
             actions=["iam:Attach*", "iam:Create*", "iam:Delete*", "iam:Get*", "iam:List*", "iam:Put*", "iam:UpdateRole*", "iam:Tag*", "iam:Untag*"],
             resources=[
-                f"arn:{stk.partition}:iam::{stk.account}:role/{CDK_APP_NAME}*",
-                f"arn:{stk.partition}:iam::{stk.account}:policy/{CDK_APP_NAME}*",
+                f"arn:{stk.partition}:iam::{stk.account}:role/{constants.CDK_APP_NAME}*",
+                f"arn:{stk.partition}:iam::{stk.account}:policy/{constants.CDK_APP_NAME}*",
     ]))
     cb_role.add_to_principal_policy(
         aws_iam.PolicyStatement(
             actions=["cognito-idp:*"],
             resources=[
-                f"arn:{stk.partition}:cognito-idp:{stk.region}:{stk.account}:userpool/{CDK_APP_NAME}*",
+                f"arn:{stk.partition}:cognito-idp:{stk.region}:{stk.account}:userpool/{constants.CDK_APP_NAME}*",
     ]))
     # cb_role.add_to_principal_policy(
     #     aws_iam.PolicyStatement(
     #         actions=["cognito-identity:*"],
     #         resources=[
-    #             f"arn:{stk.partition}:cognito-identity:{stk.region}:{stk.account}:identitypool/{CDK_APP_NAME}*",
+    #             f"arn:{stk.partition}:cognito-identity:{stk.region}:{stk.account}:identitypool/{constants.CDK_APP_NAME}*",
     # ]))
     cb_role.add_to_principal_policy(
         aws_iam.PolicyStatement(
             actions=["codebuild:*"],
             resources=[
-                f"arn:{stk.partition}:codebuild:{stk.region}:{stk.account}:build/{CDK_APP_NAME}*",
-                f"arn:{stk.partition}:codebuild:{stk.region}:{stk.account}:project/{CDK_APP_NAME}*",
-                f"arn:{stk.partition}:codebuild:{stk.region}:{stk.account}:report/{CDK_APP_NAME}*",
-                f"arn:{stk.partition}:codebuild:{stk.region}:{stk.account}:report-group/{CDK_APP_NAME}*",
+                f"arn:{stk.partition}:codebuild:{stk.region}:{stk.account}:build/{constants.CDK_APP_NAME}*",
+                f"arn:{stk.partition}:codebuild:{stk.region}:{stk.account}:project/{constants.CDK_APP_NAME}*",
+                f"arn:{stk.partition}:codebuild:{stk.region}:{stk.account}:report/{constants.CDK_APP_NAME}*",
+                f"arn:{stk.partition}:codebuild:{stk.region}:{stk.account}:report-group/{constants.CDK_APP_NAME}*",
     ]))
     cb_role.add_to_principal_policy(
         aws_iam.PolicyStatement(
             actions=["codepipeline:*"],
             resources=[
-                f"arn:{stk.partition}:codepipeline:{stk.region}:{stk.account}:{CDK_APP_NAME}*",
+                f"arn:{stk.partition}:codepipeline:{stk.region}:{stk.account}:{constants.CDK_APP_NAME}*",
                 f"arn:{stk.partition}:codepipeline:{stk.region}:{stk.account}:action-type:*",
                 f"arn:{stk.partition}:codepipeline:{stk.region}:{stk.account}:webhook:*",
     ]))
@@ -281,8 +281,8 @@ def enhance_CodeBuild_role_for_cdkdeploy(
         aws_iam.PolicyStatement(
             actions=["lambda:*"],
             resources=[
-                f"arn:{stk.partition}:lambda:{stk.region}:{stk.account}:function/{CDK_APP_NAME}*",
-                f"arn:{stk.partition}:lambda:{stk.region}:{stk.account}:layer/{CDK_APP_NAME}*",
+                f"arn:{stk.partition}:lambda:{stk.region}:{stk.account}:function/{constants.CDK_APP_NAME}*",
+                f"arn:{stk.partition}:lambda:{stk.region}:{stk.account}:layer/{constants.CDK_APP_NAME}*",
     ]))
     cb_role.add_to_principal_policy(
         aws_iam.PolicyStatement(
@@ -301,25 +301,25 @@ def enhance_CodeBuild_role_for_cdkdeploy(
             actions=["states:*"],
             resources=[
                 f"arn:{stk.partition}:states:{stk.region}:{stk.account}:activity:*",
-                f"arn:{stk.partition}:states:{stk.region}:{stk.account}:execution:{CDK_APP_NAME}*",
-                f"arn:{stk.partition}:states:{stk.region}:{stk.account}:express:{CDK_APP_NAME}*",
-                f"arn:{stk.partition}:states:{stk.region}:{stk.account}:stateMachine:{CDK_APP_NAME}*",
+                f"arn:{stk.partition}:states:{stk.region}:{stk.account}:execution:{constants.CDK_APP_NAME}*",
+                f"arn:{stk.partition}:states:{stk.region}:{stk.account}:express:{constants.CDK_APP_NAME}*",
+                f"arn:{stk.partition}:states:{stk.region}:{stk.account}:stateMachine:{constants.CDK_APP_NAME}*",
                 # f"arn:{stk.partition}:states:{stk.region}:{stk.account}:mapRun:*",
     ]))
     cb_role.add_to_principal_policy(
         aws_iam.PolicyStatement(
             actions=["rds:*"],
             resources=[
-                f"arn:{stk.partition}:rds:{stk.region}:{stk.account}:auto-backup:{CDK_APP_NAME}*",
-                f"arn:{stk.partition}:rds:{stk.region}:{stk.account}:subgrp:{CDK_APP_NAME}*",
-                f"arn:{stk.partition}:rds:{stk.region}:{stk.account}:snapshot:{CDK_APP_NAME}*",
-                f"arn:{stk.partition}:rds:{stk.region}:{stk.account}:db:{CDK_APP_NAME}*",
+                f"arn:{stk.partition}:rds:{stk.region}:{stk.account}:auto-backup:{constants.CDK_APP_NAME}*",
+                f"arn:{stk.partition}:rds:{stk.region}:{stk.account}:subgrp:{constants.CDK_APP_NAME}*",
+                f"arn:{stk.partition}:rds:{stk.region}:{stk.account}:snapshot:{constants.CDK_APP_NAME}*",
+                f"arn:{stk.partition}:rds:{stk.region}:{stk.account}:db:{constants.CDK_APP_NAME}*",
     ]))
     cb_role.add_to_principal_policy(
         aws_iam.PolicyStatement(
             actions=["dynamodb:*"],
             resources=[
-                f"arn:{stk.partition}:dynamodb:{stk.region}:{stk.account}:table/{CDK_APP_NAME}*",
+                f"arn:{stk.partition}:dynamodb:{stk.region}:{stk.account}:table/{constants.CDK_APP_NAME}*",
     ]))
     # cb_role.add_to_principal_policy(
     #     aws_iam.PolicyStatement(
@@ -332,10 +332,10 @@ def enhance_CodeBuild_role_for_cdkdeploy(
     #             f"arn:{stk.partition}:glue:{stk.region}:{stk.account}:registry/*",
     #             f"arn:{stk.partition}:glue:{stk.region}:{stk.account}:schema/*",
     #             f"arn:{stk.partition}:glue:{stk.region}:{stk.account}:workflow/*",
-    #             f"arn:{stk.partition}:glue:{stk.region}:{stk.account}:database/{CDK_APP_NAME}*",
-    #             f"arn:{stk.partition}:glue:{stk.region}:{stk.account}:table/{CDK_APP_NAME}*",
-    #             f"arn:{stk.partition}:glue:{stk.region}:{stk.account}:tableVersion/{CDK_APP_NAME}*",
-    #             f"arn:{stk.partition}:glue:{stk.region}:{stk.account}:userDefinedFunction/{CDK_APP_NAME}*",
+    #             f"arn:{stk.partition}:glue:{stk.region}:{stk.account}:database/{constants.CDK_APP_NAME}*",
+    #             f"arn:{stk.partition}:glue:{stk.region}:{stk.account}:table/{constants.CDK_APP_NAME}*",
+    #             f"arn:{stk.partition}:glue:{stk.region}:{stk.account}:tableVersion/{constants.CDK_APP_NAME}*",
+    #             f"arn:{stk.partition}:glue:{stk.region}:{stk.account}:userDefinedFunction/{constants.CDK_APP_NAME}*",
     # ]))
     cb_role.add_to_principal_policy(
         aws_iam.PolicyStatement(
@@ -376,13 +376,13 @@ def enhance_CodeBuild_role_for_cdkdeploy(
         aws_iam.PolicyStatement(
             actions=["sns:*"],
             resources=[
-                f"arn:{stk.partition}:sns:{stk.region}:{stk.account}:{CDK_APP_NAME}*",
+                f"arn:{stk.partition}:sns:{stk.region}:{stk.account}:{constants.CDK_APP_NAME}*",
     ]))
     cb_role.add_to_principal_policy(
         aws_iam.PolicyStatement(
             actions=["sqs:*"],
             resources=[
-                f"arn:{stk.partition}:sqs:{stk.region}:{stk.account}:{CDK_APP_NAME}*",
+                f"arn:{stk.partition}:sqs:{stk.region}:{stk.account}:{constants.CDK_APP_NAME}*",
     ]))
     ### To fix the error: User: arn:aws:sts::??????:assumed-role/FACT-backend-pipeline-dev-emFACTbackendcdkCodeBuild-???????/AWSCodeBuild-?????????????
     ###         is not authorized to perform: ecr:DescribeRepositories on resource:
