@@ -45,6 +45,8 @@ publication==0.0.3
     #   jsii
 python-dateutil==2.9.0.post0
     # via jsii
+pytz==2024.2
+    # via -r requirements.in
 six==1.17.0
     # via python-dateutil
 typeguard==2.13.3
