@@ -4,6 +4,9 @@ from aws_cdk import (
 )
 
 from constructs import Construct
+
+import constants as constants
+import common.cdk.aws_names as aws_names
 from backend.common_aws_resources_stack import CommonAWSResourcesStack
 
 class AwsTktApplicationStack(Stack):
@@ -21,11 +24,14 @@ class AwsTktApplicationStack(Stack):
             **kwargs
         )
 
+        stk_prefix = aws_names.gen_awsresource_name_prefix( tier, constants.CDK_COMPONENT_NAME )
+
         CommonAWSResourcesStack( scope=self, id_="CommonAWSRrcs",
             tier=tier,
             aws_env=aws_env,
             git_branch=git_branch,
             # lambda_configs = lambda_configs,
+            stk_prefix=stk_prefix,
             **kwargs,
         )
 
