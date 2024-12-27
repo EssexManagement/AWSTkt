@@ -7,7 +7,9 @@ from aws_cdk import (
 )
 from constructs import Construct
 
-import app_pipeline.constants as constants
+import constants as constants
+import common.cdk.aws_names as aws_names
+import cdk_utils.CdkDotJson_util as CdkDotJson_util
 
 import common.cdk.StandardCodePipeline
 import common.cdk.StandardCodeBuild
@@ -34,7 +36,16 @@ class AwsTktPipelineStack(Stack):
         git_repo_name=constants.git_repo_name
         git_repo_org_name=constants.git_repo_org_name
         pipeline_source_gitbranch="main"
-        codestar_connection_arn=f"arn:{self.partition}:codeconnections:{self.region}:{self.account}:connection/{constants.codestar_connection_id}"
+        # codestar_connection_arn=f"arn:{self.partition}:codeconnections:{self.region}:{self.account}:connection/{???}"
+        git_src_code_config , _ , git_commit_hash, pipeline_source_gitbranch = CdkDotJson_util.lkp_cdk_json(
+                                                                    cdk_scope=self, ### This stack
+                                                                    tier=tier,
+                                                                    aws_env=aws_env)
+        codestar_connection_arn = CdkDotJson_util.lkp_cdk_json_for_codestar_arn(
+                                                                    cdk_scope=self, ### This stack
+                                                                    tier=tier,
+                                                                    aws_env=aws_env,
+                                                                    git_src_code_config=git_src_code_config)
 
         ### -----------------------------------
         pipeline_name = stack_id    ### perhaps it can be named better?
