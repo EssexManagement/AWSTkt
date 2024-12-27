@@ -7,7 +7,7 @@ from aws_cdk import (
 )
 from constructs import Construct
 
-import aws_tkt.constants as constants
+import app_pipeline.constants as constants
 
 import common.cdk.StandardCodePipeline
 import common.cdk.StandardCodeBuild

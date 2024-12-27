@@ -3,8 +3,8 @@ import os
 
 import aws_cdk as cdk
 
-import aws_tkt.constants as constants
-from aws_tkt.pipeline_stack import AwsTktPipelineStack
+import app_pipeline.constants as constants
+from app_pipeline.pipeline_stack import AwsTktPipelineStack
 
 app = cdk.App()
 AwsTktPipelineStack( app, f"{constants.CDK_APP_NAME}-PIPELINE", )
