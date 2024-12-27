@@ -84,7 +84,7 @@ def get_python_runtime_containerimage_uri(cpu_arch_str :str) -> str:
 def add_tags( a_construct :Construct, tier :str, aws_env :str, git_branch :str ) -> None:
     Tags.of(a_construct).add(key="PRODUCT", value=constants.HUMAN_FRIENDLY_APP_NAME.lower())
     Tags.of(a_construct).add(key="ENVIRONMENT",  value=tier.lower())
-    Tags.of(a_construct).add(key="VERSION", value=a_construct.node.try_get_context("git-source")["git_commit_hashes"]["prod"])
+    Tags.of(a_construct).add(key="VERSION", value=a_construct.node.try_get_context("git-source")["git_commit_hashes"][tier])
     Tags.of(a_construct).add(key="application", value=constants.CDK_APP_NAME)
     Tags.of(a_construct).add(key="component",   value=constants.CDK_COMPONENT_NAME)
     Tags.of(a_construct).add(key="tier",  value=tier)
