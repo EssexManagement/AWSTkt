@@ -15,12 +15,12 @@ Severity: System impaired
 
 # HOW-TO
 
-```
+```bash
 python -m venv .venv
 source .venv/bin/activate
 npm i
 pip install -r requirements.txt
-npx cdk deploy --app "python pipeline_app.py" --all
+npx cdk deploy --all --quiet --app "python pipeline_app.py"
 ```
 
 
