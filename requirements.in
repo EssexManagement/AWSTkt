@@ -6,3 +6,8 @@
 aws-cdk-lib
 constructs
 pytz
+aws_cdk.aws_lambda_python_alpha
+cdk-ecr-deployment
+importlib-metadata
+pytz
+docker
