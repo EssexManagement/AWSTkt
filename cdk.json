@@ -1,5 +1,6 @@
 {
   "app": "python3 app.py",
+  "requireApproval": "never",
   "watch": {
     "include": [
       "**"
@@ -15,6 +16,65 @@
     ]
   },
   "context": {
+    "git-source": {
+      "git_token_ref" : "github/cdk",
+      "codestar-connection": {
+          "HOWTO-via-AWS-CLI": "aws codestar-connections create-connection --connection-name \"FACTrial-GitHub-V2\" --provider-type \"GitHub\"  --profile ${AWSPROFILE} --region ${AWSREGION}",
+          "VERIFY-via-AWS-CLI": "aws codestar-connections list-connections --max-results 50  --profile ${AWSPROFILE} --region ${AWSREGION}",
+          "dev": {
+            "name": "FACTrial-GitHub-V2",
+            "arn": "arn:aws:codeconnections:us-east-1:127516845550:connection/2135aa52-7ca9-49d5-b338-9a5db089d963"
+          }
+      },
+      "git_commit_hashes" : {
+        "dev" : "dev"
+      }
+    },
+    "cidr" : {
+      "dev" : "10.101.0.0/16"
+    },
+    "private_subnet_cidr": {
+      "default": "192.168.50.0/24"
+    },
+    "security": {
+      "WAF-ACL": {
+        "global": {
+        },
+        "regional": {
+          "dev": "arn:aws:wafv2:us-east-1:127516845550:regional/webacl/DEFAULT-WAF-WebACL-REGIONAL-USOnly/e66483e6-3898-4e74-8b3c-2f13793c0af6"
+        }
+      }
+    },
+    "PostgreSQL-Engine-Version": {
+      "!Attention!": "the major-version specified -BELOW- .. .. is converted to EXACT-ENGINE-Version within common/cdk/constants_cdk.py",
+      "dev": "16"
+    },
+    "retention": {
+      "db_backup_retention": {
+        "dev" : 1
+      },
+      "log-retention":{
+        "comment": "ALLOWED-Values are attributes of Python-AWS-CDK aws_logs.RetentionDays CLASS. See https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_logs/RetentionDays.html#aws_cdk.aws_logs.RetentionDays",
+        "dev" : "ONE_YEAR"
+      }
+    },
+    "s3_access_logging_bucket": {
+      "dev": "s3logs-devint"
+    },
+    "etl_cron" : {
+      "dev" : {"hour" : "13", "minute" : "0"}
+    },
+    "frontend_domain" : {
+      "factrial.com": {
+        "dev" :  "{}.dev.factrial.com"
+      }
+    },
+    "root_domain": "factrial.com",
+    "LambdaInsights": "arn:aws:lambda:us-east-1:580247275435:layer:LambdaInsightsExtension:16",
+    "OtelPython": "arn:aws:lambda:us-east-1:901920570463:layer:aws-otel-python-amd64-ver-1-12-0:1",
+    "support-email": [
+        "sarma.seetamraju@nih.gov"
+    ],
     "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
     "@aws-cdk/core:checkSecretUsage": true,
     "@aws-cdk/core:target-partitions": [
