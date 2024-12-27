@@ -8,7 +8,6 @@ from aws_cdk import (
 from constructs import Construct
 
 import aws_tkt.constants as constants
-from .lambda_layer_builder import LambdaLayerBuilder
 
 import common.cdk.StandardCodePipeline
 import common.cdk.StandardCodeBuild
