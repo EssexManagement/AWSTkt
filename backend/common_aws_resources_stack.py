@@ -45,18 +45,28 @@ CPU_ARCH_LIST = [
 
 """ In a separate stack, create AWS-REsources needed across all other stacks.
     Example: Lambda-Layers (incl. building the ZIP-files for the Python-layers)
+
+    1st param:  typical CDK scope (parent Construct/stack)
+    2nd param:  id_ :str  => Usually, pass in the stack_id (unless you want to PREFIX it with `stk_prefix` that is typically common across all stacks)
+    3rd param:  tier :str           => (dev|int|uat|tier)
+    4th param:  aws_env :str        => typically the AWS_ACCOUNT AWSPROFILE; Example: DEVINT_SHARED|UAT|PROD
+    5th param : git_branch :str - the git branch that is being deployed
+    6th param:  stk_prefix :str     => OPTIONAL; This is typically common across all stacks.
 """
 class CommonAWSResourcesStack(Stack):
-    def __init__( self, scope: Construct, id_: str,
+    def __init__( self,
+        scope: Construct,
+        id_: str,
         tier :str,
-        git_branch :str,
         aws_env :str,
+        git_branch :str,
+        stk_prefix :Optional[str] = None,
         # inside_vpc_lambda_factory :StandardLambda,
         **kwargs,
     ) -> None:
         super().__init__(scope=scope,
                 id=id_,
-                stack_name = f"{scope.stack_prefix}-{id_}",
+                stack_name = f"{stk_prefix}-{id_}" if stk_prefix else id_,
                 **kwargs)
 
         self.tier = tier
