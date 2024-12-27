@@ -14,7 +14,14 @@ import common.cdk.StandardCodeBuild
 
 class AwsTktPipelineStack(Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+    def __init__(self,
+        scope: Construct,
+        construct_id: str,
+        tier: str,
+        aws_env :str,
+        git_branch :str,
+        **kwargs
+    ) -> None:
         super().__init__(
             scope,
             construct_id,
@@ -49,6 +56,8 @@ class AwsTktPipelineStack(Stack):
             cdk_scope = self,
             pipeline_name = pipeline_name,
             stack_id = None,
+            tier=tier,
+            aws_env=aws_env,
             git_repo_name     = git_repo_name,
             git_repo_org_name = git_repo_org_name,
             codestar_connection_arn   = codestar_connection_arn,
@@ -75,6 +84,7 @@ class AwsTktPipelineStack(Stack):
         # Build action within CodePipeline
         a_build_action, a_build_output = common.cdk.StandardCodeBuild.adv_CodeBuildCachingSynthAndDeploy_Python(
             cdk_scope = self,
+            tier=tier,
             codebase_root_folder = ".",
             subproj_name = None,
             cb_proj_name = f"{stk_prefix}_{codebuild_projname}",
