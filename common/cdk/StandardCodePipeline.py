@@ -29,8 +29,6 @@ import constants
 import common.cdk.constants_cdk as constants_cdk
 import common.cdk.aws_names as aws_names
 
-from app_pipeline.pipeline import add_tags ### This file is PROJECT_ROOT/pipeline.py
-
 ### ---------------------------------------------------------------------------------
 """
     1st param:  typical CDK scope (parent Construct/stack)
