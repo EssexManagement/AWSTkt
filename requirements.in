@@ -11,3 +11,4 @@ cdk-ecr-deployment
 importlib-metadata
 pytz
 docker
+jsonschema
