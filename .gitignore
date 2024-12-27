@@ -1,10 +1,22 @@
 *.swp
-package-lock.json
 __pycache__
 .pytest_cache
-.venv
 *.egg-info
+
+# pyenv
+.python-version
+
+# Environment
+.env
+.venv
+node_modules
+.vscode
+
+# macOS
+.DS_Store
 
 # CDK asset staging directory
 .cdk.staging
 cdk.out
+my-notes.md
+tmp
