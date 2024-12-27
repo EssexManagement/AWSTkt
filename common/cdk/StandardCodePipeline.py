@@ -15,6 +15,22 @@ from aws_cdk import (
     aws_codepipeline_actions as codepipeline_actions,
 )
 
+from common.cdk.retention_base import (
+    DATA_CLASSIFICATION_TYPES,
+    DataClassification,
+    S3_LIFECYCLE_RULES,
+)
+from common.cdk.retention_s3 import (
+    create_std_bucket,
+    gen_bucket_lifecycle,
+)
+
+import constants
+import common.cdk.constants_cdk as constants_cdk
+import common.cdk.aws_names as aws_names
+
+from app_pipeline.pipeline import add_tags ### This file is PROJECT_ROOT/pipeline.py
+
 ### ---------------------------------------------------------------------------------
 """
     1st param:  typical CDK scope (parent Construct/stack)
@@ -43,6 +59,9 @@ from aws_cdk import (
 def createStandardPipeline(
     cdk_scope: Construct,
     pipeline_name: str,
+    stack_id: Optional[str],
+    tier :str,
+    aws_env :str,
     git_repo_name: str,
     git_repo_org_name: str,
     codestar_connection_arn :str,
@@ -71,9 +90,10 @@ def createStandardPipeline(
         owner=git_repo_org_name,
         repo=git_repo_name,
         branch=pipeline_source_gitbranch,
+        code_build_clone_output=True,
         output=source_artifact,
         connection_arn=codestar_connection_arn,
-        trigger_on_push=False,
+        trigger_on_push=False if tier in constants.UPPER_TIERS else True,
     )
 
     ### -----------------------------------
@@ -87,6 +107,9 @@ def createStandardPipeline(
     ### Note: CDK does -NOT- support this as of Oct 2024. See "add_property_override()" below.
     ### WARNING: Git tags is the only supported event type. <<----------------
     # ### Create the Triggers that will kickoff the CodePipeline
+    # if tier == constants.DEV_TIER or tier == constants.INT_TIER:
+    #     mytriggers = None
+    # else:
     #     mytriggers=[codepipeline.TriggerProps(
     #         ### https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_codepipeline/TriggerProps.html
     #         provider_type=codepipeline.ProviderType.CODE_STAR_SOURCE_CONNECTION, ###  <<---------------------- !!!!!!!!!!
@@ -117,6 +140,26 @@ def createStandardPipeline(
     #     )]
 
     ### -----------------------------------
+    data_classification_type = DATA_CLASSIFICATION_TYPES.ATHENA_SCRATCH
+
+    all_lifecycle_rules: dict[str, Sequence[aws_s3.LifecycleRule]] = gen_bucket_lifecycle(
+        tier = tier,
+        data_classification_type = data_classification_type,
+        prefixes_for_s3_tiers={ S3_LIFECYCLE_RULES.ATHENAWKGRP_SCRATCH.name: [''], },
+    )
+
+    my_pipeline_artifact_bkt = create_std_bucket(
+        scope = cdk_scope,
+        id    = "artif-bkt",
+        tier  = tier,
+        bucket_name = aws_names.gen_bucket_name( tier, "CodePipeline-artifacts-"+ aws_names.extract_simple_resource_name(tier, pipeline_name) ),
+        # bucket_name = f"{constants.CDK_APP_NAME}-{constants.CDK_COMPONENT_NAME}-{tier}-CodePipeline-artifacts".lower(),
+        data_classification_type = data_classification_type,
+        lifecycle_rules = all_lifecycle_rules[S3_LIFECYCLE_RULES.ATHENAWKGRP_SCRATCH.name],
+        removal_policy = RemovalPolicy.DESTROY,
+    )
+
+    ### -----------------------------------
     ### Create the basic pipeline.
     my_pipeline = codepipeline.Pipeline(
         scope = cdk_scope,
@@ -127,26 +170,28 @@ def createStandardPipeline(
         # triggers = None,  ### Note: CDK does -NOT- support this as of Oct 2024. See "add_property_override()" below.
         restart_execution_on_update = False,  ### Just cuz Pipeline was updated, does NOT mean App's code-base changed!
         cross_account_keys = False,
+        artifact_bucket = my_pipeline_artifact_bkt,
     )
     # Convert the my_pipeline variable to another variable of raw CloudFormation Resource-Type of "AWS::CodePipeline::Pipeline"
     myPipelineRawCfn :codepipeline.CfnPipeline = my_pipeline.node.default_child
 
-    ### We need to MANUALLY ovveride mytriggers=[codepipeline.TriggerProps( ..)
-    ### since (see above) .. .. .. WARNING: Git tags is the only supported event type!!!
-    myPipelineRawCfn.add_property_override("Triggers", [{
-        "GitConfiguration": {
-            ### https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitconfiguration.html
-            "Push": [{"FilePaths": {
-                ### https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitpushfilter.html
-                "Includes": codebase_folders_that_trigger_pipeline,
-                "Excludes": codebase_ignore_paths,
-            }}],
-            "SourceActionName": my_source_action.action_properties.action_name,
-        },
-        "ProviderType": "CodeStarSourceConnection",
-            ### WARNING: Even in RAW-CloudFormation, the ONLY Allowed-value: CodeStarSourceConnection
-            ### https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-pipelinetriggerdeclaration.html
-    }])
+    if tier == constants.DEV_TIER or tier == constants.INT_TIER:
+        ### We need to MANUALLY ovveride mytriggers=[codepipeline.TriggerProps( ..)
+        ### since (see above) .. .. .. WARNING: Git tags is the only supported event type!!!
+        myPipelineRawCfn.add_property_override("Triggers", [{
+            "GitConfiguration": {
+                ### https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitconfiguration.html
+                "Push": [{"FilePaths": {
+                    ### https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitpushfilter.html
+                    "Includes": codebase_folders_that_trigger_pipeline,
+                    "Excludes": codebase_ignore_paths,
+                }}],
+                "SourceActionName": my_source_action.action_properties.action_name,
+            },
+            "ProviderType": "CodeStarSourceConnection",
+                ### WARNING: Even in RAW-CloudFormation, the ONLY Allowed-value: CodeStarSourceConnection
+                ### https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-pipelinetriggerdeclaration.html
+        }])
 
     my_pipeline.add_stage(
         stage_name='Source',
