@@ -136,18 +136,18 @@ def _lkp_waf_acl_for_aws_resource(
 
 ### ---------------------------------------------------------------------------------
 
-""" About Source-code.
-    Looks up `cdk.json` file and returns in the following ORDER:
-    1. git_src_code_config :str
-    2. gitTokenRef :str
-    3. git_commit_hash :str
-    4. pipeline_source_gitbranch :str
-"""
 def lkp_cdk_json(
     cdk_scope :Construct,
     tier :str,
     aws_env :str,
 ) -> Tuple[str,str, str, str]:
+    """ About Source-code.
+        Looks up `cdk.json` file and returns in the following ORDER:
+        1. git_src_code_config :str
+        2. gitTokenRef :str
+        3. git_commit_hash :str
+        4. pipeline_source_gitbranch :str
+    """
 
     git_src_code_config :any = cdk_scope.node.try_get_context("git-source")
     print("cdk.json's Git-SourceCode configuration JSON is:")
