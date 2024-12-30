@@ -9,6 +9,7 @@ from aws_cdk import (
     aws_logs,
     aws_lambda,
     aws_rds,
+    aws_codebuild,
 )
 
 import constants
@@ -34,6 +35,11 @@ BUILD_KICKOFF_TIMESTAMP_STR = localized_now.strftime('%Y-%m-%d %H:%M:%S %Z')
 
 ### ===============================================================================================
 
+CPU_ARCH_LIST = [
+    aws_lambda.Architecture.ARM_64,
+    # aws_lambda.Architecture.X86_64 ### !!!!!!!!!!!!!!!!!!!!!! TODO WARNING temporarily disabled, until fix is found to AWS-CodeBuild's CDK-Synth Docker-failures (even tho' cdk-synth works just fine on Laptop)
+]
+
 ENGINE_VERSION_LOOKUP :dict = {
     # '11': rds.AuroraPostgresEngineVersion.VER_11_13,
     # '12': rds.AuroraPostgresEngineVersion.VER_12_18,
@@ -42,6 +48,12 @@ ENGINE_VERSION_LOOKUP :dict = {
     '15': aws_rds.AuroraPostgresEngineVersion.VER_15_8,
     '16': aws_rds.AuroraPostgresEngineVersion.VER_16_4,
 }
+
+### ---------------------------------------------------------------------------------
+
+CODEBUILD_BUILD_IMAGE = aws_codebuild.LinuxBuildImage.AMAZON_LINUX_2_ARM_3
+CODEBUILD_BUILD_IMAGE_UBUNTU = aws_codebuild.LinuxBuildImage.STANDARD_7_0
+CODEBUILD_EC2_SIZE    = aws_codebuild.ComputeType.X2_LARGE
 
 ### ===============================================================================================
 ### ...............................................................................................
