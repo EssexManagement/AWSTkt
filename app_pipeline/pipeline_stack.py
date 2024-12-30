@@ -33,8 +33,9 @@ class AwsTktPipelineStack(Stack):
         # LambdaLayerBuilder( self, "LambdaLayerBuilder" )
 
         stack_id=self.stack_name
-        git_repo_name=constants.git_repo_name
-        git_repo_org_name=constants.git_repo_org_name
+
+        _ , git_repo_name , git_repo_org_name = CdkDotJson_util.lkp_gitrepo_details(cdk_scope=self)
+
         pipeline_source_gitbranch="main"
         # codestar_connection_arn=f"arn:{self.partition}:codeconnections:{self.region}:{self.account}:connection/{???}"
         git_src_code_config , _ , git_commit_hash, pipeline_source_gitbranch = CdkDotJson_util.lkp_cdk_json(
