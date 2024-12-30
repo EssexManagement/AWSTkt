@@ -4,12 +4,12 @@ import os
 import aws_cdk as cdk
 
 import constants as constants
-from app_pipeline.application_stack import AwsTktApplicationStack
+from app_pipeline.application_stack import AwsTktApplicationStacks
 
 tier=constants.DEV_TIER
 
 app = cdk.App()
-AwsTktApplicationStack( scope=app,
+AwsTktApplicationStacks( scope=app,
     construct_id=f"{constants.CDK_APP_NAME}-Appl",
     tier=tier,
     aws_env=constants.DEV_TIER,
