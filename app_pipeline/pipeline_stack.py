@@ -8,8 +8,10 @@ from aws_cdk import (
 from constructs import Construct
 
 import constants as constants
+import common.cdk.constants_cdk as constants_cdk
 import common.cdk.aws_names as aws_names
 import cdk_utils.CdkDotJson_util as CdkDotJson_util
+from cdk_utils.CloudFormation_util import get_cpu_arch_as_str
 
 import common.cdk.StandardCodePipeline
 import common.cdk.StandardCodeBuild
@@ -93,21 +95,26 @@ class AwsTktPipelineStack(Stack):
 
         a_build_action :aws_codepipeline_actions.CodeBuildAction = None
 
-        # Build action within CodePipeline
-        a_build_action, a_build_output = common.cdk.StandardCodeBuild.adv_CodeBuildCachingSynthAndDeploy_Python(
-            cdk_scope = self,
-            tier=tier,
-            codebase_root_folder = ".",
-            subproj_name = None,
-            cb_proj_name = f"{stk_prefix}_{codebuild_projname}",
-            source_artifact = my_source_artif,
-            git_repo_url = f"{git_repo_org_name}/{git_repo_name}",
-            cdk_app_pyfile="layers_app.py"
-        )
+        for cpu_arch in constants_cdk.CPU_ARCH_LIST:
+            cpu_arch_str: str = get_cpu_arch_as_str( cpu_arch )
+            # cpu_arch_str: str = cpu_arch.name.lower()  ### === 'arm64|x86_64' string
 
-        my_pipeline_v2.add_stage(
-            stage_name = codebuild_projname,
-            actions = [ a_build_action ],
-        )
+            # Build action within CodePipeline
+            a_build_action, a_build_output = common.cdk.StandardCodeBuild.adv_CodeBuildCachingSynthAndDeploy_Python(
+                cdk_scope = self,
+                tier=tier,
+                codebase_root_folder = ".",
+                subproj_name = None,
+                cb_proj_name = f"{stk_prefix}_{codebuild_projname}",
+                source_artifact = my_source_artif,
+                cpu_arch = cpu_arch,
+                git_repo_url = f"{git_repo_org_name}/{git_repo_name}",
+                cdk_app_pyfile="layers_app.py"
+            )
+
+            my_pipeline_v2.add_stage(
+                stage_name = codebuild_projname,
+                actions = [ a_build_action ],
+            )
 
 ### EoF
