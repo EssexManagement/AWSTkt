@@ -27,7 +27,7 @@
           }
       },
       "git_commit_hashes" : {
-        "dev" : "dev"
+        "dev" : "main"
       }
     },
     "cidr" : {
