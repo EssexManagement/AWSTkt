@@ -34,130 +34,130 @@ LAYER_MODULES = [
     layer_psycopg3_pandas
 ]
 
-CPU_ARCH_LIST = [
-    aws_lambda.Architecture.ARM_64,
-    # aws_lambda.Architecture.X86_64 ### !!!!!!!!!!!!!!!!!!!!!! TODO WARNING temporarily disabled, until fix is found to AWS-CodeBuild's CDK-Synth Docker-failures (even tho' cdk-synth works just fine on Laptop)
-]
-
 ### ==============================================================================================
 ### ..............................................................................................
 ### ==============================================================================================
 
-""" In a separate stack, create AWS-REsources needed across all other stacks.
-    Example: Lambda-Layers (incl. building the ZIP-files for the Python-layers)
-
-    1st param:  typical CDK scope (parent Construct/stack)
-    2nd param:  id_ :str  => Usually, pass in the stack_id (unless you want to PREFIX it with `stk_prefix` that is typically common across all stacks)
-    3rd param:  tier :str           => (dev|int|uat|tier)
-    4th param:  aws_env :str        => typically the AWS_ACCOUNT AWSPROFILE; Example: DEVINT_SHARED|UAT|PROD
-    5th param : git_branch :str - the git branch that is being deployed
-    6th param:  stk_prefix :str     => OPTIONAL; This is typically common across all stacks.
-"""
 class CommonAWSResourcesStack(Stack):
     def __init__( self,
         scope: Construct,
-        id_: str,
+        id: str,
         tier :str,
         aws_env :str,
         git_branch :str,
         stk_prefix :Optional[str] = None,
-        # inside_vpc_lambda_factory :StandardLambda,
+        cpu_arch_list :List[aws_lambda.Architecture] = constants_cdk.CPU_ARCH_LIST,
+        layer_modules_list :list[any] = LAYER_MODULES,
         **kwargs,
     ) -> None:
+        """ In a separate stack, create AWS-REsources needed across all other stacks.
+            Example: Lambda-Layers (incl. building the ZIP-files for the Python-layers)
+
+            1st param:  typical CDK scope (parent Construct/stack)
+            2nd param:  id :str  => Usually, pass in the stack_id (unless you want to PREFIX it with `stk_prefix` that is typically common across all stacks);
+                        See also `stk_prefix` optional-parameter.
+            3rd param:  tier :str           => (dev|int|uat|tier)
+            4th param:  aws_env :str        => typically the AWS_ACCOUNT AWSPROFILE; Example: DEVINT_SHARED|UAT|PROD
+            5th param : git_branch :str - the git branch that is being deployed
+            6th param:  stk_prefix :str     => OPTIONAL; This is typically common-PREFIX across all stacks, to make all stacks look uniform.
+            7th param: (OPTIONAL) cpu_arch_list :list[str]     => OPTIONAL;  For CodeBuild-on-AWS make sure this list is of length = 1!!!
+            8th param: (OPTIONAL) layer_module_list :list[Custom-PyModules] => OPTIONAL;  See `LAYER_MODULES` global-constant for example and details.
+        """
         super().__init__(scope=scope,
-                id=id_,
-                stack_name = f"{stk_prefix}-{id_}" if stk_prefix else id_,
+                id=id,
+                stack_name = f"{stk_prefix}-{id}" if stk_prefix else id,
                 **kwargs)
 
         self.tier = tier
 
-        ### -------- 𝜆-layers -------
+        ### -------- 𝜆-layers by CPU-ARCH -------
 
-        self._create_lambda_layers( tier )
+        for cpu_arch in cpu_arch_list:
+
+            for layer in layer_modules_list:
+
+                self._create_lambda_layer( tier, cpu_arch, layer )
 
         add_tags(self, tier=tier, aws_env=aws_env, git_branch=git_branch)
 
 
     ### ---------------------------------------------------------------------------------------------------------------------
-    """ For each cpu-architecture, create lambda-layers (assuming `LambdaLayersAssetBuilder` class has done its job properly)
-    """
-    def _create_lambda_layers(self, tier :str):
+    def _create_lambda_layer(self,
+        tier :str,
+        cpu_arch :aws_lambda.Architecture,
+        layer :any,
+    ) -> None:
+        """ For each cpu-architecture, create lambda-layers (assuming `LambdaLayersAssetBuilder` class has done its job properly)
+        """
         stk = Stack.of(self)
+        cpu_arch_str: str = get_cpu_arch_as_str( cpu_arch )
 
-        for cpu_arch in CPU_ARCH_LIST:
-            cpu_arch_str: str = get_cpu_arch_as_str( cpu_arch )
-            # cpu_arch_str: str = cpu_arch.name.lower()  ### === 'arm64|x86_64' string
+        print( '$'*120)
+        print( f"Building Lambda-Layer ZIP-file for CPU-Arch: '{cpu_arch_str}' .. .." )
+        print( '^'*120 )
+        layer_id = layer.LAMBDA_LAYER_ID
+        layer_fldr_path = layer.LAMBDA_LAYER_FLDR
+        layer_sizing_option :LambdaLayerOption = layer.LAMBDA_LAYER_SIZING_OPTION
+        print( f"layer-id = '{layer_id}', layer_fldr_path='{layer_fldr_path}' sizing/cold-start-option='{layer_sizing_option}' .." )
 
-            print( '$'*120)
-            print( f"Building Lambda-Layer ZIP-file for CPU-Arch: '{cpu_arch_str}' .. .." )
+        my_lambdalayer_asset = None
+        try:
+            my_lambdalayer_asset = config.LambdaConfigs.lookup_lambda_layer_asset(
+                layer_name = layer_id,
+                cpu_arch_str = cpu_arch_str,
+            )
+        except config.MyLambdaConfigException as e:
+            pass
 
+        if not my_lambdalayer_asset:
 
-            for layer in LAYER_MODULES:
-                print( '^'*120 )
-                layer_id = layer.LAMBDA_LAYER_ID
-                layer_fldr_path = layer.LAMBDA_LAYER_FLDR
-                layer_sizing_option :LambdaLayerOption = layer.LAMBDA_LAYER_SIZING_OPTION
-                print( f"layer-id = '{layer_id}', layer_fldr_path='{layer_fldr_path}' sizing/cold-start-option='{layer_sizing_option}' .." )
+            util = LambdaLayerUtility(
+                lambda_layer_id = layer.LAMBDA_LAYER_ID,
+                lambda_layer_builder_script = None ### was: layer.LAMBDA_LAYER_BUILDER_SCRIPT,
+            )
+            my_lambdalayer_asset = util.build_lambda_layer_using_docker(
+                tier = tier,
+                cpu_arch_str = cpu_arch_str,
+                layer_fldr_path = layer_fldr_path,
+                layer_opt = layer_sizing_option,
+                # zipfile_simplename = layer_zipfilename,
+            )
+            config.LambdaConfigs.cache_lambda_layer_asset(
+                layer_name = layer_id,
+                cpu_arch_str = cpu_arch_str,
+                layer_asset = my_lambdalayer_asset,
+            )
+            print( '.'*120 )
 
-                my_lambdalayer_asset = None
-                try:
-                    my_lambdalayer_asset = config.LambdaConfigs.lookup_lambda_layer_asset(
-                        layer_name = layer_id,
-                        cpu_arch_str = cpu_arch_str,
-                    )
-                except config.MyLambdaConfigException as e:
-                    pass
+        print( my_lambdalayer_asset )
 
-                if not my_lambdalayer_asset:
+        layer_uniq_id = f"layer-{layer_id}-{cpu_arch_str}"
+        layer_version_name = aws_names.gen_lambdalayer_name(
+            stk = stk,
+            simple_lambdalayer_name = layer_id,
+            cpu_arch_str = cpu_arch_str )
+        print( f"Creating aws_lambda.LayerVersion(): {layer_version_name} .. via lookup-Key= '{layer_id}-{cpu_arch_str}' // {cpu_arch_str} // {layer_uniq_id} .." )
 
-                    util = LambdaLayerUtility(
-                        lambda_layer_id = layer.LAMBDA_LAYER_ID,
-                        lambda_layer_builder_script = None ### was: layer.LAMBDA_LAYER_BUILDER_SCRIPT,
-                    )
-                    my_lambdalayer_asset = util.build_lambda_layer_using_docker(
-                        tier = tier,
-                        cpu_arch_str = cpu_arch_str,
-                        layer_fldr_path = layer_fldr_path,
-                        layer_opt = layer_sizing_option,
-                        # zipfile_simplename = layer_zipfilename,
-                    )
-                    config.LambdaConfigs.cache_lambda_layer_asset(
-                        layer_name = layer_id,
-                        cpu_arch_str = cpu_arch_str,
-                        layer_asset = my_lambdalayer_asset,
-                    )
-                    print( '.'*120 )
+        my_lambda_layerversion = aws_lambda.LayerVersion(
+            scope = self,
+            id = layer_uniq_id,
+            layer_version_name = layer_version_name,
+            code = my_lambdalayer_asset,
+            # code = aws_lambda.Code.from_asset( str(my_lambda_layer_zipfile) ),
+            compatible_runtimes = [aws_lambda.Runtime.PYTHON_3_12, aws_lambda.Runtime.PYTHON_3_11],
+            # compatible_architectures=[cpu_arch],
+            removal_policy = RemovalPolicy.DESTROY,
+        )
 
-                print( my_lambdalayer_asset )
+        LambdaConfigs.cache_lambda_layer(
+            layer_name = layer_id,
+            cpu_arch_str = cpu_arch_str,
+            stk = stk,
+            layer = my_lambda_layerversion,
+        )
+        print( '_'*120 )
 
-                layer_uniq_id = f"layer-{layer_id}-{cpu_arch_str}"
-                layer_version_name = aws_names.gen_lambdalayer_name(
-                    stk = stk,
-                    simple_lambdalayer_name = layer_id,
-                    cpu_arch_str = cpu_arch_str )
-                print( f"Creating aws_lambda.LayerVersion(): {layer_version_name} .. via lookup-Key= '{layer_id}-{cpu_arch_str}' // {cpu_arch.name} // {layer_uniq_id} .." )
-
-                my_lambda_layerversion = aws_lambda.LayerVersion(
-                    scope = self,
-                    id = layer_uniq_id,
-                    layer_version_name = layer_version_name,
-                    code = my_lambdalayer_asset,
-                    # code = aws_lambda.Code.from_asset( str(my_lambda_layer_zipfile) ),
-                    compatible_runtimes = [aws_lambda.Runtime.PYTHON_3_12, aws_lambda.Runtime.PYTHON_3_11],
-                    # compatible_architectures=[cpu_arch],
-                    removal_policy = RemovalPolicy.DESTROY,
-                )
-
-                LambdaConfigs.cache_lambda_layer(
-                    layer_name = layer_id,
-                    cpu_arch_str = cpu_arch_str,
-                    stk = stk,
-                    layer = my_lambda_layerversion,
-                )
-                print( '_'*120 )
-
-
-            print( "done" )
+        print( "done" )
 
 
 ### ==============================================================================================
