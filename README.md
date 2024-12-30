@@ -20,7 +20,16 @@ python -m venv .venv
 source .venv/bin/activate
 npm i
 pip install -r requirements.txt
-npx cdk deploy --all --quiet --app "python pipeline_app.py"
+
+GITHUB_REPOSITORY=$(git ls-remote --get-url | sed -e 's/..*github.com\/\(.*\)/\1/');
+
+( unset BUILDPLATFORM; unset DOCKER_DEFAULT_PLATFORM; unset TARGETPLATFORM;
+  npx cdk synth --quiet --all --app "python3 pipeline_app.py"  -c tier=${TIER} -c git_repo=${GITHUB_REPOSITORY} --profile ${AWSPROFILE} --region ${AWSREGION}
+)
+
+( unset BUILDPLATFORM; unset DOCKER_DEFAULT_PLATFORM; unset TARGETPLATFORM;
+  npx cdk deploy --require-approval never  --quiet --all --app "python3 pipeline_app.py"  -c tier=${TIER} -c git_repo=${GITHUB_REPOSITORY} --profile ${AWSPROFILE} --region ${AWSREGION}
+)
 ```
 
 
