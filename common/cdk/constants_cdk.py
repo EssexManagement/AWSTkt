@@ -54,7 +54,7 @@ ENGINE_VERSION_LOOKUP :dict = {
 CODEBUILD_BUILD_IMAGE = aws_codebuild.LinuxBuildImage.AMAZON_LINUX_2_ARM_3
 CODEBUILD_BUILD_IMAGE_X86 = aws_codebuild.LinuxBuildImage.AMAZON_LINUX_2
 CODEBUILD_BUILD_IMAGE_UBUNTU = aws_codebuild.LinuxBuildImage.STANDARD_7_0
-CODEBUILD_EC2_SIZE    = aws_codebuild.ComputeType.X2_LARGE
+CODEBUILD_EC2_SIZE    = aws_codebuild.ComputeType.LARGE
 
 ### ===============================================================================================
 ### ...............................................................................................
