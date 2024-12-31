@@ -1,7 +1,7 @@
 from pathlib import Path
 from common.cdk.standard_lambda import LambdaLayerOption
 
-LAMBDA_LAYER_ID = "psycopg-pandas"
+LAMBDA_LAYER_ID = "psycopg2-pandas"
 LAMBDA_LAYER_FLDR = Path(__file__).parent
 # LAMBDA_LAYER_FLDR = constants.PROJ_ROOT_FLDR_PATH / 'api/lambda_layer/psycopg'
 
