@@ -48,7 +48,7 @@ def _get_codebuild_linux_image(
     # if tier in constants.STD_TIERS:
     match cpu_arch.name:
         case aws_lambda.Architecture.ARM_64.name: return constants_cdk.CODEBUILD_BUILD_IMAGE
-        case aws_lambda.Architecture.X86_64.name: return constants_cdk.CODEBUILD_BUILD_IMAGE_UBUNTU
+        case aws_lambda.Architecture.X86_64.name: return constants_cdk.CODEBUILD_BUILD_IMAGE_X86
         case _: raise ValueError(f"Unsupported CPU architecture '{cpu_arch.name}'")
 
 ### ---------------------------------------------------------------------------------
