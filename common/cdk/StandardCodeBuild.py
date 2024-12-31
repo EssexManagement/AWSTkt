@@ -9,6 +9,7 @@ from aws_cdk import (
     RemovalPolicy,
     aws_codepipeline as codepipeline,
     aws_codebuild,
+    aws_lambda,
     aws_iam,
     aws_secretsmanager,
     aws_logs,
@@ -17,13 +18,8 @@ from aws_cdk import (
 
 import constants
 import common.cdk.constants_cdk as constants_cdk
-from common.cdk.standard_logging import get_log_grp, LogGroupType
-
-### ---------------------------------------------------------------------------------
-
-CODEBUILD_BUILD_IMAGE = aws_codebuild.LinuxBuildImage.AMAZON_LINUX_2_ARM_3
-CODEBUILD_BUILD_IMAGE_UBUNTU = aws_codebuild.LinuxBuildImage.STANDARD_7_0
-CODEBUILD_EC2_SIZE    = aws_codebuild.ComputeType.X2_LARGE
+from cdk_utils.CloudFormation_util import get_cpu_arch_enum, get_cpu_arch_as_str
+from .standard_logging import get_log_grp, LogGroupType
 
 ### ---------------------------------------------------------------------------------
 
@@ -45,26 +41,17 @@ def _get_logging_options(
         )
     )
 
-### ---------------------------------------------------------------------------------
-"""
-    Simple CDK-Synth only.
-    Simple CDK-Synth only.
-    Simple CDK-Synth only.
-    -NO- Caching supported.  -NO- cdk-deploy included.
-    This variation is for NodeJS-based CDK-projects
+def _get_codebuild_linux_image(
+    tier :str,
+    cpu_arch :aws_lambda.Architecture,
+) -> aws_codebuild.IBuildImage:
+    # if tier in constants.STD_TIERS:
+    match cpu_arch.name:
+        case aws_lambda.Architecture.ARM_64.name: return constants_cdk.CODEBUILD_BUILD_IMAGE
+        case aws_lambda.Architecture.X86_64.name: return constants_cdk.CODEBUILD_BUILD_IMAGE_UBUNTU
+        case _: raise ValueError(f"Unsupported CPU architecture '{cpu_arch.name}'")
 
-    1st param:  typical CDK scope (parent Construct/stack)
-    2nd param:  tier :str           => (dev|int|uat|tier)
-    3th param:  codebase_root_folder :str => SubFolder within which to find the various "subprojects".
-                    Example-Values: "devops/"  "Operations/"
-    4th param:  subproj_name :str     => typically the sub-folder's name
-                 /or/ can ALSO be the relative-folder-PATH (relative to above `codebase_root_folder` param).
-    5th param:  cb_proj_name :str  => When the Infrastructure project in `subfldr` is deployed, DEFINE what the CodeBuild-Project should be named.
-    6th param"  source_artifact :codepipeline.Artifact => It representing the SOURCE (usually configured via `cdk_utils/StandardCodePipeline.py`)
-    Returns on objects of types:-
-                1. codepipeline_actions.CodeBuildAction
-                3. codepipeline.Artifact (representing the BUILD-Artifact)
-"""
+### ---------------------------------------------------------------------------------
 def standard_CodeBuildSynth_NodeJS(
     cdk_scope :Construct,
     tier :str,
@@ -72,12 +59,36 @@ def standard_CodeBuildSynth_NodeJS(
     subproj_name :Union[str,pathlib.Path],
     cb_proj_name :str,
     source_artifact :codepipeline.Artifact,
+    cpu_arch :aws_lambda.Architecture = aws_lambda.Architecture.ARM_64,
 ) -> tuple[codepipeline_actions.CodeBuildAction, codepipeline.Artifact]:
+    """
+        Simple CDK-Synth only.
+        Simple CDK-Synth only.
+        Simple CDK-Synth only.
+        -NO- Caching supported.  -NO- cdk-deploy included.
+        This variation is for NodeJS-based CDK-projects
+
+        1st param:  typical CDK scope (parent Construct/stack)
+        2nd param:  tier :str           => (dev|int|uat|tier)
+        3th param:  codebase_root_folder :str => SubFolder within which to find the various "subprojects".
+                        Example-Values: "devops/"  "Operations/"
+        4th param:  subproj_name :str     => typically the sub-folder's name
+                    /or/ can ALSO be the relative-folder-PATH (relative to above `codebase_root_folder` param).
+        5th param:  cb_proj_name :str  => When the Infrastructure project in `subfldr` is deployed, DEFINE what the CodeBuild-Project should be named.
+        6th param"  source_artifact :codepipeline.Artifact => It representing the SOURCE (usually configured via `cdk_utils/StandardCodePipeline.py`)
+        7th param: (OPTIONAL) cpu_arch :aws_lambda.Architecture => OPTIONAL;  Default=aws_lambda.Architecture.ARM_64
+        Returns on objects of types:-
+                    1. codepipeline_actions.CodeBuildAction
+                    3. codepipeline.Artifact (representing the BUILD-Artifact)
+    """
 
     HDR = " : standard_CodeBuildSynth_NodeJS(): "
     print(f"subproj_name={subproj_name}"+ HDR )
     print(f"codebase_root_folder={codebase_root_folder}"+ HDR )
     print(f"cb_proj_name={cb_proj_name}"+ HDR )
+    print( f"CPU-ARCH (Enum) ='{cpu_arch}'" )
+    cpu_arch_str: str = get_cpu_arch_as_str( cpu_arch )
+    print( f"CPU_ARCH(str) = '{cpu_arch_str}'" )
 
     stk = Stack.of(cdk_scope)
 
@@ -138,8 +149,12 @@ def standard_CodeBuildSynth_NodeJS(
             }
         }),
         environment=aws_codebuild.BuildEnvironment(
-            build_image  = CODEBUILD_BUILD_IMAGE,
-            compute_type = CODEBUILD_EC2_SIZE,
+            build_image  = _get_codebuild_linux_image( tier, cpu_arch ),
+            compute_type = constants_cdk.CODEBUILD_EC2_SIZE,
+            environment_variables = {
+                "TIER":     aws_codebuild.BuildEnvironmentVariable( value=tier, type=aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT),
+                "CPU_ARCH": aws_codebuild.BuildEnvironmentVariable( value=cpu_arch_str, type=aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT),
+            }
         ),
         logging = _get_logging_options( cdk_scope, tier, stk, subproj_name )
     )
@@ -154,26 +169,6 @@ def standard_CodeBuildSynth_NodeJS(
     return my_build_action, my_build_output
 
 ### ---------------------------------------------------------------------------------
-"""
-    Simple CDK-Synth only.
-    Simple CDK-Synth only.
-    Simple CDK-Synth only.
-    -NO- Caching supported.  -NO- cdk-deploy included.
-    This variation is for simple Python-based CDK-projects.
-
-    1st param:  typical CDK scope (parent Construct/stack)
-    2nd param:  tier :str           => (dev|int|uat|tier)
-    3th param:  codebase_root_folder :str => SubFolder within which to find the various "subprojects".
-                    Example-Values: "devops/"  "Operations/"
-    4th param:  subproj_name :str     => typically the sub-folder's name
-                 /or/ can ALSO be the relative-folder-PATH (relative to above `codebase_root_folder` param).
-    5th param:  cb_proj_name :str  => When the Infrastructure project in `subfldr` is deployed, DEFINE what the CodeBuild-Project should be named.
-    6th param:  source_artifact :codepipeline.Artifact => It representing the SOURCE (usually configured via `cdk_utils/StandardCodePipeline.py`)
-    7th param:  OPTIONAL: python_version # as a string
-    Returns on objects of types:-
-                1. codepipeline_actions.CodeBuildAction
-                3. codepipeline.Artifact (representing the BUILD-Artifact)
-"""
 def standard_CodeBuildSynth_Python(
     cdk_scope :Construct,
     tier :str,
@@ -181,13 +176,38 @@ def standard_CodeBuildSynth_Python(
     subproj_name :Union[str,pathlib.Path],
     cb_proj_name :str,
     source_artifact :codepipeline.Artifact,
+    cpu_arch :aws_lambda.Architecture = aws_lambda.Architecture.ARM_64,
     python_version :str = constants_cdk.CDK_APP_PYTHON_VERSION,
 ) -> tuple[codepipeline_actions.CodeBuildAction, codepipeline.Artifact]:
+    """
+        Simple CDK-Synth only.
+        Simple CDK-Synth only.
+        Simple CDK-Synth only.
+        -NO- Caching supported.  -NO- cdk-deploy included.
+        This variation is for simple Python-based CDK-projects.
+
+        1st param:  typical CDK scope (parent Construct/stack)
+        2nd param:  tier :str           => (dev|int|uat|tier)
+        3th param:  codebase_root_folder :str => SubFolder within which to find the various "subprojects".
+                        Example-Values: "devops/"  "Operations/"
+        4th param:  subproj_name :str     => typically the sub-folder's name
+                    /or/ can ALSO be the relative-folder-PATH (relative to above `codebase_root_folder` param).
+        5th param:  cb_proj_name :str  => When the Infrastructure project in `subfldr` is deployed, DEFINE what the CodeBuild-Project should be named.
+        6th param:  source_artifact :codepipeline.Artifact => It representing the SOURCE (usually configured via `cdk_utils/StandardCodePipeline.py`)
+        7th param: (OPTIONAL) cpu_arch :aws_lambda.Architecture => OPTIONAL;  Default=aws_lambda.Architecture.ARM_64
+        8th param:  OPTIONAL: python_version # as a string
+        Returns on objects of types:-
+                    1. codepipeline_actions.CodeBuildAction
+                    3. codepipeline.Artifact (representing the BUILD-Artifact)
+    """
 
     HDR = " : standard_CodeBuildSynth_Python(): "
     print(f"subproj_name={subproj_name}"+ HDR )
     print(f"codebase_root_folder={codebase_root_folder}"+ HDR )
     print(f"cb_proj_name={cb_proj_name}"+ HDR )
+    print( f"CPU-ARCH (Enum) ='{cpu_arch}'" )
+    cpu_arch_str: str = get_cpu_arch_as_str( cpu_arch )
+    print( f"CPU_ARCH(str) = '{cpu_arch_str}'" )
 
     ### Synth only
     cdk_synth_command  =  "npx cdk synth  --quiet --all"
@@ -267,8 +287,12 @@ def standard_CodeBuildSynth_Python(
             # }
         }),
         environment=aws_codebuild.BuildEnvironment(
-            build_image  = CODEBUILD_BUILD_IMAGE,
-            compute_type = CODEBUILD_EC2_SIZE,
+            build_image  = _get_codebuild_linux_image( tier, cpu_arch ),
+            compute_type = constants_cdk.CODEBUILD_EC2_SIZE,
+            environment_variables = {
+                "TIER":     aws_codebuild.BuildEnvironmentVariable( value=tier, type=aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT),
+                "CPU_ARCH": aws_codebuild.BuildEnvironmentVariable( value=cpu_arch_str, type=aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT),
+            }
         ),
         logging = _get_logging_options( cdk_scope, tier, stk, subproj_name )
     )
@@ -283,25 +307,6 @@ def standard_CodeBuildSynth_Python(
     return my_build_action, my_build_output
 
 ### ---------------------------------------------------------------------------------
-"""
-    Single "CodePipeline" Action, that will use `venv` to CACHE the pip-install, and then do BOTH cdk-synth + cdk-deploy.
-
-    1st param:  typical CDK scope (parent Construct/stack)
-    2nd param:  tier :str           => (dev|int|uat|tier)
-    3th param:  codebase_root_folder :str => SubFolder within which to find the various "subprojects".
-                    Example-Values: "devops/"  "Operations/"
-    4th param:  subproj_name :str     => typically the sub-folder's name
-                 /or/ can ALSO be the relative-folder-PATH (relative to above `codebase_root_folder` param).
-                 Can also be None!
-    5th param:  cb_proj_name :str  => When the Infrastructure project in `subfldr` is finally deployed, DEFINE what the CodeBuild-Project should be named (as viewed within CodeBuild-CONSOLE).
-    6th param:  source_artifact :codepipeline.Artifact => It representing the SOURCE (usually configured via `cdk_utils/StandardCodePipeline.py`)
-    7th param:  OPTIONAL: git_repo_url :str -- ghORG/gitRepoName.git
-    8th param:  OPTIONAL: cdk_app_pyfile :str -- Example: all_pipelines.py (this is located in root-folder of git-repo)
-    9th param:  OPTIONAL: python_version# as a string
-    Returns on objects of types:-
-                1. codepipeline_actions.CodeBuildAction
-                3. codepipeline.Artifact (representing the BUILD-Artifact)
-"""
 def adv_CodeBuildCachingSynthAndDeploy_Python(
     cdk_scope :Construct,
     tier :str,
@@ -309,15 +314,39 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
     subproj_name :Optional[Union[str,pathlib.Path]],
     cb_proj_name :str,
     source_artifact :codepipeline.Artifact,
+    cpu_arch :aws_lambda.Architecture = aws_lambda.Architecture.ARM_64,
     git_repo_url :Optional[str] = None,
     cdk_app_pyfile :Optional[str] = None,
     python_version :str = constants_cdk.CDK_APP_PYTHON_VERSION,
 ) -> tuple[codepipeline_actions.CodeBuildAction, codepipeline.Artifact]:
+    """
+        Single "CodePipeline" Action, that will use `venv` to CACHE the pip-install, and then do BOTH cdk-synth + cdk-deploy.
+
+        1st param:  typical CDK scope (parent Construct/stack)
+        2nd param:  tier :str           => (dev|int|uat|tier)
+        3th param:  codebase_root_folder :str => SubFolder within which to find the various "subprojects".
+                        Example-Values: "devops/"  "Operations/"
+        4th param:  subproj_name :str     => typically the sub-folder's name
+                    /or/ can ALSO be the relative-folder-PATH (relative to above `codebase_root_folder` param).
+                    Can also be None!
+        5th param:  cb_proj_name :str  => When the Infrastructure project in `subfldr` is finally deployed, DEFINE what the CodeBuild-Project should be named (as viewed within CodeBuild-CONSOLE).
+        6th param:  source_artifact :codepipeline.Artifact => It representing the SOURCE (usually configured via `cdk_utils/StandardCodePipeline.py`)
+        7th param: (OPTIONAL) cpu_arch :aws_lambda.Architecture => OPTIONAL;  Default=aws_lambda.Architecture.ARM_64
+        8th param:  OPTIONAL: git_repo_url :str -- ghORG/gitRepoName.git
+        9th param:  OPTIONAL: cdk_app_pyfile :str -- Example: all_pipelines.py (this is located in root-folder of git-repo)
+        10th param:  OPTIONAL: python_version# as a string
+        Returns on objects of types:-
+                    1. codepipeline_actions.CodeBuildAction
+                    3. codepipeline.Artifact (representing the BUILD-Artifact)
+    """
 
     HDR = " : standard_CodeBuildSynthAndDeploy_Python(): "
     print(f"subproj_name={subproj_name}"+ HDR )
     print(f"codebase_root_folder={codebase_root_folder}"+ HDR )
     print(f"cb_proj_name={cb_proj_name}"+ HDR )
+    print( f"CPU-ARCH (Enum) ='{cpu_arch}'" )
+    cpu_arch_str: str = get_cpu_arch_as_str( cpu_arch )
+    print( f"CPU_ARCH(str) = '{cpu_arch_str}'" )
 
     stk = Stack.of(cdk_scope)
 
@@ -398,8 +427,12 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
 
         }),
         environment=aws_codebuild.BuildEnvironment(
-            build_image  = CODEBUILD_BUILD_IMAGE,
-            compute_type = CODEBUILD_EC2_SIZE,
+            build_image  = _get_codebuild_linux_image( tier, cpu_arch ),
+            compute_type = constants_cdk.CODEBUILD_EC2_SIZE,
+            environment_variables = {
+                "TIER":     aws_codebuild.BuildEnvironmentVariable( value=tier, type=aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT),
+                "CPU_ARCH": aws_codebuild.BuildEnvironmentVariable( value=cpu_arch_str, type=aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT),
+            }
         ),
         logging = _get_logging_options( cdk_scope, tier, stk, subproj_name )
     )
@@ -416,27 +449,6 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
     return my_build_action, my_build_output
 
 ### ---------------------------------------------------------------------------------
-"""
-    Simple CDK-Synth only. -NO- Caching supported.  -NO- cdk-deploy included.
-    This variation is for WIERD-combination of:
-        1. frontend is written in TypeScript (and so .. npm commands!)
-        2. cdk-synth/deploy is via Python-based CDK-codebase ( and so .. .. pip!)
-
-    1st param:  typical CDK scope (parent Construct/stack)
-    2nd param:  tier :str           => (dev|int|uat|tier)
-    3th param:  codebase_root_folder :str => SubFolder within which to find the various "subprojects".
-                    Example-Values: "devops/"  "Operations/"
-    4th param:  subproj_name :str     => typically the sub-folder's name
-                 /or/ can ALSO be the relative-folder-PATH (relative to above `codebase_root_folder` param).
-                 Can also be None!
-    5th param:  cb_proj_name :str  => When the Infrastructure project in `subfldr` is deployed, DEFINE what the CodeBuild-Project should be named.
-    6th param:  source_artifact :codepipeline.Artifact => It representing the SOURCE (usually configured via `cdk_utils/StandardCodePipeline.py`)
-    7th param:  OPTIONAL: python_version # as a string
-    8th param:  OPTIONAL: where is the JS/TS/VueJS/ReactJS code-base located in this git-repo;  Default = "frontend/ui"
-    Returns on objects of types:-
-                1. codepipeline_actions.CodeBuildAction
-                3. codepipeline.Artifact (representing the BUILD-Artifact)
-"""
 def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
     cdk_scope :Construct,
     tier :str,
@@ -444,14 +456,40 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
     subproj_name :Optional[Union[str,pathlib.Path]],
     cb_proj_name :str,
     source_artifact :codepipeline.Artifact,
+    cpu_arch :aws_lambda.Architecture = aws_lambda.Architecture.ARM_64,
     python_version :str = constants_cdk.CDK_APP_PYTHON_VERSION,
     frontend_vuejs_rootfolder :str = "frontend/ui",
 ) -> tuple[codepipeline_actions.CodeBuildAction, codepipeline.Artifact]:
+    """
+        Simple CDK-Synth only. -NO- Caching supported.  -NO- cdk-deploy included.
+        This variation is for WIERD-combination of:
+            1. frontend is written in TypeScript (and so .. npm commands!)
+            2. cdk-synth/deploy is via Python-based CDK-codebase ( and so .. .. pip!)
+
+        1st param:  typical CDK scope (parent Construct/stack)
+        2nd param:  tier :str           => (dev|int|uat|tier)
+        3th param:  codebase_root_folder :str => SubFolder within which to find the various "subprojects".
+                        Example-Values: "devops/"  "Operations/"
+        4th param:  subproj_name :str     => typically the sub-folder's name
+                    /or/ can ALSO be the relative-folder-PATH (relative to above `codebase_root_folder` param).
+                    Can also be None!
+        5th param:  cb_proj_name :str  => When the Infrastructure project in `subfldr` is deployed, DEFINE what the CodeBuild-Project should be named.
+        6th param:  source_artifact :codepipeline.Artifact => It representing the SOURCE (usually configured via `cdk_utils/StandardCodePipeline.py`)
+        7th param: (OPTIONAL) cpu_arch :aws_lambda.Architecture => OPTIONAL;  Default=aws_lambda.Architecture.ARM_64
+        8th param:  OPTIONAL: python_version # as a string
+        9th param:  OPTIONAL: where is the JS/TS/VueJS/ReactJS code-base located in this git-repo;  Default = "frontend/ui"
+        Returns on objects of types:-
+                    1. codepipeline_actions.CodeBuildAction
+                    3. codepipeline.Artifact (representing the BUILD-Artifact)
+    """
 
     HDR = " : standard_CodeBuildSynth_FrontendPythonCDK(): "
     print(f"subproj_name={subproj_name}"+ HDR )
     print(f"codebase_root_folder={codebase_root_folder}"+ HDR )
     print(f"cb_proj_name={cb_proj_name}"+ HDR )
+    print( f"CPU-ARCH (Enum) ='{cpu_arch}'" )
+    cpu_arch_str: str = get_cpu_arch_as_str( cpu_arch )
+    print( f"CPU_ARCH(str) = '{cpu_arch_str}'" )
 
     cdk_deploy_command  =  "npx cdk deploy  --quiet --all"
     cdk_deploy_command +=  " --require-approval never --concurrency 10 --asset-parallelism true --asset-prebuild"
@@ -545,8 +583,12 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
             # }
         }),
         environment=aws_codebuild.BuildEnvironment(
-            build_image  = CODEBUILD_BUILD_IMAGE,
-            compute_type = CODEBUILD_EC2_SIZE,
+            build_image  = _get_codebuild_linux_image( tier, cpu_arch ),
+            compute_type = constants_cdk.CODEBUILD_EC2_SIZE,
+            environment_variables = {
+                "TIER":     aws_codebuild.BuildEnvironmentVariable( value=tier, type=aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT),
+                "CPU_ARCH": aws_codebuild.BuildEnvironmentVariable( value=cpu_arch_str, type=aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT),
+            }
         ),
         logging = _get_logging_options( cdk_scope, tier, stk, subproj_name )
     )
@@ -561,27 +603,6 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
     return my_build_action, my_build_output
 
 ### ---------------------------------------------------------------------------------
-"""
-    -NO- CDK !!
-    Just BDDs via Frontend / Chromium based JS/TS frameworks.
-
-    1st param:  typical CDK scope (parent Construct/stack)
-    2nd param:  tier :str           => (dev|int|uat|tier)
-    3th param:  codebase_root_folder :str => SubFolder within which to find the various "subprojects".
-                    Example-Values: "devops/"  "Operations/"
-    4th param:  subproj_name :str     => typically the sub-folder's name
-                 /or/ can ALSO be the relative-folder-PATH (relative to above `codebase_root_folder` param).
-    5th param:  cb_proj_name :str  => When the Infrastructure project in `subfldr` is deployed, DEFINE what the CodeBuild-Project should be named.
-    6th param:  source_artifact :codepipeline.Artifact => It representing the SOURCE (usually configured via `cdk_utils/StandardCodePipeline.py`)
-    7th param:  frontend_website_url :str => The URL of the frontend website being tested.
-    8th param:  test_user_sm_name :str -- Name of SM entry (containing creds to a SIMULATED END-USER for BDDs).
-                        Example: f"{constants.CDK_APP_NAME}/{tier}/testing/frontend/test_user"
-    9th param:  OPTIONAL: frontend_vuejs_rootfolder :str -- where is the JS/TS/VueJS/ReactJS code-base located in this git-repo;  Default = "frontend/ui"
-
-    Returns 2 objects of types:-
-                1. codepipeline_actions.CodeBuildAction
-                3. codepipeline.Artifact (representing the BUILD-Artifact)
-"""
 
 def standard_BDDs_JSTSVuejsReactjs(
     cdk_scope :Construct,
@@ -594,13 +615,42 @@ def standard_BDDs_JSTSVuejsReactjs(
     source_artifact :codepipeline.Artifact,
     frontend_website_url :str,
     test_user_sm_name :str,
+    cpu_arch :aws_lambda.Architecture = aws_lambda.Architecture.ARM_64,
     frontend_vuejs_rootfolder :str = "frontend/ui",
 ) -> tuple[codepipeline_actions.CodeBuildAction, codepipeline.Artifact]:
+    """
+        -NO- CDK !!
+        Just BDDs via Frontend / Chromium based JS/TS frameworks.
+
+        1st param:  typical CDK scope (parent Construct/stack)
+        2nd param:  tier :str           => (dev|int|uat|tier)
+        3th param:  codebase_root_folder :str => SubFolder within which to find the various "subprojects".
+                        Example-Values: "devops/"  "Operations/"
+        4th param:  subproj_name :str     => typically the sub-folder's name
+                    /or/ can ALSO be the relative-folder-PATH (relative to above `codebase_root_folder` param).
+        5th param:  cb_proj_name :str  => When the Infrastructure project in `subfldr` is deployed, DEFINE what the CodeBuild-Project should be named.
+        6th param:  source_artifact :codepipeline.Artifact => It representing the SOURCE (usually configured via `cdk_utils/StandardCodePipeline.py`)
+        7th param:  frontend_website_url :str => The URL of the frontend website being tested.
+        8th param:  test_user_sm_name :str -- Name of SM entry (containing creds to a SIMULATED END-USER for BDDs).
+                            Example: f"{constants.CDK_APP_NAME}/{tier}/testing/frontend/test_user"
+        9th param: (OPTIONAL) cpu_arch :aws_lambda.Architecture => OPTIONAL;  Default=aws_lambda.Architecture.ARM_64
+        10th param:  OPTIONAL: frontend_vuejs_rootfolder :str -- where is the JS/TS/VueJS/ReactJS code-base located in this git-repo;  Default = "frontend/ui"
+
+        Returns 2 objects of types:-
+                    1. codepipeline_actions.CodeBuildAction
+                    3. codepipeline.Artifact (representing the BUILD-Artifact)
+    """
 
     HDR = " : standard_BDDs_JSTSVuejsReactjs(): "
     print(f"subproj_name={subproj_name}"+ HDR )
     print(f"codebase_root_folder={codebase_root_folder}"+ HDR )
     print(f"cb_proj_name={cb_proj_name}"+ HDR )
+    print( f"CPU-ARCH (Enum) ='{cpu_arch}'" )
+
+    if cpu_arch != aws_lambda.Architecture.X86_64:
+        raise Exception( f"param CPU-ARCH (Enum) = '{cpu_arch}' and should be X86 ONLY !!! within "+ HDR )
+    cpu_arch_str: str = get_cpu_arch_as_str( cpu_arch )
+    print( f"CPU_ARCH(str) = '{cpu_arch_str}'" )
 
     stk = Stack.of(cdk_scope)
 
@@ -698,8 +748,15 @@ def standard_BDDs_JSTSVuejsReactjs(
             },
         }),
         environment=aws_codebuild.BuildEnvironment( ### What kind of machine or O/S to use for CodeBuild
-            build_image  = CODEBUILD_BUILD_IMAGE_UBUNTU, ### <--------- Chromium-headless REQUIRES Ubuntu. -NOT- AL.
-            compute_type = CODEBUILD_EC2_SIZE,
+            build_image  = constants_cdk.CODEBUILD_BUILD_IMAGE_UBUNTU, ### <--------- Chromium-headless REQUIRES Ubuntu. -NOT- AmznLinux !!!!!!!!!!!!!!!!!!
+            compute_type = constants_cdk.CODEBUILD_EC2_SIZE,
+            environment_variables = {
+                "TIER":     aws_codebuild.BuildEnvironmentVariable( value=tier, type=aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT),
+                # "CPU_ARCH": aws_codebuild.BuildEnvironmentVariable( value=cpu_arch_str, type=aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT),
+                "CPU_ARCH": aws_codebuild.BuildEnvironmentVariable(
+                    value = get_cpu_arch_enum(aws_lambda.Architecture.X86_64), ### <----------- Warning: CPU id hardcoded !!!!!!!!!!
+                    type  = aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT),
+            }
         ),
         environment_variables={
             "TEST_PROVIDER_SM": aws_codebuild.BuildEnvironmentVariable(
@@ -737,12 +794,12 @@ def standard_BDDs_JSTSVuejsReactjs(
 ### =============================================================================================
 ### ---------------------------------------------------------------------------------------------
 
-""" To run `cdk deploy` from within CodeBuild, we need a LOT of permissions (to create & destroy)
-"""
 def enhance_CodeBuild_role_for_cdkdeploy(
     cb_role :aws_iam.Role,
     stk :Stack,
 ) -> aws_iam.Role:
+    """ To run `cdk deploy` from within CodeBuild, we need a LOT of permissions (to create & destroy)
+    """
 
     ### To fix the error: ❌  FACT-backend-dev-SNSStack failed: AccessDenied: User: arn:aws:sts::???:assumed-role/FACT-backend-pipeline-dev-emFACTbackendcdkCodeBuild-???/AWSCodeBuild-2da0a582-???
     ###         is not authorized to perform: iam:PassRole
@@ -995,24 +1052,24 @@ def enhance_CodeBuild_role_for_cdkdeploy(
 
 ### ---------------------------------------------------------------------------------
 
-""" common-code reused in multiple CodeBuild constructs in this file.
-
-    param #1: codebase_root_folder :str -- must be valid and must be provided!
-    param #2: subproj_name :str -- can be None.
-    param #3: cb_proj_name :str -- must be valid and must be provided
-
-    If subproj_name (param #2) is null, it will be set to proper-globally-unique-value.
-    Returns 3 strings (that is, a 3-tuple):
-        1. a globally-unique ARTIFACT-NAME.
-        1. either returns the original NON-None subproj_name or the proper-value (if its is None)
-        1. The (derived) actual path to the subproject
-"""
 def gen_artifact_name(
     tier :str,
     codebase_root_folder :str,
     subproj_name :str,
     cb_proj_name :str
 ) -> tuple[str,str, str]:
+    """ common-code reused in multiple CodeBuild constructs in this file.
+
+        param #1: codebase_root_folder :str -- must be valid and must be provided!
+        param #2: subproj_name :str -- can be None.
+        param #3: cb_proj_name :str -- must be valid and must be provided
+
+        If subproj_name (param #2) is null, it will be set to proper-globally-unique-value.
+        Returns 3 strings (that is, a 3-tuple):
+            1. a globally-unique ARTIFACT-NAME.
+            1. either returns the original NON-None subproj_name or the proper-value (if its is None)
+            1. The (derived) actual path to the subproject
+    """
 
     if subproj_name:
         if isinstance(subproj_name, pathlib.Path):
