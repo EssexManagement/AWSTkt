@@ -113,7 +113,7 @@ class AwsTktPipelineStack(Stack):
             )
 
             my_pipeline_v2.add_stage(
-                stage_name = codebuild_projname,
+                stage_name = f"codebuild_projname-{cpu_arch_str}",
                 actions = [ a_build_action ],
             )
 
