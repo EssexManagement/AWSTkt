@@ -10,7 +10,7 @@ tier=constants.DEV_TIER
 
 app = cdk.App()
 AwsTktApplicationStacks( scope=app,
-    construct_id=f"{constants.CDK_APP_NAME}-Appl",
+    construct_id=f"Appl", ### Keep this simple, cuz this Constructor will be automatically prefixing the stack-names appropriately.
     tier=tier,
     aws_env=constants.DEV_TIER,
     git_branch=constants.get_git_branch(tier),
