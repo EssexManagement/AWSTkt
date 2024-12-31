@@ -38,7 +38,8 @@ class AwsTktApplicationStacks():
         ### Stack # 1
         CommonAWSResourcesStack(
             scope = scope,
-            id = f"{construct_id}-CommonAWSRrcs-{cpu_arch_str}", ### <-------- note!! Using the param(construct_id) to create a NEW sub-construct-id!!!
+            id = f"CommonAWSRrcs-{cpu_arch_str}",
+            # id = f"{construct_id}-CommonAWSRrcs-{cpu_arch_str}", ### <-------- note!! Using the param(construct_id) to create a NEW sub-construct-id!!!
             tier = tier,
             aws_env=aws_env,
             git_branch=git_branch,
