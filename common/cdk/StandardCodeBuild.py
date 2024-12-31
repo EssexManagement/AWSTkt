@@ -89,6 +89,8 @@ def standard_CodeBuildSynth_NodeJS(
     print( f"CPU-ARCH (Enum) ='{cpu_arch}'" )
     cpu_arch_str: str = get_cpu_arch_as_str( cpu_arch )
     print( f"CPU_ARCH(str) = '{cpu_arch_str}'" )
+    cb_proj_name += cpu_arch_str
+    print( f"cb_proj_name='{cb_proj_name}'" )
 
     stk = Stack.of(cdk_scope)
 
@@ -208,6 +210,8 @@ def standard_CodeBuildSynth_Python(
     print( f"CPU-ARCH (Enum) ='{cpu_arch}'" )
     cpu_arch_str: str = get_cpu_arch_as_str( cpu_arch )
     print( f"CPU_ARCH(str) = '{cpu_arch_str}'" )
+    cb_proj_name += cpu_arch_str
+    print( f"cb_proj_name='{cb_proj_name}'" )
 
     ### Synth only
     cdk_synth_command  =  "npx cdk synth  --quiet --all"
@@ -347,6 +351,8 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
     print( f"CPU-ARCH (Enum) ='{cpu_arch}'" )
     cpu_arch_str: str = get_cpu_arch_as_str( cpu_arch )
     print( f"CPU_ARCH(str) = '{cpu_arch_str}'" )
+    cb_proj_name += cpu_arch_str
+    print( f"cb_proj_name='{cb_proj_name}'" )
 
     stk = Stack.of(cdk_scope)
 
@@ -490,6 +496,8 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
     print( f"CPU-ARCH (Enum) ='{cpu_arch}'" )
     cpu_arch_str: str = get_cpu_arch_as_str( cpu_arch )
     print( f"CPU_ARCH(str) = '{cpu_arch_str}'" )
+    cb_proj_name += cpu_arch_str
+    print( f"cb_proj_name='{cb_proj_name}'" )
 
     cdk_deploy_command  =  "npx cdk deploy  --quiet --all"
     cdk_deploy_command +=  " --require-approval never --concurrency 10 --asset-parallelism true --asset-prebuild"
@@ -646,6 +654,8 @@ def standard_BDDs_JSTSVuejsReactjs(
     print(f"codebase_root_folder={codebase_root_folder}"+ HDR )
     print(f"cb_proj_name={cb_proj_name}"+ HDR )
     print( f"CPU-ARCH (Enum) ='{cpu_arch}'" )
+    cb_proj_name += cpu_arch_str
+    print( f"cb_proj_name='{cb_proj_name}'" )
 
     if cpu_arch != aws_lambda.Architecture.X86_64:
         raise Exception( f"param CPU-ARCH (Enum) = '{cpu_arch}' and should be X86 ONLY !!! within "+ HDR )
