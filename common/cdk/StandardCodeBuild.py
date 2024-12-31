@@ -114,8 +114,8 @@ def standard_CodeBuildSynth_NodeJS(
     my_build_output  = codepipeline.Artifact("build_"+artif_name)
 
     cb_project = aws_codebuild.PipelineProject(
-        scope=cdk_scope,
-        id=f'{subproj_name}-CodeBuild',
+        scope = cdk_scope,
+        id    = f'{subproj_name}-CodeBuild-{cpu_arch_str}',
         project_name=cb_proj_name,
         ### project_name=f'{pipeline_id}-{subproj_name}',
         build_spec=aws_codebuild.BuildSpec.from_object({
@@ -232,8 +232,8 @@ def standard_CodeBuildSynth_Python(
     my_build_output  = codepipeline.Artifact("build_"+artif_name)
 
     cb_project = aws_codebuild.PipelineProject(
-        scope=cdk_scope,
-        id=f'{subproj_name}-CodeBuild',
+        scope = cdk_scope,
+        id    = f'{subproj_name}-CodeBuild-{cpu_arch_str}',
         project_name=cb_proj_name,
         ### project_name=f'{pipeline_id}-{subproj_name}',
 
@@ -367,8 +367,8 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
     my_build_output  = codepipeline.Artifact("build_"+artif_name)
 
     cb_project = aws_codebuild.PipelineProject(
-        scope=cdk_scope,
-        id=f'{subproj_name}-CodeBuild',
+        scope = cdk_scope,
+        id    = f'{subproj_name}-CodeBuild-{cpu_arch_str}',
         project_name=cb_proj_name,
 
         # cache=aws_codebuild.Cache.local(aws_codebuild.LocalCacheMode.CUSTOM),     ### match this with the `cache` json-element inside the BuildSpec below.
@@ -514,7 +514,7 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
 
     cb_project = aws_codebuild.PipelineProject(
         scope=cdk_scope,
-        id=f'{subproj_name}-CodeBuild',
+        id=f'{subproj_name}-CodeBuild-{cpu_arch_str}',
         project_name=cb_proj_name,
         ### project_name=f'{pipeline_id}-{subproj_name}',
 
@@ -664,8 +664,8 @@ def standard_BDDs_JSTSVuejsReactjs(
     my_build_output  = codepipeline.Artifact("BDDs_"+artif_name)
 
     cb_pipeline_project = aws_codebuild.PipelineProject(
-        scope=cdk_scope,
-        id=f'{subproj_name}-BDDs-CodeBuild',
+        scope = cdk_scope,
+        id    = f'{subproj_name}-BDDs-CodeBuild-{cpu_arch_str}',
         project_name=cb_proj_name,
         ### project_name=f'{pipeline_id}-{subproj_name}',
         build_spec=aws_codebuild.BuildSpec.from_object({
