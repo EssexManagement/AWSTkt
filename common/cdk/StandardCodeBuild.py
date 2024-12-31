@@ -151,6 +151,7 @@ def standard_CodeBuildSynth_NodeJS(
             }
         }),
         environment=aws_codebuild.BuildEnvironment(
+            privileged   = (cpu_arch == aws_lambda.Architecture.X86_64), ### Docker running on -ONLY- X86-based EC2s/CodeBuild-images.  Do NOT ask why!!!
             build_image  = _get_codebuild_linux_image( tier, cpu_arch ),
             compute_type = constants_cdk.CODEBUILD_EC2_SIZE,
             environment_variables = {
@@ -291,6 +292,7 @@ def standard_CodeBuildSynth_Python(
             # }
         }),
         environment=aws_codebuild.BuildEnvironment(
+            privileged   = (cpu_arch == aws_lambda.Architecture.X86_64), ### Docker running on -ONLY- X86-based EC2s/CodeBuild-images.  Do NOT ask why!!!
             build_image  = _get_codebuild_linux_image( tier, cpu_arch ),
             compute_type = constants_cdk.CODEBUILD_EC2_SIZE,
             environment_variables = {
@@ -433,6 +435,7 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
 
         }),
         environment=aws_codebuild.BuildEnvironment(
+            privileged   = (cpu_arch == aws_lambda.Architecture.X86_64), ### Docker running on -ONLY- X86-based EC2s/CodeBuild-images.  Do NOT ask why!!!
             build_image  = _get_codebuild_linux_image( tier, cpu_arch ),
             compute_type = constants_cdk.CODEBUILD_EC2_SIZE,
             environment_variables = {
@@ -591,6 +594,7 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
             # }
         }),
         environment=aws_codebuild.BuildEnvironment(
+            privileged   = (cpu_arch == aws_lambda.Architecture.X86_64), ### Docker running on -ONLY- X86-based EC2s/CodeBuild-images.  Do NOT ask why!!!
             build_image  = _get_codebuild_linux_image( tier, cpu_arch ),
             compute_type = constants_cdk.CODEBUILD_EC2_SIZE,
             environment_variables = {
@@ -758,6 +762,7 @@ def standard_BDDs_JSTSVuejsReactjs(
             },
         }),
         environment=aws_codebuild.BuildEnvironment( ### What kind of machine or O/S to use for CodeBuild
+            privileged   = (cpu_arch == aws_lambda.Architecture.X86_64), ### Docker running on -ONLY- X86-based EC2s/CodeBuild-images.  Do NOT ask why!!!
             build_image  = constants_cdk.CODEBUILD_BUILD_IMAGE_UBUNTU, ### <--------- Chromium-headless REQUIRES Ubuntu. -NOT- AmznLinux !!!!!!!!!!!!!!!!!!
             compute_type = constants_cdk.CODEBUILD_EC2_SIZE,
             environment_variables = {
