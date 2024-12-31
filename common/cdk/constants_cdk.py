@@ -37,7 +37,7 @@ BUILD_KICKOFF_TIMESTAMP_STR = localized_now.strftime('%Y-%m-%d %H:%M:%S %Z')
 
 CPU_ARCH_LIST = [
     aws_lambda.Architecture.ARM_64,
-    # aws_lambda.Architecture.X86_64 ### !!!!!!!!!!!!!!!!!!!!!! TODO WARNING temporarily disabled, until fix is found to AWS-CodeBuild's CDK-Synth Docker-failures (even tho' cdk-synth works just fine on Laptop)
+    aws_lambda.Architecture.X86_64,
 ]
 
 ENGINE_VERSION_LOOKUP :dict = {
