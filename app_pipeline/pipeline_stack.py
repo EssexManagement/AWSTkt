@@ -93,7 +93,7 @@ class AwsTktPipelineStack(Stack):
 
         ### -----------------------------------
 
-        a_build_action :aws_codepipeline_actions.CodeBuildAction = None
+        all_build_actions :list[aws_codepipeline_actions.CodeBuildAction] = []
 
         for cpu_arch in constants_cdk.CPU_ARCH_LIST:
             cpu_arch_str: str = get_cpu_arch_as_str( cpu_arch )
@@ -111,10 +111,12 @@ class AwsTktPipelineStack(Stack):
                 git_repo_url = f"{git_repo_org_name}/{git_repo_name}",
                 cdk_app_pyfile="layers_app.py"
             )
+            all_build_actions.append( a_build_action )
 
-            my_pipeline_v2.add_stage(
-                stage_name = f"codebuild_projname-{cpu_arch_str}",
-                actions = [ a_build_action ],
-            )
+        ### all of these above build-actions MUST happen in parallel, as they are same builds happening on different CPUs-architectures.
+        my_pipeline_v2.add_stage(
+            stage_name = f"codebuild_projname-{cpu_arch_str}",
+            actions = all_build_actions,
+        )
 
 ### EoF
