@@ -16,23 +16,27 @@ Severity: System impaired
 # HOW-TO
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
+PYTHON_VERSION="3.12"
+\rm -rf ~/.local
 npm i
-pip install -r requirements.txt
+pip install pipenv --user
+pipenv lock --dev --python ${PYTHON_VERSION} --clear
+pipenv install --deploy --ignore-pipfile
+### !!! Stop using `venv` and plain `pip`
+### python -m venv .venv
+### source .venv/bin/activate
+### pip install -r requirements.txt
 
 GITHUB_REPOSITORY=$(git ls-remote --get-url | sed -e 's/..*github.com\/\(.*\)/\1/');
 
 ( unset BUILDPLATFORM; unset DOCKER_DEFAULT_PLATFORM; unset TARGETPLATFORM;
   export CPU_ARCH="$(uname -m)";  ### PICK ONE !!!
   export CPU_ARCH="x86_64";       ### PICK ONE !!!
-  npx cdk synth --quiet --all --app "python3 pipeline_app.py"  -c tier=${TIER} -c git_repo=${GITHUB_REPOSITORY} --profile ${AWSPROFILE} --region ${AWSREGION}
-)
-
-( unset BUILDPLATFORM; unset DOCKER_DEFAULT_PLATFORM; unset TARGETPLATFORM;
-  npx cdk deploy --require-approval never  --quiet --all --app "python3 pipeline_app.py"  -c tier=${TIER} -c git_repo=${GITHUB_REPOSITORY} --profile ${AWSPROFILE} --region ${AWSREGION}
+  pipenv run npx cdk synth --quiet --all --app "python3 pipeline_app.py"  -c tier=${TIER} -c git_repo=${GITHUB_REPOSITORY} --profile ${AWSPROFILE} --region ${AWSREGION}
 )
 ```
+
+Change above cmd tto remove ~~`cdk synth`~~ and use `cdk deploy` instead.
 
 
 <BR/><BR/><BR/><BR/>

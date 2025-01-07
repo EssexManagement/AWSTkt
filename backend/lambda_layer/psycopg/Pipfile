@@ -1,0 +1,45 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+attrs = "*"
+# certifi
+# chardet
+dictdiffer = "*"
+# greenlet
+idna = "*"
+importlib-metadata = "*"
+jmespath = "*"
+jsonschema = "*"
+
+### must install both the binary and the non-binary psycopg
+# psycopg==3.1.8  ### It's either this -OR- the binary-version.  -NOT- both!!!
+# psycopg-binary==3.1.18
+
+# psycopg2==2.9.9 ### It's either this -OR- the binary-version.  -NOT- both!!!
+psycopg2-binary = "*"
+# psycopg2-binary==2.9.9
+
+python-dateutil = "*"
+pytz = "*"
+
+requests = "*"
+# s3transfer
+six = "*"
+typing-extensions = "*"
+urllib3 = "*"
+# wget
+# zipp
+# jsonpickle
+
+aws-xray-sdk = "*"
+
+SQLAlchemy = "2.0.28"
+# SQLAlchemy (2.0.36) ### pip-ERROR: poetry 1.5.1 requires urllib3<2.0.0,>=1.26.0, but you have urllib3 2.2.3 which is incompatible.
+
+[dev-packages]
+
+[requires]
+python_version = "3.12"
