@@ -41,11 +41,11 @@ LAYER_MODULES = [
 class CommonAWSResourcesStack(Stack):
     def __init__( self,
         scope: Construct,
-        id: str,
+        simple_id: str,
+        stk_prefix :Optional[str],
         tier :str,
         aws_env :str,
         git_branch :str,
-        stk_prefix :Optional[str] = None,
         cpu_arch_list :List[aws_lambda.Architecture] = constants_cdk.CPU_ARCH_LIST,
         layer_modules_list :list[any] = LAYER_MODULES,
         **kwargs,
@@ -54,19 +54,20 @@ class CommonAWSResourcesStack(Stack):
             Example: Lambda-Layers (incl. building the ZIP-files for the Python-layers)
 
             1st param:  typical CDK scope (parent Construct/stack)
-            2nd param:  id :str  => Usually, pass in the stack_id (unless you want to PREFIX it with `stk_prefix` that is typically common across all stacks);
+            2nd param:  simple_id :str  => Very simple stack_id (do --NOT-- PREFIX it with `stk_prefix` (next param) that's common across all stacks in the app);
                         See also `stk_prefix` optional-parameter.
-            3rd param:  tier :str           => (dev|int|uat|tier)
-            4th param:  aws_env :str        => typically the AWS_ACCOUNT AWSPROFILE; Example: DEVINT_SHARED|UAT|PROD
-            5th param : git_branch :str - the git branch that is being deployed
-            6th param:  stk_prefix :str     => OPTIONAL; This is typically common-PREFIX across all stacks, to make all stacks look uniform.
+            3rd param:  stk_prefix :str     => This is typically common-PREFIX across all stacks, to make all stacks look uniform.
+            4th param:  tier :str           => (dev|int|uat|tier)
+            5th param:  aws_env :str        => typically the AWS_ACCOUNT AWSPROFILE; Example: DEVINT_SHARED|UAT|PROD
+            6th param : git_branch :str - the git branch that is being deployed
             7th param: (OPTIONAL) cpu_arch_list :list[str]     => OPTIONAL;  For CodeBuild-on-AWS make sure this list is of length = 1!!!
             8th param: (OPTIONAL) layer_module_list :list[Custom-PyModules] => OPTIONAL;  See `LAYER_MODULES` global-constant for example and details.
         """
-        super().__init__(scope=scope,
-                id=id,
-                stack_name = f"{stk_prefix}-{id}" if stk_prefix else id,
-                **kwargs)
+        super().__init__( scope=scope,
+            id = simple_id,
+            stack_name = f"{stk_prefix}-{simple_id}".replace('_',''),
+            **kwargs
+        )
 
         self.tier = tier
 
