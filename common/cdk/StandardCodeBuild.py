@@ -358,7 +358,9 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
 
     stk = Stack.of(cdk_scope)
 
-    cdk_deploy_command  =  "npx cdk deploy  --quiet --all"
+    ### automatically detect if Git-Repo-codebase is using Plain-Pip (and .venv) or whether the Git-Repo-Codebase is using Pipenv/Pifile
+    cdk_deploy_command  =  "if [ -f requirements.txt ]; PRFX=\"\"; elif [ -f Pipfile.lock ]; then PRFX=\"pipenv run\"; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi"
+    cdk_deploy_command +=  "$PRFX npx cdk deploy  --quiet --all"
     cdk_deploy_command +=  " --require-approval never --concurrency 10 --asset-parallelism true --asset-prebuild"
     cdk_deploy_command += f" --context tier=\"{tier}\""
     if cdk_app_pyfile:   cdk_deploy_command += f" --app \"python3 {cdk_app_pyfile}\""
@@ -502,7 +504,9 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
     cb_proj_name += f"-{cpu_arch_str}"
     print( f"cb_proj_name='{cb_proj_name}'" )
 
-    cdk_deploy_command  =  "npx cdk deploy  --quiet --all"
+    ### automatically detect if Git-Repo-codebase is using Plain-Pip (and .venv) or whether the Git-Repo-Codebase is using Pipenv/Pifile
+    cdk_deploy_command  =  "if [ -f requirements.txt ]; PRFX=\"\"; elif [ -f Pipfile.lock ]; then PRFX=\"pipenv run\"; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi"
+    cdk_deploy_command +=  "$PRFX npx cdk deploy  --quiet --all"
     cdk_deploy_command +=  " --require-approval never --concurrency 10 --asset-parallelism true --asset-prebuild"
     cdk_deploy_command += f" --context tier=\"{tier}\""
     if git_repo_url:     cdk_deploy_command += f" --context git_repo=\"{git_repo_url}\""
