@@ -16,10 +16,6 @@ importlib-metadata
 jmespath
 jsonschema
 
-### must install both the binary and the non-binary psycopg
-# psycopg==3.1.8  ### It's either this -OR- the binary-version.  -NOT- both!!!
-# psycopg-binary==3.1.18
-
 psycopg[binary]
 psycopg-pool
 
