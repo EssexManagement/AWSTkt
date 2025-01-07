@@ -186,7 +186,7 @@ class LambdaLayerUtility():
 
         ### ---------------------------------------------
         ### Following Docker-based approach will create a zipfile automatically, with the MUCH-simpler `/python/**` folder-heirarchy.
-        asset_hash = LambdaLayerUtility.get_hash_for_file( layer_fldr_path, "requirements.txt" )
+        asset_hash = LambdaLayerUtility.get_hash_for_file( layer_fldr_path, "Pipfile.lock" )
         print( f"asset_hash = '{asset_hash}'" )
         my_asset :aws_lambda.AssetCode = aws_lambda.Code.from_asset(
             ### https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_lambda/Code.html#aws_cdk.aws_lambda.Code.from_asset
