@@ -142,17 +142,27 @@ class LambdaLayerUtility():
         #     # shutil.rmtree( str(host_path) )
         # host_output_path.mkdir( parents=True, exist_ok=True )
 
-        docker_env = None
-        # ### We are --FORCED-- to pass in ENV-VARs to Docker, for a very-wierd-reason!
-        # ### This `aws_lambda.Code.from_asset()` is -NOT- actually doing anything -- until this Asset is used in the `aws_lambda.LayerVersion()` construct.
-        # ### By which time, all the values of "platform" within BuildOptions are OVERWRITTEN each time this is invoked!!!
-        # ### >> Bundling asset FACT-backend-dev/CommonAWSRrcs/layer-psycopg2-arm64/Code/Stage...
-        # ### >> Unable to find image 'public.ecr.aws/lambda/python:3.12-arm64' locally
-        # ### >> 3.12-arm64: Pulling from lambda/python
-        # ### >> Digest: sha256:04f633717595035419032727f8f28ac29cdd0400e6b3ca9a4cac23bea4bb0bb6
-        # ### >> Status: Image is up to date for public.ecr.aws/lambda/python:3.12-arm64
-        # ### >> docker: image with reference public.ecr.aws/lambda/python:3.12-arm64 was found but does not match the specified platform: wanted linux/amd64, actual: linux/arm64/v8.
-        # docker_env={} ### Passed onto Docker-Container when running
+        # ### We are --FORCED-- to pass in ENV-VARs to Docker, for 2 very-wierd USE-CASES!
+        # ### USE-CASE #1 is still valid -- only-installing BINARIES and NOT-the-source-code (when installing PyPi-modules, either with `pip` or `pipenv`)
+        # ### USE-CASE #2 -- not working -- is to enable Docker-in-Docker (which --FAILS-- inside AWS-CodeBuild)
+        # ### FYI: `aws_lambda.Code.from_asset()` is -NOT- actually doing anything -- until this Asset is used in the `aws_lambda.LayerVersion()` construct.
+        # ###       By which time, all the values of "platform" within BuildOptions are OVERWRITTEN each time this is invoked!!!
+        # ###       >> Bundling asset FACT-backend-dev/CommonAWSRrcs/layer-psycopg2-arm64/Code/Stage...
+        # ###       >> Unable to find image 'public.ecr.aws/lambda/python:3.12-arm64' locally
+        # ###       >> 3.12-arm64: Pulling from lambda/python
+        # ###       >> Digest: sha256:04f633717595035419032727f8f28ac29cdd0400e6b3ca9a4cac23bea4bb0bb6
+        # ###       >> Status: Image is up to date for public.ecr.aws/lambda/python:3.12-arm64
+        # ###       >> docker: image with reference public.ecr.aws/lambda/python:3.12-arm64 was found but does not match the specified platform: wanted linux/amd64, actual: linux/arm64/v8.
+        docker_env={} ### Passed onto Docker-Container when running
+        docker_env['PIP_ONLY_BINARY'] = ':all:'  ### use-case #1 mentioned above in comments
+                ### REF: https://pip.pypa.io/en/stable/cli/pip_install/
+        docker_env['PIP_TARGET'] = f"{inside_docker_output_path}/python"  ### use-case #1 mentioned above in comments
+                ### Attention: `pipenv` does -NOT- support `-t` a.k.a. `--target` CLI-arg, like plain `pip` cmd does.  Hence this env-var!!!
+        docker_env['PIPENV_VENV_IN_PROJECT'] = "1"
+        docker_env['HOME']                   = f"{inside_docker_src_path}"
+        docker_env['PIPENV_HOME']            = "/tmp/pipenv"
+
+        ### Following is re: use-case #2 mentioned above in comments (FYI: following does NOT work in AWS-CodeBuild)
         # docker_env['TARGETPLATFORM'] = get_docker_platform(cpu_arch_str)
         # # 'DOCKER_DEFAULT_PLATFORM': os.environ['DOCKER_DEFAULT_PLATFORM'],
         #     ### ^^^^^^ ☝🏾☝🏾☝🏾 ! NOTE ! This is the critical-value, that ensures the cpu-arch for the Lambda-Layer is correct!!!
@@ -195,14 +205,21 @@ class LambdaLayerUtility():
                 ### https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk/BundlingOptions.html#aws_cdk.BundlingOptions
                 platform = get_docker_platform(cpu_arch_str),
                 image = DockerImage.from_registry( docker_img_uri ),
+                environment=docker_env, ### Passed onto Docker-Container when running
                 entrypoint = [ "bash", "-c" ],
                     ### Attention: Since this-construct was meant for Lambdas-Funcs and -NOT- Layers, we are overriding the Lambda-launcher.
                 command = [
                     # "bash",
                     # "-c",
                     _shrink_layer_zipfile(
-                        cmd = f"pip install  --upgrade -r requirements.txt -t {inside_docker_output_path}/python --only-binary=:all:",
+                        # cmd = f"pip install  --upgrade -r requirements.txt -t {inside_docker_output_path}/python --only-binary=:all:",
+                        cmd = ' '.join( f"""pip install pipenv &&
+PYTHONPATH={inside_docker_output_path}/python
+PATH={inside_docker_output_path}/python/bin:$PATH
+pipenv install --deploy --ignore-pipfile
+""".split() ),
                                 ### !! WARNING !! avoid use of pip3's cli-args "--platform {pip_platform}" !!! See switch/match above.
+                                ### pip's ERROR: Can not combine '--user' and '--target' (which is an ENV-VAR `PIP_TARGET` to this Docker)
                         install_dir = inside_docker_output_path,
                         layer_opt = layer_opt
                     )
@@ -228,7 +245,6 @@ class LambdaLayerUtility():
                     #     # consistency = Only applicable for --macOS--    Default: DockerConsistency.DELEGATED
                     # ),
                 ],
-                environment=docker_env, ### Passed onto Docker-Container when running
                 output_type = BundlingOutput.NOT_ARCHIVED,
                 ### https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.BundlingOutput.html
                         ### ARCHIVED: The bundling output-directory includes a single .zip or .jar file -- which will be used as the final bundle.
