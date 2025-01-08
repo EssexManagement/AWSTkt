@@ -213,6 +213,8 @@ class LambdaLayerUtility():
                     # "-c",
                     _shrink_layer_zipfile(
                         # cmd = f"pip install  --upgrade -r requirements.txt -t {inside_docker_output_path}/python --only-binary=:all:",
+
+                        ### !! Attention !! pip's ERROR: Can not combine '--user' and '--target' (which is an ENV-VAR `PIP_TARGET` to this Docker)
                         cmd = ' '.join( f"""pip install pipenv &&
 PYTHONPATH={inside_docker_output_path}/python
 PATH={inside_docker_output_path}/python/bin:$PATH
@@ -220,6 +222,7 @@ pipenv sync
 """.split() ),
                                 ### !! Attention !! pip's ERROR: Can not combine '--user' and '--target' (which is an ENV-VAR `PIP_TARGET` to this Docker)
                                 ### !! WARNING !! avoid use of pip3's cli-args "--platform {pip_platform}" !!! See switch/match above.
+
                         install_dir = inside_docker_output_path,
                         layer_opt = layer_opt
                     )
