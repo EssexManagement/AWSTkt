@@ -100,8 +100,10 @@ def standard_CodeBuildSynth_NodeJS(
     print( f"git_repo_url={git_repo_url} within "+ HDR )
 
     ### Synth only
-    cdk_synth_command  =  "npx cdk synth  --quiet --all"
-    cdk_synth_command +=  " --require-approval never --concurrency 10 --asset-parallelism true --asset-prebuild"
+    ### automatically detect if Git-Repo-codebase is using Plain-Pip (and .venv) or whether the Git-Repo-Codebase is using Pipenv/Pifile
+    cdk_deploy_command  =  "if [ -f requirements.txt ]; PRFX=\"\"; elif [ -f Pipfile.lock ]; then PRFX=\"pipenv run\"; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi"
+    cdk_deploy_command +=  "$PRFX npx cdk synth  --quiet --all"
+    cdk_synth_command +=  " --concurrency 10 --asset-parallelism true --asset-prebuild"
     cdk_synth_command += f" --context TIER=\"{tier}\""
     cdk_synth_command += f" --context tier=\"{tier}\""
     if git_repo_url:     cdk_synth_command += f" --context git_repo=\"{git_repo_url}\""
@@ -215,8 +217,10 @@ def standard_CodeBuildSynth_Python(
     print( f"cb_proj_name='{cb_proj_name}'" )
 
     ### Synth only
-    cdk_synth_command  =  "npx cdk synth  --quiet --all"
-    cdk_synth_command +=  " --require-approval never --concurrency 10 --asset-parallelism true --asset-prebuild"
+    ### automatically detect if Git-Repo-codebase is using Plain-Pip (and .venv) or whether the Git-Repo-Codebase is using Pipenv/Pifile
+    cdk_deploy_command  =  "if [ -f requirements.txt ]; PRFX=\"\"; elif [ -f Pipfile.lock ]; then PRFX=\"pipenv run\"; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi"
+    cdk_deploy_command +=  "$PRFX npx cdk synth  --quiet --all"
+    cdk_synth_command +=  " --concurrency 10 --asset-parallelism true --asset-prebuild"
     cdk_synth_command += f" --context tier=\"{tier}\""
     if git_repo_url:     cdk_synth_command += f" --context git_repo=\"{git_repo_url}\""
 
