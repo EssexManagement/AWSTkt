@@ -198,8 +198,8 @@ class LambdaLayerUtility():
                 ### Bottomline: For Lambda-Layers, always set `deploy_time` to `False`
             follow_symlinks = SymlinkFollowMode.NEVER, ### ALWAYS|EXTERNAL|BLOCK_EXTERNAL,
             # ignore_mode=IgnoreMode.GLOB ### Default!  FYI: to use for exclude patterns
-            asset_hash_type=AssetHashType.CUSTOM, ## |OUTPUT|SOURCE  If assetHash is configured, this option must be undefined or AssetHashType.CUSTOM
-            asset_hash = asset_hash,
+            # asset_hash_type=AssetHashType.CUSTOM, ## |OUTPUT|SOURCE  If assetHash is configured, this option must be undefined or AssetHashType.CUSTOM
+            # asset_hash = asset_hash,
 
             bundling = BundlingOptions(
                 ### https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk/BundlingOptions.html#aws_cdk.BundlingOptions
@@ -216,10 +216,10 @@ class LambdaLayerUtility():
                         cmd = ' '.join( f"""pip install pipenv &&
 PYTHONPATH={inside_docker_output_path}/python
 PATH={inside_docker_output_path}/python/bin:$PATH
-pipenv install --deploy --ignore-pipfile
+pipenv sync
 """.split() ),
+                                ### !! Attention !! pip's ERROR: Can not combine '--user' and '--target' (which is an ENV-VAR `PIP_TARGET` to this Docker)
                                 ### !! WARNING !! avoid use of pip3's cli-args "--platform {pip_platform}" !!! See switch/match above.
-                                ### pip's ERROR: Can not combine '--user' and '--target' (which is an ENV-VAR `PIP_TARGET` to this Docker)
                         install_dir = inside_docker_output_path,
                         layer_opt = layer_opt
                     )
