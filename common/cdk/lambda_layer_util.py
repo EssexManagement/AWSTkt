@@ -158,9 +158,12 @@ class LambdaLayerUtility():
                 ### REF: https://pip.pypa.io/en/stable/cli/pip_install/
         docker_env['PIP_TARGET'] = f"{inside_docker_output_path}/python"  ### use-case #1 mentioned above in comments
                 ### Attention: `pipenv` does -NOT- support `-t` a.k.a. `--target` CLI-arg, like plain `pip` cmd does.  Hence this env-var!!!
-        docker_env['PIPENV_VENV_IN_PROJECT'] = "1"
+        docker_env['PIPENV_VENV_IN_PROJECT'] = "1"   ### Keep virtualenv in project directory.  This is REQUIRED, since we are using `PIP_TARGET` (a.k.a. --target cli-arg for `pip` command)
         docker_env['HOME']                   = f"{inside_docker_src_path}"
         docker_env['PIPENV_HOME']            = "/tmp/pipenv"
+        ### Disable generating a new Pipenv's Pipfile.lock .. via environment variables
+        docker_env['PIPENV_NOSPIN']          = '1'
+        docker_env['PIPENV_SKIP_LOCK']       = '1'  # Prevents updating Pipfile.lock
 
         ### Following is re: use-case #2 mentioned above in comments (FYI: following does NOT work in AWS-CodeBuild)
         # docker_env['TARGETPLATFORM'] = get_docker_platform(cpu_arch_str)
@@ -218,10 +221,11 @@ class LambdaLayerUtility():
                         cmd = ' '.join( f"""pip install pipenv &&
 PYTHONPATH={inside_docker_output_path}/python
 PATH={inside_docker_output_path}/python/bin:$PATH
-pipenv sync
+pipenv sync --dev
 """.split() ),
                                 ### !! Attention !! pip's ERROR: Can not combine '--user' and '--target' (which is an ENV-VAR `PIP_TARGET` to this Docker)
                                 ### !! WARNING !! avoid use of pip3's cli-args "--platform {pip_platform}" !!! See switch/match above.
+                                ### Note: Avoid `pipenv install`.  switch to `pipenv sync` which is More deterministic than `pipenv install`
 
                         install_dir = inside_docker_output_path,
                         layer_opt = layer_opt
