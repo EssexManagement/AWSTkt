@@ -23,7 +23,7 @@ npm i --include-dev
 
 pip install pipenv --user
 pipenv lock --dev --python ${PYTHON_VERSION} --clear
-pipenv sync
+pipenv sync --dev
 # pipenv install --deploy --ignore-pipfile
                     ### --ignore-pipfile ==> Use `Pipfile.lock` and do -NOT- use `Pipfile`.
 ### !!! Stop using `venv` and plain `pip`
