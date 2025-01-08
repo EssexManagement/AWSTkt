@@ -275,8 +275,13 @@ def standard_CodeBuildSynth_Python(
                         "pip install --upgrade pip",
                         # "python -m pip install pip-tools",
                         # "python -m piptools compile --quiet --resolver=backtracking requirements.in",
-                        "if [ -f requirements.txt ]; then python -m pip install -r requirements.txt; elif [ -f Pipfile.lock ]; then pip install pipenv --user; pipenv install --deploy --ignore-pipfile; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; ",
-                        'npm --version; node --version; python --version; pip --version; npx cdk --version',
+                        "if [ -f requirements.txt ]; then python -m pip install -r requirements.txt; elif [ -f Pipfile.lock ]; then pip install pipenv; pipenv install --deploy --ignore-pipfile; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; ",
+                        ### ERROR: Pip Can not perform a '--user' install. User site-packages are not visible in this virtualenv.
+                        ###     Courtesy Notice: Pipenv found itself running within a virtual environment,  so it will automatically use that environment, instead of  creating its own for any project.
+                        ###     You can set PIPENV_IGNORE_VIRTUALENVS=1 to force pipenv to ignore that environment and create  its own instead.
+                        ###     You can set PIPENV_VERBOSITY=-1 to suppress this warning.
+                        'npm --version; node --version; python --version; pip --version',
+                        "if [ -f requirements.txt ]; then npx cdk --version; elif [ -f Pipfile.lock ]; then pipenv run npx cdk --version; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; ",
                     ],
                 },
                 "build": {
@@ -415,8 +420,13 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
                         "pip install --upgrade pip",
                         # "python -m pip install pip-tools",
                         # "python -m piptools compile --quiet --resolver=backtracking requirements.in",
-                        "if [ -f requirements.txt ]; then python -m pip install -r requirements.txt; elif [ -f Pipfile.lock ]; then pip install pipenv --user; pipenv install --deploy --ignore-pipfile; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; ",
-                        'npm --version; node --version; python --version; pip --version; npx cdk --version',
+                        "if [ -f requirements.txt ]; then python -m pip install -r requirements.txt; elif [ -f Pipfile.lock ]; then pip install pipenv; pipenv install --deploy --ignore-pipfile; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; ",
+                        ### ERROR: Pip Can not perform a '--user' install. User site-packages are not visible in this virtualenv.
+                        ###     Courtesy Notice: Pipenv found itself running within a virtual environment,  so it will automatically use that environment, instead of  creating its own for any project.
+                        ###     You can set PIPENV_IGNORE_VIRTUALENVS=1 to force pipenv to ignore that environment and create  its own instead.
+                        ###     You can set PIPENV_VERBOSITY=-1 to suppress this warning.
+                        'npm --version; node --version; python --version; pip --version',
+                        "if [ -f requirements.txt ]; then npx cdk --version; elif [ -f Pipfile.lock ]; then pipenv run npx cdk --version; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; ",
                         f"jq '.context.[\"git-source\"].git_commit_hashes.{tier}' cdk.json --raw-output",
                         'git checkout --force', ### to address ---> error: Your local changes to the following files would be overwritten by checkout: package-lock.json
                         f"git checkout $(jq '.context.[\"git-source\"].git_commit_hashes.{tier}' cdk.json --raw-output)",
@@ -566,8 +576,13 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
                         "pip install --upgrade pip",
                         # "python -m pip install pip-tools",
                         # "python -m piptools compile --quiet --resolver=backtracking requirements.in",
-                        "if [ -f requirements.txt ]; then python -m pip install -r requirements.txt; elif [ -f Pipfile.lock ]; then pip install pipenv --user; pipenv install --deploy --ignore-pipfile; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; ",
-                        'npm --version; node --version; python --version; pip --version; npx cdk --version',
+                        "if [ -f requirements.txt ]; then python -m pip install -r requirements.txt; elif [ -f Pipfile.lock ]; then pip install pipenv; pipenv install --deploy --ignore-pipfile; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; ",
+                        ### ERROR: Pip Can not perform a '--user' install. User site-packages are not visible in this virtualenv.
+                        ###     Courtesy Notice: Pipenv found itself running within a virtual environment,  so it will automatically use that environment, instead of  creating its own for any project.
+                        ###     You can set PIPENV_IGNORE_VIRTUALENVS=1 to force pipenv to ignore that environment and create  its own instead.
+                        ###     You can set PIPENV_VERBOSITY=-1 to suppress this warning.
+                        'npm --version; node --version; python --version; pip --version',
+                        "if [ -f requirements.txt ]; then npx cdk --version; elif [ -f Pipfile.lock ]; then pipenv run npx cdk --version; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; ",
                     ],
                 },
                 "build": {
