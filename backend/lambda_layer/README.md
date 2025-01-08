@@ -17,7 +17,8 @@ mkdir "${LOCALDIR}"
 
 pip install pipenv --user
 pipenv lock --dev --python ${PYTHON_VERSION} --clear
-pipenv install --deploy --ignore-pipfile
+pipenv sync
+# pipenv install --deploy --ignore-pipfile
                     ### --ignore-pipfile ==> Use `Pipfile.lock` and do -NOT- use `Pipfile`.
 ### !!! Stop using `venv` and plain `pip`
 ### python -m venv .venv
@@ -36,7 +37,7 @@ pipenv run docker run --rm -u "657488410:1360859114"  \
     --entrypoint bash "public.ecr.aws/docker/library/python:3.12" \
     -c "pip install pipenv && \
         PYTHONPATH=/asset-output/python PATH=/asset-output/python/bin:$PATH \
-            pipenv install --deploy --ignore-pipfile && \
+            pipenv sync && \
         cd /asset-output && \
         rm -rf python/botocore &&   \
         find . -name '*.txt' -type f -delete && \
