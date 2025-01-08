@@ -101,7 +101,7 @@ def standard_CodeBuildSynth_NodeJS(
 
     ### Synth only
     ### automatically detect if Git-Repo-codebase is using Plain-Pip (and .venv) or whether the Git-Repo-Codebase is using Pipenv/Pifile
-    cdk_deploy_command  =  "if [ -f requirements.txt ]; PRFX=\"\"; elif [ -f Pipfile.lock ]; then PRFX=\"pipenv run\"; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi"
+    cdk_deploy_command  =  "if [ -f requirements.txt ]; PRFX=\"\"; elif [ -f Pipfile.lock ]; then PRFX=\"pipenv run\"; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; "
     cdk_deploy_command +=  "$PRFX npx cdk synth  --quiet --all"
     cdk_synth_command +=  " --concurrency 10 --asset-parallelism true --asset-prebuild"
     cdk_synth_command += f" --context TIER=\"{tier}\""
@@ -218,7 +218,7 @@ def standard_CodeBuildSynth_Python(
 
     ### Synth only
     ### automatically detect if Git-Repo-codebase is using Plain-Pip (and .venv) or whether the Git-Repo-Codebase is using Pipenv/Pifile
-    cdk_deploy_command  =  "if [ -f requirements.txt ]; PRFX=\"\"; elif [ -f Pipfile.lock ]; then PRFX=\"pipenv run\"; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi"
+    cdk_deploy_command  =  "if [ -f requirements.txt ]; PRFX=\"\"; elif [ -f Pipfile.lock ]; then PRFX=\"pipenv run\"; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; "
     cdk_deploy_command +=  "$PRFX npx cdk synth  --quiet --all"
     cdk_synth_command +=  " --concurrency 10 --asset-parallelism true --asset-prebuild"
     cdk_synth_command += f" --context tier=\"{tier}\""
@@ -275,7 +275,7 @@ def standard_CodeBuildSynth_Python(
                         "pip install --upgrade pip",
                         # "python -m pip install pip-tools",
                         # "python -m piptools compile --quiet --resolver=backtracking requirements.in",
-                        "if [ -f requirements.txt ]; then echo python -m pip install -r requirements.txt; elif [ -f Pipfile.lock ]; then echo pip install pipenv --user; echo pipenv install --deploy --ignore-pipfile; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi",
+                        "if [ -f requirements.txt ]; then echo python -m pip install -r requirements.txt; elif [ -f Pipfile.lock ]; then echo pip install pipenv --user; echo pipenv install --deploy --ignore-pipfile; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; ",
                         'npm --version; node --version; python --version; pip --version; npx cdk --version',
                     ],
                 },
@@ -363,7 +363,7 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
     stk = Stack.of(cdk_scope)
 
     ### automatically detect if Git-Repo-codebase is using Plain-Pip (and .venv) or whether the Git-Repo-Codebase is using Pipenv/Pifile
-    cdk_deploy_command  =  "if [ -f requirements.txt ]; PRFX=\"\"; elif [ -f Pipfile.lock ]; then PRFX=\"pipenv run\"; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi"
+    cdk_deploy_command  =  "if [ -f requirements.txt ]; PRFX=\"\"; elif [ -f Pipfile.lock ]; then PRFX=\"pipenv run\"; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; "
     cdk_deploy_command +=  "$PRFX npx cdk deploy  --quiet --all"
     cdk_deploy_command +=  " --require-approval never --concurrency 10 --asset-parallelism true --asset-prebuild"
     cdk_deploy_command += f" --context tier=\"{tier}\""
@@ -415,7 +415,7 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
                         "pip install --upgrade pip",
                         # "python -m pip install pip-tools",
                         # "python -m piptools compile --quiet --resolver=backtracking requirements.in",
-                        "if [ -f requirements.txt ]; then echo python -m pip install -r requirements.txt; elif [ -f Pipfile.lock ]; then echo pip install pipenv --user; echo pipenv install --deploy --ignore-pipfile; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi",
+                        "if [ -f requirements.txt ]; then echo python -m pip install -r requirements.txt; elif [ -f Pipfile.lock ]; then echo pip install pipenv --user; echo pipenv install --deploy --ignore-pipfile; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; ",
                         'npm --version; node --version; python --version; pip --version; npx cdk --version',
                         f"jq '.context.[\"git-source\"].git_commit_hashes.{tier}' cdk.json --raw-output",
                         'git checkout --force', ### to address ---> error: Your local changes to the following files would be overwritten by checkout: package-lock.json
@@ -509,7 +509,7 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
     print( f"cb_proj_name='{cb_proj_name}'" )
 
     ### automatically detect if Git-Repo-codebase is using Plain-Pip (and .venv) or whether the Git-Repo-Codebase is using Pipenv/Pifile
-    cdk_deploy_command  =  "if [ -f requirements.txt ]; PRFX=\"\"; elif [ -f Pipfile.lock ]; then PRFX=\"pipenv run\"; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi"
+    cdk_deploy_command  =  "if [ -f requirements.txt ]; PRFX=\"\"; elif [ -f Pipfile.lock ]; then PRFX=\"pipenv run\"; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; "
     cdk_deploy_command +=  "$PRFX npx cdk deploy  --quiet --all"
     cdk_deploy_command +=  " --require-approval never --concurrency 10 --asset-parallelism true --asset-prebuild"
     cdk_deploy_command += f" --context tier=\"{tier}\""
@@ -566,7 +566,7 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
                         "pip install --upgrade pip",
                         # "python -m pip install pip-tools",
                         # "python -m piptools compile --quiet --resolver=backtracking requirements.in",
-                        "if [ -f requirements.txt ]; then echo python -m pip install -r requirements.txt; elif [ -f Pipfile.lock ]; then echo pip install pipenv --user; echo pipenv install --deploy --ignore-pipfile; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi",
+                        "if [ -f requirements.txt ]; then echo python -m pip install -r requirements.txt; elif [ -f Pipfile.lock ]; then echo pip install pipenv --user; echo pipenv install --deploy --ignore-pipfile; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; ",
                         'npm --version; node --version; python --version; pip --version; npx cdk --version',
                     ],
                 },
