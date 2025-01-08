@@ -273,7 +273,7 @@ def standard_CodeBuildSynth_Python(
                         "pip install --upgrade pip",
                         # "python -m pip install pip-tools",
                         # "python -m piptools compile --quiet --resolver=backtracking requirements.in",
-                        "if [ -f requirements.txt ]; then python -m venv .venv;   .   .venv/bin/activate;  pip install -r requirements.txt; elif [ -f Pipfile.lock ]; then pip install pipenv --user; pipenv install --deploy --ignore-pipfile; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; ",
+                        "if [ -f requirements.txt ]; then python -m venv .venv;   .   .venv/bin/activate;  pip install -r requirements.txt; elif [ -f Pipfile.lock ]; then pip install pipenv --user; pipenv sync; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; ",
                         ### ERROR: Pip Can not perform a '--user' install. User site-packages are not visible in this virtualenv.
                         ###     Courtesy Notice: Pipenv found itself running within a virtual environment,  so it will automatically use that environment, instead of  creating its own for any project.
                         ###     You can set PIPENV_IGNORE_VIRTUALENVS=1 to force pipenv to ignore that environment and create  its own instead.
@@ -416,7 +416,7 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
                         "pip install --upgrade pip",
                         # "python -m pip install pip-tools",
                         # "python -m piptools compile --quiet --resolver=backtracking requirements.in",
-                        "if [ -f requirements.txt ]; then python -m venv .venv;   .   .venv/bin/activate;  pip install -r requirements.txt; elif [ -f Pipfile.lock ]; then pip install pipenv --user; pipenv install --deploy --ignore-pipfile; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; ",
+                        "if [ -f requirements.txt ]; then python -m venv .venv;   .   .venv/bin/activate;  pip install -r requirements.txt; elif [ -f Pipfile.lock ]; then pip install pipenv --user; pipenv sync; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; ",
                         ### ERROR: Pip Can not perform a '--user' install. User site-packages are not visible in this virtualenv.
                         ###     Courtesy Notice: Pipenv found itself running within a virtual environment,  so it will automatically use that environment, instead of  creating its own for any project.
                         ###     You can set PIPENV_IGNORE_VIRTUALENVS=1 to force pipenv to ignore that environment and create  its own instead.
@@ -570,7 +570,7 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
                        "pip install --upgrade pip",
                         # "python -m pip install pip-tools",
                         # "python -m piptools compile --quiet --resolver=backtracking requirements.in",
-                        "if [ -f requirements.txt ]; then python -m venv .venv;   .   .venv/bin/activate;  pip install -r requirements.txt; elif [ -f Pipfile.lock ]; then pip install pipenv --user; pipenv install --deploy --ignore-pipfile; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; ",
+                        "if [ -f requirements.txt ]; then python -m venv .venv;   .   .venv/bin/activate;  pip install -r requirements.txt; elif [ -f Pipfile.lock ]; then pip install pipenv --user; pipenv sync; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; ",
                         ### ERROR: Pip Can not perform a '--user' install. User site-packages are not visible in this virtualenv.
                         ###     Courtesy Notice: Pipenv found itself running within a virtual environment,  so it will automatically use that environment, instead of  creating its own for any project.
                         ###     You can set PIPENV_IGNORE_VIRTUALENVS=1 to force pipenv to ignore that environment and create  its own instead.
