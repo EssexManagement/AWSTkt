@@ -13,6 +13,7 @@ import common.cdk.constants_cdk as constants_cdk
 import common.cdk.aws_names as aws_names
 from cdk_utils.CloudFormation_util import get_cpu_arch_enum, add_tags
 from backend.common_aws_resources_stack import CommonAWSResourcesStack
+from backend.AllStacks import AppStack
 
 ### ==============================================================================================
 ### ..............................................................................................
@@ -44,8 +45,14 @@ scope :Construct = app
 """ Creates all the various Application's stacks.  This is in itself a PLAIN-Python-class!!!
 """
 
-cpu_arch_str: str = os.environ.get("CPU_ARCH", None)
+
+
+# cpu_arch_str: str = os.environ.get("CPU_ARCH", None)
+cpu_arch_str: str = app.node.try_get_context( 'CPU_ARCH' )
 print( f"CPU_ARCH (Env-Var) = '{cpu_arch_str}' within "+ HDR )
+if not cpu_arch_str:
+    print( f"!! ERROR !! '-c =CPU_ARCH=x86_64|arm64'  commandline-argument is missing.  Assuming this is running INSIDE AWS-CodeBuild!❌" )
+    sys.exit( 3 )
 cpu_arch = get_cpu_arch_enum( cpu_arch_str )
 # cpu_arch_str: str = cpu_arch.name.lower()  ### === 'arm64|x86_64' string
 print( f"CPU-ARCH (Enum) ='{cpu_arch}'" )
@@ -62,7 +69,7 @@ aws_profile = app.node.try_get_context( 'AWSPROFILE' )
 
 if platform.system() == 'Darwin' or platform.system() == "Windows":
     if aws_profile is None:
-        print( f"!! ERROR !! '-c AWSPROFILE=...'  commandline-arguments are missing.  Assuming this is running INSIDE AWS-CodeBuild!❌" )
+        print( f"!! ERROR !! '-c AWSPROFILE=...'  commandline-argument is missing.  Assuming this is running INSIDE AWS-CodeBuild!❌" )
         sys.exit( 5 )
 ### update the file `backend/lambda_layer/lambda_layer_hashes.py` (with the latest hashes)
 GetHashesForLambdaLayers(
@@ -77,16 +84,30 @@ GetHashesForLambdaLayers(
 ### ..............................................................................................
 
 ### Stack # 1
-CommonAWSResourcesStack(
+common_stk = CommonAWSResourcesStack(
     scope = scope,
     simple_id = f"CommonRsrc-{cpu_arch_str}",
     stk_prefix = stk_prefix,
     tier = tier,
     aws_env=aws_env,
     git_branch=git_branch,
-    # lambda_configs = lambda_configs,
     cpu_arch_list = [cpu_arch],   ### Once cpu-arch at a time (as one CodeBuild-instance cannot handle 2 different cpu-arch)
-    # layer_modules_list = LAYER_MODULES,
+
+    env = env,  ### kwargs !!!
+)
+
+### ..............................................................................................
+
+### Stack # 2
+AppStack(
+    scope = scope,
+    simple_id = f"AppStk-{cpu_arch_str}",
+    stk_prefix = stk_prefix,
+    tier = tier,
+    aws_env=aws_env,
+    git_branch=git_branch,
+    cpu_arch_str = cpu_arch_str,
+    common_stk = common_stk,
 
     env = env,  ### kwargs !!!
 )
