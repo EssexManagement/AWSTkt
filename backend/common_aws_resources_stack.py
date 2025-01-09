@@ -82,10 +82,10 @@ class CommonAWSResourcesStack(Stack):
     ) -> None:
         """ For each cpu-architecture, create lambda-layers (assuming `LambdaLayersAssetBuilder` class has done its job properly)
         """
-        stk = Stack.of(self)
+        this_stk = Stack.of(self)
         cpu_arch_str: str = get_cpu_arch_as_str( cpu_arch )
 
-        print( '$'*120)
+        print( '$'*60)
         print( f"Building Lambda-Layer ZIP-file for CPU-Arch: '{cpu_arch_str}' .. .." )
         print( '^'*120 )
         layer_id = layer.LAMBDA_LAYER_ID
@@ -133,16 +133,25 @@ class CommonAWSResourcesStack(Stack):
                 layer_asset = my_lambdalayer_asset,
                 asset_sha256_hash = myasset_sha256_hash,
             )
-            print( '.'*120 )
+            print( '.'*120, '\n' )
 
         print( my_lambdalayer_asset )
 
         ### Detect of anything has changed with this Lambda-Layer (by comparing HASH from deployed-layer with above `myasset_sha256_hash`)
         if lkp_lyr_hash and myasset_sha256_hash and lkp_lyr_hash == myasset_sha256_hash:
             print( f"Lambda-Layer '{layer_id}' with CPU-Arch '{cpu_arch_str}' is UNCHANGED.  Skipping re-building the Lambda-Layer." )
+
+            ### ! Attention ! This from_layer_version_attribute() invocation uses "common" stack as Scope.
+            ### So, this "my_lambda_layerversion" will NOT work in another stack!!!!!!!!
+            # my_lambda_layerversion = aws_lambda.LayerVersion.from_layer_version_attributes( scope = self,
+            #     id = f"lkp-layer-{layer_id}-{cpu_arch_str}",
+            #     layer_version_arn = lkp_lyr_arn,
+            # )
+
             return
-        else:
-            print( f"Lambda-Layer '{layer_id}' with CPU-Arch '{cpu_arch_str}' has CHANGED!!!  Old hash ='{lkp_lyr_hash}' --versus-- new hash = '{myasset_sha256_hash}'" )
+
+        ### This means .. the Layer needs to be RE-built and RE-deployed !!!
+        print( f"Lambda-Layer '{layer_id}' with CPU-Arch '{cpu_arch_str}' has CHANGED!!!  Old hash ='{lkp_lyr_hash}' --versus-- new hash = '{myasset_sha256_hash}'" )
 
         layer_uniq_id = f"layer-{layer_id}-{cpu_arch_str}"
         layer_version_name = aws_names.gen_lambdalayer_name(
@@ -169,7 +178,7 @@ class CommonAWSResourcesStack(Stack):
         LambdaConfigs.cache_lambda_layer(
             layer_name = layer_id,
             cpu_arch_str = cpu_arch_str,
-            stk = stk,
+            stk_containing_layers = this_stk,
             layer = my_lambda_layerversion,
             asset_sha256_hash = myasset_sha256_hash,
         )
