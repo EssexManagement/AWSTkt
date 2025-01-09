@@ -36,7 +36,7 @@ GITHUB_REPOSITORY=$(git ls-remote --get-url | sed -e 's/..*github.com\/\(.*\)/\1
 ( unset BUILDPLATFORM; unset DOCKER_DEFAULT_PLATFORM; unset TARGETPLATFORM;
   export CPU_ARCH="$(uname -m)";  ### PICK ONE !!!
   export CPU_ARCH="x86_64";       ### PICK ONE !!!
-  pipenv run npx cdk synth --quiet --all --app "python3 pipeline_app.py"  -c tier=${TIER} -c git_repo=${GITHUB_REPOSITORY} --profile ${AWSPROFILE} --region ${AWSREGION}
+  pipenv run npx cdk synth --quiet --all --app "python3 cdk_pipeline_app.py"  -c tier=${TIER} -c git_repo=${GITHUB_REPOSITORY} --profile ${AWSPROFILE} --region ${AWSREGION}
 )
 ```
 
