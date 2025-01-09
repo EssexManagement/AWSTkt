@@ -44,15 +44,15 @@ _lambda_construct_list :List[aws_lambda.IFunction]     = []
 _lambda_construct_map  :Dict[str,aws_lambda.IFunction] = {}
 
 _cache_of_layers          :Dict[str, tuple[aws_lambda.ILayerVersion, str]] = {} ### V in KV-pair is a tuple of "Asset & Sha256-Hash-of-same-asset"
-_cache_of_layers_arns     :Dict[str, tuple[str, str]]                      = {} ### V in KV-pair is a tuple of "Asset & Sha256-Hash-of-same-asset"
+# _cache_of_layers_arns     :Dict[str, tuple[str, str]]                      = {} ### V in KV-pair is a tuple of "Asset & Sha256-Hash-of-same-asset"
 _cache_of_layers_assets   :Dict[str, tuple[aws_lambda.AssetCode, str] ]    = {} ### V in KV-pair is a tuple of "Asset & Sha256-Hash-of-same-asset"
 # _cache_of_layers_zipfiles :Dict[str, pathlib.Path]             = {}
 
 ### AWS official Lambda-Layers for Pandas
 ###         https://aws-sdk-pandas.readthedocs.io/en/stable/layers.html
 ### FYI only: 3rd party https://github.com/keithrozario/Klayers/tree/master/deployments/python3.12
-_cache_of_layers_arns["pandas-ext-arm64"] = "arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python312-Arm64"
-_cache_of_layers_arns["pandas-ext-amd64"] = "arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python312"
+# _cache_of_layers_arns["pandas-ext-arm64"] = "arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python312-Arm64"
+# _cache_of_layers_arns["pandas-ext-amd64"] = "arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python312"
 
 ### ===============================================================================================
 ### ...............................................................................................
@@ -263,13 +263,14 @@ class LambdaConfigs():
         param # 4 - asset_256_hash :str (usually that of `Pipfile.lock` or `requirements.txt` that is associated with the `layer_zip_file`)
         param # 5 - overwrite :bool -- Whether to overwrite the layer if it already exists (default: False)
         """
+        asset_lkp_key = f"{layer_name}-{cpu_arch_str}"
         ### SANITY CHECK: if the layer is valid
         if not layer_asset:
             raise MyLambdaConfigException( f"!! ERROR !! For Lambda-Layer '{layer_name}-{cpu_arch_str}' .. 'layer_asset' is None !!" )
-        if not overwrite and f"{layer_name}-{cpu_arch_str}" in _cache_of_layers_assets:
+        if not overwrite and asset_lkp_key in _cache_of_layers_assets:
             raise MyLambdaConfigException( f"!! ERROR !! Layer-Asset '{layer_name}-{cpu_arch_str}' is already cached (FYI: overwrite='{overwrite}')!!" )
 
-        _cache_of_layers_assets[ f"{layer_name}-{cpu_arch_str}" ] = tuple[ layer_asset, asset_sha256_hash ]
+        _cache_of_layers_assets[ asset_lkp_key ] = tuple[ layer_asset, asset_sha256_hash ]
         print( f"Saved to _cache_of_layers_assets for '{layer_name}-{cpu_arch_str}' = {layer_asset.path} {asset_sha256_hash}" )
         print( layer_asset )
 
@@ -286,9 +287,10 @@ class LambdaConfigs():
             (1) pathlib.Path object to the Lambda-layer's zip-file
             (2) The SHA256 hash (of `Pipfile.lock`) which is then encoded as hex.  See the algorithm inside common/cdk/LambdaLayerUtils.py's `get_sha256_hex_hash_for_file()`
         """
-        if f"{layer_name}-{cpu_arch_str}" not in _cache_of_layers_assets:
+        asset_lkp_key = f"{layer_name}-{cpu_arch_str}"
+        if asset_lkp_key not in _cache_of_layers_assets:
             raise MyLambdaConfigException( f"!! ERROR !! Layer '{layer_name}-{cpu_arch_str}' is NOT cached.  Perhaps you are looking it up BEFORE it has been created (within api/infrastructure.py) !!" )
-        myasset_zip_file, myasset_sha256_hash = _cache_of_layers_assets[ f"{layer_name}-{cpu_arch_str}" ]
+        myasset_zip_file, myasset_sha256_hash = _cache_of_layers_assets[ asset_lkp_key ]
         return tuple[ myasset_zip_file, myasset_sha256_hash ]
 
 ### -----------------------------------------------------------------------------------------------------------
@@ -297,7 +299,7 @@ class LambdaConfigs():
     def cache_lambda_layer(
         layer_name :str,
         cpu_arch_str :str,
-        stk :Stack,
+        stk_containing_layers :Stack,
         layer :aws_lambda.ILayerVersion,
         asset_sha256_hash :str,
         overwrite :bool = False,
@@ -309,19 +311,23 @@ class LambdaConfigs():
         param # 4 - asset_256_hash :str (usually that of `Pipfile.lock` or `requirements.txt` that is associated with the `layer_zip_file`)
         param # 5 - overwrite :bool -- Whether to overwrite the layer if it already exists (default: False)
         """
+        lyr_lkp_key = f"{stk_containing_layers.stack_name}-{layer_name}-{cpu_arch_str}"
+        # lyrARN_lkp_key = f"{layer_name}-{cpu_arch_str}"
         ### SANITY CHECK: if the layer is valid
-        if not overwrite and ( f"{layer_name}-{cpu_arch_str}" in _cache_of_layers_arns or f"{stk.stack_name}-{layer_name}-{cpu_arch_str}" in _cache_of_layers ):
+        # if not overwrite and ( lyrARN_lkp_key in _cache_of_layers_arns or lyr_lkp_key in _cache_of_layers ):
+        if not overwrite and ( lyr_lkp_key in _cache_of_layers ):
             raise MyLambdaConfigException( f"!! ERROR !! Layer-CDK-Object '{layer_name}-{cpu_arch_str}' is already cached (FYI: overwrite='{overwrite}')!!" )
 
-        _cache_of_layers[ f"{stk.stack_name}-{layer_name}-{cpu_arch_str}" ] = tuple[ layer, asset_sha256_hash ]
-        _cache_of_layers_arns[ f"{layer_name}-{cpu_arch_str}" ]             = tuple[ layer.layer_version_arn, asset_sha256_hash ]
-        print( f"_cache_of_layers for '{stk.stack_name}-{layer_name}-{cpu_arch_str}' = {layer.node.addr} // layer-arn={layer.layer_version_arn} // {asset_sha256_hash}" )
+        arn = layer.layer_version_arn
+        _cache_of_layers     [    lyr_lkp_key ] = tuple[ layer, asset_sha256_hash ]
+        # _cache_of_layers_arns[ lyrARN_lkp_key ] = tuple[   arn, asset_sha256_hash ]
+        print( f"_cache_of_layers for '{stk_containing_layers.stack_name}-{layer_name}-{cpu_arch_str}' = {layer.node.addr} // layer-arn={layer.layer_version_arn} // {asset_sha256_hash}" )
 
 
     @staticmethod
     def lookup_lambda_layer(
         layer_name :str,
-        stk :Stack,
+        stk_containing_layers :Stack,
         cpu_arch_str :str,
     ) -> tuple[aws_lambda.ILayerVersion, str]:
         """ Looks up the path to the cached Lambda-layer CDK-Construct.
@@ -331,19 +337,24 @@ class LambdaConfigs():
             (1) aws_lambda.ILayerVersion object
             (2) The SHA256 hash (of `Pipfile.lock`) which is then encoded as hex.  See the algorithm inside common/cdk/LambdaLayerUtils.py's `get_sha256_hex_hash_for_file()`
         """
-        if f"{stk.stack_name}-{layer_name}-{cpu_arch_str}" in _cache_of_layers:
-            return _cache_of_layers[ f"{stk.stack_name}-{layer_name}-{cpu_arch_str}" ]
-        else:
-            if f"{layer_name}-{cpu_arch_str}" in _cache_of_layers_arns:
-                ilayer_obj = aws_lambda.LayerVersion.from_layer_version_arn(
-                    scope = stk,
-                    id = f"{layer_name}-{cpu_arch_str}",
-                    layer_version_arn = _cache_of_layers_arns[ f"{layer_name}-{cpu_arch_str}" ],
-                )
-                _cache_of_layers[ f"{stk.stack_name}-{layer_name}-{cpu_arch_str}" ] = ilayer_obj
-                return ilayer_obj
-            else:
+        lyr_lkp_key = f"{stk_containing_layers.stack_name}-{layer_name}-{cpu_arch_str}"
+        # lyrARN_lkp_key = f"{layer_name}-{cpu_arch_str}"
+
+        if not lyr_lkp_key in _cache_of_layers:
+            # if lyrARN_lkp_key in _cache_of_layers_arns: ### perhaps, if it is in ANOTHER stack(in this App?)
+            #     layer_version_arn, asset_sha256_hash = _cache_of_layers_arns[ lyrARN_lkp_key ]
+            #     ilayer_obj = aws_lambda.LayerVersion.from_layer_version_arn(
+            #         scope = stk_containing_layers,
+            #         id = f"config_lkp_{layer_name}-{cpu_arch_str}",
+            #         layer_version_arn = layer_version_arn,
+            #     )
+            #     _cache_of_layers[ lyr_lkp_key ] = tuple[ ilayer_obj, asset_sha256_hash ]
+            #     return tuple[ ilayer_obj, asset_sha256_hash ]
+            # else:
+            #     ### -NO- other stack in --THIS-- Application has this Lambda-Layer ..! That's a problem!
                 raise MyLambdaConfigException( f"!! ERROR !! Layer/Layer-ARN for '{layer_name}-{cpu_arch_str}' is NOT cached.  Perhaps you are looking it up BEFORE it has been created (within api/infrastructure.py) !!" )
+
+        return _cache_of_layers[ lyr_lkp_key ] ### This is a tuple.
 
 
     @staticmethod
