@@ -20,7 +20,7 @@ import common.cdk.constants_cdk as constants_cdk
 import common.cdk.aws_names as aws_names
 import cdk_utils.CloudFormation_util as CFUtil
 
-from api.config import LambdaConfigs
+from backend.lambda_layer.lambda_layer_hashes import lambda_layer_hashes
 from backend.lambda_layer.layers_config import LAYER_MODULES
 
 ### ==============================================================================================
@@ -62,7 +62,11 @@ class AppStack(Stack):
 
         self.tier = tier
         layer_id = LAYER_MODULES[0].LAMBDA_LAYER_ID  ### <--------------- hardcoding the layer to use !!!!!!!!!!!!!
-        layer_version_arn = f"arn:{self.partition}:lambda:{self.region}:{self.account}:layer:{aws_names.gen_lambdalayer_name(tier,layer_id,cpu_arch_str)}"
+        layer_full_name = f"{aws_names.gen_lambdalayer_name(tier,layer_id,cpu_arch_str)}"
+        print( f"{HDR} - layer_full_name = {layer_full_name}" )
+        layer_version_arn :str = lambda_layer_hashes.get(tier).get( layer_full_name ).get('arn')
+        print( f"{HDR} - layer_version_arn = {layer_version_arn}" )
+        # layer_version_arn = f"arn:{self.partition}:lambda:{self.region}:{self.account}:layer:{aws_names.gen_lambdalayer_name(tier,layer_id,cpu_arch_str)}"
             ### Example: arn:aws:lambda:us-east-1:123456789012:layer:AWSTkt-backend-dev_psycopg3-pandas_amd64:5
 
         ### Since the Layers are built in another Stack, LambdaConfigs.lookup_lambda_layer() will fail .. .. even if I use `stk_containing_layers = common_stk` !!!
