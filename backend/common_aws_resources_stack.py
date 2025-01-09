@@ -15,26 +15,15 @@ from aws_cdk import (
 import constants
 import common.cdk.constants_cdk as constants_cdk
 import common.cdk.aws_names as aws_names
+import common.FSUtils as FSUtils
 from common.cdk.standard_lambda import LambdaLayerOption
 from cdk_utils.CloudFormation_util import add_tags, get_cpu_arch_as_str
 from common.cdk.lambda_layer_util import LambdaLayerUtility
 
 from api import config
 from api.config import LambdaConfigs
-import backend.lambda_layer.psycopg.lambda_layer_psycopg as layer_psycopg
-import backend.lambda_layer.psycopg_pandas.lambda_layer_psycopg_pandas as layer_psycopg_pandas
-import backend.lambda_layer.psycopg3.lambda_layer_psycopg3 as layer_psycopg3
-import backend.lambda_layer.psycopg3_pandas.lambda_layer_psycopg3_pandas as layer_psycopg3_pandas
+from backend.lambda_layer.layers_config import LAYER_MODULES
 from backend.lambda_layer.lambda_layer_hashes import lambda_layer_hashes
-
-### ==============================================================================================
-
-LAYER_MODULES = [
-    layer_psycopg,
-    layer_psycopg_pandas,
-    layer_psycopg3,
-    layer_psycopg3_pandas
-]
 
 ### ==============================================================================================
 ### ..............................................................................................
@@ -105,10 +94,10 @@ class CommonAWSResourcesStack(Stack):
 
         lkp_str_key :str = aws_names.gen_lambdalayer_name( tier, layer_id, cpu_arch_str )
         print( f"lkp_str_key = '{lkp_str_key}'" )
-        lkp_lyr :dict[str, str]= lambda_layer_hashes.get( lkp_str_key )
+        lkp_lyr :dict[str, str]= lambda_layer_hashes.get( tier ).get( lkp_str_key )
         print( json.dumps(lkp_lyr, indent=4) )
-        lkp_lyr_arn  = lkp_lyr.get('arn')
-        lkp_lyr_hash = lkp_lyr.get('sha256_hex')
+        lkp_lyr_arn  = lkp_lyr.get('arn', None) if lkp_lyr else None
+        lkp_lyr_hash = lkp_lyr.get('sha256_hex', None) if lkp_lyr else None
 
         my_lambdalayer_asset = None
         myasset_sha256_hash  = None
@@ -129,6 +118,7 @@ class CommonAWSResourcesStack(Stack):
                 lambda_layer_id = layer.LAMBDA_LAYER_ID,
                 lambda_layer_builder_script = None ### was: layer.LAMBDA_LAYER_BUILDER_SCRIPT,
             )
+            # if the "Pipfile" modified-timestamp is more recent than that of "Pipefile.lock" throw an exception
             my_lambdalayer_asset, myasset_sha256_hash = util.build_lambda_layer_using_docker(
                 tier = tier,
                 cpu_arch_str = cpu_arch_str,
@@ -159,6 +149,9 @@ class CommonAWSResourcesStack(Stack):
             simple_lambdalayer_name = layer_id,
             cpu_arch_str = cpu_arch_str )
         print( f"Creating aws_lambda.LayerVersion(): {layer_version_name} .. via lookup-Key= '{layer_id}-{cpu_arch_str}' // {cpu_arch_str} // {layer_uniq_id} .." )
+
+        FSUtils.assert_not_newer_than( myfile="Pipfile", newer_than_this="Pipfile.lock", ignore_missing_files=True )
+        FSUtils.assert_not_newer_than( myfile="requirements.in", newer_than_this="requirements.txt", ignore_missing_files=True )
 
         my_lambda_layerversion = aws_lambda.LayerVersion(
             scope = self,
