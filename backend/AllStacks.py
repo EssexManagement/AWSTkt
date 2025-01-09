@@ -19,6 +19,7 @@ import constants as constants
 import common.cdk.constants_cdk as constants_cdk
 import common.cdk.aws_names as aws_names
 import cdk_utils.CloudFormation_util as CFUtil
+from common.cdk.standard_lambda import StandardLambda
 
 from backend.lambda_layer.lambda_layer_hashes import lambda_layer_hashes
 from backend.lambda_layer.layers_config import LAYER_MODULES
@@ -79,23 +80,17 @@ class AppStack(Stack):
         ### Since the variable `layer_version_arn` does -NOT- include the version# .. we should expect the resposne to be for the LATEST-version of the layer
         layers = [ my_lambda_layerversion ]
 
-        aws_lambda_python_alpha.PythonFunction(
+        lambda_factory = StandardLambda( vpc=None, sg_lambda=None, tier=tier, min_memory=None, default_timeout=None )
+        lambda_factory.create_lambda(
             scope=self,
-            id="my-test-python-func",
-            function_name=aws_names.gen_lambda_name( tier, f"myTestPythonFn-{cpu_arch_str}" ),
-            entry="backend/src/lambda",
+            lambda_name=aws_names.gen_lambda_name( tier, f"myTestPythonFn-{cpu_arch_str}" ),
+            path_to_lambda_src_root="backend/src/lambda",
             index="handler.py",
             handler="handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,
             architecture=CFUtil.get_cpu_arch_enum( cpu_arch_str ),
             layers=layers,
-
             timeout=Duration.seconds(30),
-            log_retention=aws_logs.RetentionDays.ONE_DAY,
-            retry_attempts=0,
-            tracing=aws_lambda.Tracing.ACTIVE,
-            # log_group=aws_logs.LogGroup.from_log_group_name(scope, id="my-test-python-func-log-group", log_group_name=aws_names.gen_log_group_name( tier, 'my-test-python-func-log-group' )),
-            # log_group=aws_logs.LogGroup.from_log_group_name(scope, id="my-test-python-func-log-group", log_group_name=aws_names.gen_log_group_name( tier, 'my-test-python-func-log-group' )),"
         )
 
 ### ..............................................................................................
