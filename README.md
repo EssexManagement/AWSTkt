@@ -34,8 +34,6 @@ pipenv sync --dev
 GITHUB_REPOSITORY=$(git ls-remote --get-url | sed -e 's/..*github.com\/\(.*\)/\1/');
 
 ( unset BUILDPLATFORM; unset DOCKER_DEFAULT_PLATFORM; unset TARGETPLATFORM;
-  export CPU_ARCH="$(uname -m)";  ### PICK ONE !!!
-  export CPU_ARCH="x86_64";       ### PICK ONE !!!
   pipenv run npx cdk synth --quiet --all --app "python3 cdk_pipeline_app.py"  -c tier=${TIER} -c git_repo=${GITHUB_REPOSITORY} --profile ${AWSPROFILE} --region ${AWSREGION}
 )
 ```
@@ -46,18 +44,21 @@ Change above cmd tto remove ~~`cdk synth`~~ and use `cdk deploy` instead.
 <BR/><BR/><BR/><BR/>
 <HR/><HR/><HR/><HR/>
 
-# Case Details
+# APPENDIX - 100% sanity-checking CDK (before deploying)
 
-We have been struggling for 3 FULL business days now, with `AWS CodeBuild`.
+The above `synth` command only sanity-checks the Pipeline-stack.<BR/>
+The pipeline will deploy mnultiple Application-stacks!<BR/>
+The following will sanity-check that the pipeline will not fail during cdk-synth.
 
-WHEN PROBLEM STARTED:<BR/>
-since we created standard "`psycopg`" and "`pandas`" LambdaLayers and started using it across ALL lambdas (across multiple stacks deployed by same `cdk deploy` command)
+```bash
+( unset BUILDPLATFORM; unset DOCKER_DEFAULT_PLATFORM; unset TARGETPLATFORM;
+  CPU_ARCH="$(uname -m)";  ### PICK ONE !!!
+  CPU_ARCH="x86_64";       ### PICK ONE !!!
+  pipenv run npx cdk synth --quiet --all --app "python3 layers_app.py"  -c tier=${TIER} -c CPU_ARCH=${CPU_ARCH} -c git_repo=${GITHUB_REPOSITORY} -c  AWSPROFILE=${AWSPROFILE} --profile ${AWSPROFILE} --region ${AWSREGION}
+)
+```
 
-THE ISSUE:<BR/>
-cdk-synth INSIDE AWS-CODEBUILD project FAILS with no details (Docker exit-code only); FYI ONLY: cdk-synth from MacBook-Pro M1 is working just fine.
-
-WHAT WE TRIED:<BR/>
-No benefit in Changing BUILD-IMAGE between `Standard` and `AL2_ARM_3`.  No benefit in increasing CodeBuild-instance-size to `X2_LARGE`.  So, we stopped creating `x86_64` Layers & Lambdas. Instead ONLY focused on `arm64` only.
-
+<BR/><BR/><BR/><BR/>
+<HR/><HR/><HR/><HR/>
 
 /End
