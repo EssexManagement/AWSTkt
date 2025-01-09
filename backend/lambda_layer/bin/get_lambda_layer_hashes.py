@@ -188,7 +188,7 @@ class GetHashesForLambdaLayers(GenericAWSCLIScript):
                         f.write( f'        "{name}" : {{ "arn" : "{arn}", "sha256_hex" : "{hsh}" }},\n' )
                     f.write( '    },\n' )
                 else:
-                    print( f"!!! -NOT- copying the -OLD- info for tier='{tier}' from file: '{f.name}'" )
+                    print( f"FYI-only. -NOT- copying the -OLD- info for tier='{tier}' from file: '{f.name}'.  That's good." )
             f.write( '}\n\n' + w1 + w2 + w1 + w2 )
             f.close()
 
