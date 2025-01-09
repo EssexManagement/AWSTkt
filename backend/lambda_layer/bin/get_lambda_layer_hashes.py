@@ -22,6 +22,7 @@ from cdk_utils.CloudFormation_util import add_tags, get_cpu_arch_as_str
 ### ==============================================================================================
 
 from backend.lambda_layer.layers_config import LAYER_MODULES
+from backend.lambda_layer.lambda_layer_hashes import lambda_layer_hashes
 
 ### ==============================================================================================
 ### ..............................................................................................
@@ -128,7 +129,6 @@ class GetHashesForLambdaLayers(GenericAWSCLIScript):
 
         if len(app_specific_lambda_layer_arns) <= 0:
             print( f"\n\n!! ERROR !! No Lambda-Layers found for {lambdalayer_regex} !!❌❌❌\n")
-            sys.exit(68)
 
         # if not (len(app_specific_lambda_layer_names) ==
         #         len(app_specific_lambda_layer_arns) ==
@@ -164,14 +164,28 @@ class GetHashesForLambdaLayers(GenericAWSCLIScript):
             # f.write( f"]\n" )
             # f.write( "\n### " + '='*80 + '\n\n' )
 
-            f.write(  "lambda_layer_hashes :dict[str, dict[str, str]] = {\n" )
+            f.write( "lambda_layer_hashes :dict[str, dict[str, any]] = {\n" )
+            ### Put this tier's info at TOP of the dictionary .. so it's easy for humans to verify what changed.
+            f.write(f"    '{tier}' : {{\n")
             for name in app_specific_lambda_layer_names:
                 if name not in app_specific_lambda_layer_arns and name not in app_specific_lambda_layer_hashes:
                     print( f"\n\tSkipping Lambda-Layer '{name}' !❌❌❌\n")
                     continue
                 arn = app_specific_lambda_layer_arns[name]
                 hsh = app_specific_lambda_layer_hashes[name]
-                f.write( f'    "{name}" : {{ "arn" : "{arn}", "sha256_hex" : "{hsh}" }},\n' )
+                f.write( f'        "{name}" : {{ "arn" : "{arn}", "sha256_hex" : "{hsh}" }},\n' )
+            f.write( '    },\n' )
+            for other_tier in lambda_layer_hashes:
+                if tier != other_tier:
+                    f.write(f"    '{other_tier}' : {{\n")
+                    ### Instead of just using json.dumps() .. indent THE OTHER tiers properly and nice-to-read!!!
+                    for name in lambda_layer_hashes[other_tier]:
+                        arn = lambda_layer_hashes[other_tier][name]['arn']
+                        hsh = lambda_layer_hashes[other_tier][name]['sha256_hex']
+                        f.write( f'        "{name}" : {{ "arn" : "{arn}", "sha256_hex" : "{hsh}" }},\n' )
+                    f.write( '    },\n' )
+                else:
+                    print( f"!!! -NOT- copying the -OLD- info for tier='{tier}' from file: '{f.name}'" )
             f.write( '}\n\n' + w1 + w2 + w1 + w2 )
             f.close()
 
