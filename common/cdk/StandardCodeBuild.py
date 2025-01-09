@@ -836,21 +836,6 @@ def enhance_CodeBuild_role_for_cdkdeploy(
     """ To run `cdk deploy` from within CodeBuild, we need a LOT of permissions (to create & destroy)
     """
 
-    cb_role.attach_inline_policy(
-        aws_iam.Policy( cdk_scope, "ListLayersNVersions",
-            statements=[ aws_iam.PolicyStatement(
-                resources=["*"],
-                actions=[ "lambda:ListLayers", "lambda:ListLayerVersions" ],
-        )]),
-    )
-    cb_role.attach_inline_policy(
-        aws_iam.Policy( cdk_scope, "GetAllLayerVersionInfo",
-            statements=[ aws_iam.PolicyStatement(
-                resources=[ f"arn:{stk.partition}:lambda:{stk.region}:{stk.account}:layer:{aws_names.gen_awsresource_name_prefix(tier)}*", ],
-                actions=[ "lambda:GetLayerVersion", "lambda:GetLayerVersionPolicy", "lambda:DeleteLayerVersion", ],
-        )]),
-    )
-
     ### To fix the error: ❌  FACT-backend-dev-SNSStack failed: AccessDenied: User: arn:aws:sts::???:assumed-role/FACT-backend-pipeline-dev-emFACTbackendcdkCodeBuild-???/AWSCodeBuild-2da0a582-???
     ###         is not authorized to perform: iam:PassRole
     ###         on resource: arn:aws:iam::??????:role/cdk-hnb659fds-cfn-exec-role-??????-??????
@@ -980,7 +965,14 @@ def enhance_CodeBuild_role_for_cdkdeploy(
             resources=[
                 f"arn:{stk.partition}:lambda:{stk.region}:{stk.account}:function/{constants.CDK_APP_NAME}*",
                 f"arn:{stk.partition}:lambda:{stk.region}:{stk.account}:layer/{constants.CDK_APP_NAME}*",
+            # resources=[ f"arn:{stk.partition}:lambda:{stk.region}:{stk.account}:layer:{aws_names.gen_awsresource_name_prefix(tier)}*", ],
+            # actions=[ "lambda:GetLayerVersion", "lambda:GetLayerVersionPolicy", "lambda:DeleteLayerVersion", ],
     ]))
+    cb_role.add_to_principal_policy(
+        aws_iam.PolicyStatement(
+            actions=[ "lambda:ListLayers", "lambda:ListLayerVersions", "lambda:ListFunctions",  ],
+            resources=["*"], ### Attention: This must be '*' unlike the previous policy above !!!
+    ))
     cb_role.add_to_principal_policy(
         aws_iam.PolicyStatement(
             actions=["execute-api:*"],
