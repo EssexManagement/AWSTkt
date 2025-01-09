@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 import os
+import pathlib
+import time
+import sys
+import platform
 
 import aws_cdk as cdk
 from constructs import Construct
@@ -45,6 +49,32 @@ print( f"CPU_ARCH (Env-Var) = '{cpu_arch_str}' within "+ HDR )
 cpu_arch = get_cpu_arch_enum( cpu_arch_str )
 # cpu_arch_str: str = cpu_arch.name.lower()  ### === 'arm64|x86_64' string
 print( f"CPU-ARCH (Enum) ='{cpu_arch}'" )
+
+### ..............................................................................................
+
+# LAMBDA_LAYER_HASHES_LOCALFILEPATH = "backend/lambda_layer/lambda_layer_hashes.py"  ### Avoid hardcoding. Instead do as follows.
+import backend.lambda_layer.lambda_layer_hashes as lambda_layer_hashes_module
+LAMBDA_LAYER_HASHES_LOCALFILEPATH = lambda_layer_hashes_module.__file__
+from backend.lambda_layer.bin.get_lambda_layer_hashes import GetHashesForLambdaLayers
+
+aws_profile = app.node.try_get_context( 'AWSPROFILE' )
+# detect if running on macos
+
+if platform.system() == 'darwin' or platform.system() == "Windows":
+    if aws_profile is None:
+        print( f"!! ERROR !! '-c AWSPROFILE=...'  commandline-arguments are missing.  Assuming this is running INSIDE AWS-CodeBuild!❌" )
+        sys.exit( 5 )
+### update the file `backend/lambda_layer/lambda_layer_hashes.py` (with the latest hashes)
+GetHashesForLambdaLayers(
+    appl_name = constants.CDK_APP_NAME,
+    aws_profile = aws_profile,
+    tier = tier,
+    file_to_save_hashes_into = pathlib.Path( LAMBDA_LAYER_HASHES_LOCALFILEPATH ),
+    # purpose = THIS_SCRIPT_DATA,
+    debug = False,
+)
+
+### ..............................................................................................
 
 ### Stack # 1
 CommonAWSResourcesStack(
