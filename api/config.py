@@ -43,9 +43,9 @@ LOG_LEVEL = "INFO" ### "DEBUG" "WARN"
 _lambda_construct_list :List[aws_lambda.IFunction]     = []
 _lambda_construct_map  :Dict[str,aws_lambda.IFunction] = {}
 
-_cache_of_layers          :Dict[str, aws_lambda.ILayerVersion] = {}
-_cache_of_layers_arns     :Dict[str, str]                      = {}
-_cache_of_layers_assets   :Dict[str, aws_lambda.AssetCode]     = {}
+_cache_of_layers          :Dict[str, tuple[aws_lambda.ILayerVersion, str]] = {} ### V in KV-pair is a tuple of "Asset & Sha256-Hash-of-same-asset"
+_cache_of_layers_arns     :Dict[str, tuple[str, str]]                      = {} ### V in KV-pair is a tuple of "Asset & Sha256-Hash-of-same-asset"
+_cache_of_layers_assets   :Dict[str, tuple[aws_lambda.AssetCode, str] ]    = {} ### V in KV-pair is a tuple of "Asset & Sha256-Hash-of-same-asset"
 # _cache_of_layers_zipfiles :Dict[str, pathlib.Path]             = {}
 
 ### AWS official Lambda-Layers for Pandas
@@ -252,13 +252,16 @@ class LambdaConfigs():
         layer_name :str,
         cpu_arch_str :str,
         layer_asset :aws_lambda.AssetCode,
+        asset_sha256_hash :str,
         overwrite :bool = False,
     ) -> None:
         """ Caches the specified Lambda-layer's Zip-file artifact -- allowing it to be used ANYWHERE in cdk.
-        :param layer_name :str -- Unique Name of the Lambda layer (not incl. CPU_ARCH)
-        :param cpu_arch_str :str -- amd64|arm64
-        :param layer_zip_file :Path -- to the Lambda layer zip file
-        :param overwrite :bool -- Whether to overwrite the layer if it already exists (default: False)
+        param # 1 - layer_name :str -- Unique Name of the Lambda layer (not incl. CPU_ARCH)
+        param # 2 - cpu_arch_str :str -- amd64|arm64
+        param # 3 - layer_zip_file :Path -- to the Lambda layer zip file
+        param # 4 - asset_256_hash :str (usually that of `Pipfile.lock` or `requirements.txt` that is associated with the `layer_zip_file`)
+        param # 4 - asset_256_hash :str (usually that of `Pipfile.lock` or `requirements.txt` that is associated with the `layer_zip_file`)
+        param # 5 - overwrite :bool -- Whether to overwrite the layer if it already exists (default: False)
         """
         ### SANITY CHECK: if the layer is valid
         if not layer_asset:
@@ -266,8 +269,8 @@ class LambdaConfigs():
         if not overwrite and f"{layer_name}-{cpu_arch_str}" in _cache_of_layers_assets:
             raise MyLambdaConfigException( f"!! ERROR !! Layer-Asset '{layer_name}-{cpu_arch_str}' is already cached (FYI: overwrite='{overwrite}')!!" )
 
-        _cache_of_layers_assets[ f"{layer_name}-{cpu_arch_str}" ] = layer_asset
-        print( f"Saved to _cache_of_layers_assets for '{layer_name}-{cpu_arch_str}' = {layer_asset.path}" )
+        _cache_of_layers_assets[ f"{layer_name}-{cpu_arch_str}" ] = tuple[ layer_asset, asset_sha256_hash ]
+        print( f"Saved to _cache_of_layers_assets for '{layer_name}-{cpu_arch_str}' = {layer_asset.path} {asset_sha256_hash}" )
         print( layer_asset )
 
 
@@ -275,15 +278,18 @@ class LambdaConfigs():
     def lookup_lambda_layer_asset(
         layer_name :str,
         cpu_arch_str :str,
-    ) -> aws_lambda.AssetCode:
+    ) -> tuple[aws_lambda.AssetCode, str]:
         """ Looks up the path to the cached Lambda-layer's Zip-file artifact.
-        :param layer_name :str -- Unique Name of the Lambda layer (not incl. CPU_ARCH)
-        :param cpu_arch_str :str -- amd64|arm64
-        :return: pathlib.Path object to the Lambda-layer's zip-file
+        param # 1 - layer_name :str -- Unique Name of the Lambda layer (not incl. CPU_ARCH)
+        param # 2 - cpu_arch_str :str -- amd64|arm64
+        returns a tuple:
+            (1) pathlib.Path object to the Lambda-layer's zip-file
+            (2) The SHA256 hash (of `Pipfile.lock`) which is then encoded as hex.  See the algorithm inside common/cdk/LambdaLayerUtils.py's `get_sha256_hex_hash_for_file()`
         """
         if f"{layer_name}-{cpu_arch_str}" not in _cache_of_layers_assets:
             raise MyLambdaConfigException( f"!! ERROR !! Layer '{layer_name}-{cpu_arch_str}' is NOT cached.  Perhaps you are looking it up BEFORE it has been created (within api/infrastructure.py) !!" )
-        return _cache_of_layers_assets[ f"{layer_name}-{cpu_arch_str}" ]
+        myasset_zip_file, myasset_sha256_hash = _cache_of_layers_assets[ f"{layer_name}-{cpu_arch_str}" ]
+        return tuple[ myasset_zip_file, myasset_sha256_hash ]
 
 ### -----------------------------------------------------------------------------------------------------------
 
@@ -293,21 +299,23 @@ class LambdaConfigs():
         cpu_arch_str :str,
         stk :Stack,
         layer :aws_lambda.ILayerVersion,
+        asset_sha256_hash :str,
         overwrite :bool = False,
     ) -> None:
-        """ Caches the specified Lambda layer -- allowing it to be used ANYWHERE in cdk.
-        :param layer_name :str -- Unique Name of the Lambda layer (not incl. CPU_ARCH)
-        :param cpu_arch_str :str -- amd64|arm64
-        :param layer :aws_lambda.ILayerVersion -- cdk-construct-resource already created.
-        :param overwrite :bool -- Whether to overwrite the layer if it already exists (default: False)
+        """ Caches the specified Lambda-layer CDK-Construct -- allowing it to be used ANYWHERE in cdk.
+        param # 1 - layer_name :str -- Unique Name of the Lambda layer (not incl. CPU_ARCH)
+        param # 2 - cpu_arch_str :str -- amd64|arm64
+        param # 3 - layer :aws_lambda.ILayerVersion -- cdk-construct-resource already created.
+        param # 4 - asset_256_hash :str (usually that of `Pipfile.lock` or `requirements.txt` that is associated with the `layer_zip_file`)
+        param # 5 - overwrite :bool -- Whether to overwrite the layer if it already exists (default: False)
         """
         ### SANITY CHECK: if the layer is valid
         if not overwrite and ( f"{layer_name}-{cpu_arch_str}" in _cache_of_layers_arns or f"{stk.stack_name}-{layer_name}-{cpu_arch_str}" in _cache_of_layers ):
             raise MyLambdaConfigException( f"!! ERROR !! Layer-CDK-Object '{layer_name}-{cpu_arch_str}' is already cached (FYI: overwrite='{overwrite}')!!" )
 
-        _cache_of_layers[ f"{stk.stack_name}-{layer_name}-{cpu_arch_str}" ] = layer
-        _cache_of_layers_arns[ f"{layer_name}-{cpu_arch_str}" ] = layer.layer_version_arn
-        print( f"_cache_of_layers for '{stk.stack_name}-{layer_name}-{cpu_arch_str}' = {layer.node.addr} // layer-arn={layer.layer_version_arn}" )
+        _cache_of_layers[ f"{stk.stack_name}-{layer_name}-{cpu_arch_str}" ] = tuple[ layer, asset_sha256_hash ]
+        _cache_of_layers_arns[ f"{layer_name}-{cpu_arch_str}" ]             = tuple[ layer.layer_version_arn, asset_sha256_hash ]
+        print( f"_cache_of_layers for '{stk.stack_name}-{layer_name}-{cpu_arch_str}' = {layer.node.addr} // layer-arn={layer.layer_version_arn} // {asset_sha256_hash}" )
 
 
     @staticmethod
@@ -315,11 +323,13 @@ class LambdaConfigs():
         layer_name :str,
         stk :Stack,
         cpu_arch_str :str,
-    ) -> aws_lambda.ILayerVersion:
-        """ Looks up the path to the cached Lambda layer.
-        :param layer_name :str -- Unique Name of the Lambda layer (not incl. CPU_ARCH)
-        :param cpu_arch_str :str -- amd64|arm64
-        :return: aws_lambda.ILayerVersion object
+    ) -> tuple[aws_lambda.ILayerVersion, str]:
+        """ Looks up the path to the cached Lambda-layer CDK-Construct.
+        param # 1 - layer_name :str -- Unique Name of the Lambda layer (not incl. CPU_ARCH)
+        param # 2 - cpu_arch_str :str -- amd64|arm64
+        returns a tuple:
+            (1) aws_lambda.ILayerVersion object
+            (2) The SHA256 hash (of `Pipfile.lock`) which is then encoded as hex.  See the algorithm inside common/cdk/LambdaLayerUtils.py's `get_sha256_hex_hash_for_file()`
         """
         if f"{stk.stack_name}-{layer_name}-{cpu_arch_str}" in _cache_of_layers:
             return _cache_of_layers[ f"{stk.stack_name}-{layer_name}-{cpu_arch_str}" ]
@@ -360,95 +370,6 @@ class LambdaConfigs():
 ### ===========================================================================================================
 ### -----------------------------------------------------------------------------------------------------------
 ### ===========================================================================================================
-
-    @staticmethod
-    def cache_lambda_layer_asset(
-        layer_name :str,
-        cpu_arch_str :str,
-        layer_asset :aws_lambda.AssetCode,
-        overwrite :bool = False,
-    ) -> None:
-        """ Caches the specified Lambda-layer's Zip-file artifact -- allowing it to be used ANYWHERE in cdk.
-        :param layer_name :str -- Unique Name of the Lambda layer (not incl. CPU_ARCH)
-        :param cpu_arch_str :str -- amd64|arm64
-        :param layer_zip_file :Path -- to the Lambda layer zip file
-        :param overwrite :bool -- Whether to overwrite the layer if it already exists (default: False)
-        """
-        ### SANITY CHECK: if the layer is valid
-        if not layer_asset:
-            raise MyLambdaConfigException( f"!! ERROR !! For Lambda-Layer '{layer_name}-{cpu_arch_str}' .. 'layer_asset' is None !!" )
-        if not overwrite and f"{layer_name}-{cpu_arch_str}" in _cache_of_layers_assets:
-            raise MyLambdaConfigException( f"!! ERROR !! Layer-Asset '{layer_name}-{cpu_arch_str}' is already cached (FYI: overwrite='{overwrite}')!!" )
-
-        _cache_of_layers_assets[ f"{layer_name}-{cpu_arch_str}" ] = layer_asset
-        print( f"Saved to _cache_of_layers_assets for '{layer_name}-{cpu_arch_str}' = {layer_asset.path}" )
-        print( layer_asset )
-
-
-    @staticmethod
-    def lookup_lambda_layer_asset(
-        layer_name :str,
-        cpu_arch_str :str,
-    ) -> aws_lambda.AssetCode:
-        """ Looks up the path to the cached Lambda-layer's Zip-file artifact.
-        :param layer_name :str -- Unique Name of the Lambda layer (not incl. CPU_ARCH)
-        :param cpu_arch_str :str -- amd64|arm64
-        :return: pathlib.Path object to the Lambda-layer's zip-file
-        """
-        if f"{layer_name}-{cpu_arch_str}" not in _cache_of_layers_assets:
-            raise MyLambdaConfigException( f"!! ERROR !! Layer '{layer_name}-{cpu_arch_str}' is NOT cached.  Perhaps you are looking it up BEFORE it has been created (within api/infrastructure.py) !!" )
-        return _cache_of_layers_assets[ f"{layer_name}-{cpu_arch_str}" ]
-
-### -----------------------------------------------------------------------------------------------------------
-
-    @staticmethod
-    def cache_lambda_layer(
-        layer_name :str,
-        cpu_arch_str :str,
-        stk :Stack,
-        layer :aws_lambda.ILayerVersion,
-        overwrite :bool = False,
-    ) -> None:
-        """ Caches the specified Lambda layer -- allowing it to be used ANYWHERE in cdk.
-        :param layer_name :str -- Unique Name of the Lambda layer (not incl. CPU_ARCH)
-        :param cpu_arch_str :str -- amd64|arm64
-        :param layer :aws_lambda.ILayerVersion -- cdk-construct-resource already created.
-        :param overwrite :bool -- Whether to overwrite the layer if it already exists (default: False)
-        """
-        ### SANITY CHECK: if the layer is valid
-        if not overwrite and ( f"{layer_name}-{cpu_arch_str}" in _cache_of_layers_arns or f"{stk.stack_name}-{layer_name}-{cpu_arch_str}" in _cache_of_layers ):
-            raise MyLambdaConfigException( f"!! ERROR !! Layer-CDK-Object '{layer_name}-{cpu_arch_str}' is already cached (FYI: overwrite='{overwrite}')!!" )
-
-        _cache_of_layers[ f"{stk.stack_name}-{layer_name}-{cpu_arch_str}" ] = layer
-        _cache_of_layers_arns[ f"{layer_name}-{cpu_arch_str}" ] = layer.layer_version_arn
-        print( f"_cache_of_layers for '{stk.stack_name}-{layer_name}-{cpu_arch_str}' = {layer.node.addr} // layer-arn={layer.layer_version_arn}" )
-
-
-    @staticmethod
-    def lookup_lambda_layer(
-        layer_name :str,
-        stk :Stack,
-        cpu_arch_str :str,
-    ) -> aws_lambda.ILayerVersion:
-        """ Looks up the path to the cached Lambda layer.
-        :param layer_name :str -- Unique Name of the Lambda layer (not incl. CPU_ARCH)
-        :param cpu_arch_str :str -- amd64|arm64
-        :return: aws_lambda.ILayerVersion object
-        """
-        if f"{stk.stack_name}-{layer_name}-{cpu_arch_str}" in _cache_of_layers:
-            return _cache_of_layers[ f"{stk.stack_name}-{layer_name}-{cpu_arch_str}" ]
-        else:
-            if f"{layer_name}-{cpu_arch_str}" in _cache_of_layers_arns:
-                ilayer_obj = aws_lambda.LayerVersion.from_layer_version_arn(
-                    scope = stk,
-                    id = f"{layer_name}-{cpu_arch_str}",
-                    layer_version_arn = _cache_of_layers_arns[ f"{layer_name}-{cpu_arch_str}" ],
-                )
-                _cache_of_layers[ f"{stk.stack_name}-{layer_name}-{cpu_arch_str}" ] = ilayer_obj
-                return ilayer_obj
-            else:
-                raise MyLambdaConfigException( f"!! ERROR !! Layer/Layer-ARN for '{layer_name}-{cpu_arch_str}' is NOT cached.  Perhaps you are looking it up BEFORE it has been created (within api/infrastructure.py) !!" )
-
 
     @staticmethod
     def validate_lambda_config_list( a_list :list):
@@ -493,47 +414,6 @@ class LambdaConfigs():
             raise ValueError(error_message) from err
         except Exception as err:
             raise ValueError(f"Unexpected error during configuration validation: {str(err)}") from err
-
-### -----------------------------------------------------------------------------------------------------------
-
-"""
-    @staticmethod
-    def cache_lambda_layer_zipfile_path(
-        layer_name :str,
-        cpu_arch_str :str,
-        layer_zip_file :pathlib.Path,
-        overwrite :bool = False,
-    ) -> None:
-        " " " Caches the specified Lambda-layer's Zip-file artifact -- allowing it to be used ANYWHERE in cdk.
-        :param layer_name :str -- Unique Name of the Lambda layer (not incl. CPU_ARCH)
-        :param cpu_arch_str :str -- amd64|arm64
-        :param layer_zip_file :Path -- to the Lambda layer zip file
-        :param overwrite :bool -- Whether to overwrite the layer if it already exists (default: False)
-        " " "
-        ### SANITY CHECK: if the layer is valid
-        if not layer_zip_file.exists():
-            raise MyLambdaConfigException( f"!! ERROR !! For Lambda-Layer '{layer_name}-{cpu_arch_str}' .. {layer_zip_file} does NOT exist !!" )
-        if not overwrite and f"{layer_name}-{cpu_arch_str}" in _cache_of_layers_zipfiles:
-            raise MyLambdaConfigException( f"!! ERROR !! Layer-ZIP-file '{layer_name}-{cpu_arch_str}' is already cached (FYI: overwrite='{overwrite}')!!" )
-
-        _cache_of_layers_zipfiles[ f"{layer_name}-{cpu_arch_str}" ] = layer_zip_file
-        print( f"_cache_of_layers_zipfiles for '{layer_name}-{cpu_arch_str}' = {layer_zip_file}" )
-
-
-    @staticmethod
-    def lookup_lambda_layer_zipfile_path(
-        layer_name :str,
-        cpu_arch_str :str,
-    ) -> pathlib.Path:
-         " " " Looks up the path to the cached Lambda-layer's Zip-file artifact.
-        :param layer_name :str -- Unique Name of the Lambda layer (not incl. CPU_ARCH)
-        :param cpu_arch_str :str -- amd64|arm64
-        :return: pathlib.Path object to the Lambda-layer's zip-file
-        " " "
-        if f"{layer_name}-{cpu_arch_str}" not in _cache_of_layers_zipfiles:
-            raise MyLambdaConfigException( f"!! ERROR !! Layer '{layer_name}-{cpu_arch_str}' is NOT cached.  Perhaps you are looking it up BEFORE it has been created (within api/infrastructure.py) !!" )
-        return _cache_of_layers_zipfiles[ f"{layer_name}-{cpu_arch_str}" ]
-"""
 
 ### ===========================================================================================================
 ### -----------------------------------------------------------------------------------------------------------
