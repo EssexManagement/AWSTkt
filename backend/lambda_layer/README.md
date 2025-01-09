@@ -1,7 +1,37 @@
 # Creating a new Lambda-layer
 
-1. Create a new SUB-FOLDER.
-1. Create a mew `Pipfile`  ([Example](./psycopg/Pipfile))
+1. Create a new SUB-FOLDER under [`backend/lambda_layer`](../../backend/lambda_layer/).
+1. `cd` into it.
+    * This is important!!!!!
+    * This is important!!!!!
+    * This is important!!!!!
+1. Create a mew `Pipfile`  ([See Example](./psycopg/Pipfile))
+1. Run `pip install pipenv --user`
+1. Run `pipenv lock --dev --python ${PYTHON_VERSION} --clear`
+1. Verify there is a NEW file named `Pipfile.lock`
+1. `git commit` both these files.
+
+<BR/><BR/><BR/><BR/>
+<HR/><HR/><HR/><HR/>
+
+# Creating the "Hashes" file (for use by CDK-code)
+
+Important: Run the following commands at the TOPMOST folder of this project !!!!!!!!
+
+```bash
+pipenv sync --dev
+pipenv install boto3 regex
+
+TIER="dev"
+ScriptPath="backend/lambda_layer/bin/get_lambda_layer_hashes.py"
+OutputFileName="backend/lambda_layer/lambda_layer_hashes.py"
+ScriptCLIArgs=( ${AWSPROFILE} ${TIER} ${OutputFileName} )
+
+PYTHONPATH=${PWD}:${PYTHONPATH} PATH=${PWD}:$PATH pipenv run python3 "${ScriptPath}" ${ScriptCLIArgs[@]}
+```
+
+<BR/><BR/><BR/><BR/>
+<HR/><HR/><HR/><HR/>
 
 ## Local-Testing
 
