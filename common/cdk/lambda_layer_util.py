@@ -98,7 +98,9 @@ class LambdaLayerUtility():
         param # 3 : layer_fldr_path :Path -- pathlib.Path to the folder containing the Lambda-layer source code.
         param # 4 : layer_opt : LambdaLayerOption -- See `lambda_layer_util.py` for ENUM's details.
 
-        Returns the pathlib.Path to the ZIP-file.
+        Returns:
+            (1) pathlib.Path to the ZIP-file.
+            (2) The SHA256 hash (of `Pipfile.lock`) which is then encoded as hex.  See the algorithm inside `get_sha256_hex_hash_for_file()`
     """
         # param # 4 : reuse_if_exists :bool -- do NOT recreate the LambdaLayer if it already exists.  Default: do NOT reuse
     def build_lambda_layer_using_docker(self,
@@ -109,7 +111,7 @@ class LambdaLayerUtility():
         layer_opt : LambdaLayerOption,
         # zipfile_simplename :str,
         # reuse_if_exists :bool = False,  ### re-use does NOT work with `CodeAsset`.  So, unfortunately, we have to rebuild everytime!
-    ) -> aws_lambda.AssetCode:
+    ) -> tuple[aws_lambda.AssetCode, str]:
         HDR = f" -- build_lambda_layer(tier={tier},cpu={cpu_arch_str}): within {__file__}"
 
         print( f"\nlayer_fldr_path(as-is) = '{layer_fldr_path}' in "+HDR )
@@ -189,8 +191,16 @@ class LambdaLayerUtility():
 
         ### ---------------------------------------------
         ### Following Docker-based approach will create a zipfile automatically, with the MUCH-simpler `/python/**` folder-heirarchy.
-        asset_hash = LambdaLayerUtility.get_hash_for_file( layer_fldr_path, "Pipfile.lock" )
-        print( f"asset_hash = '{asset_hash}'" )
+        ### !! Attention !! pip's ERROR: Can not combine '--user' and '--target' (which is an ENV-VAR `PIP_TARGET` to this Docker)
+        cmd =  f"""
+            pip install pipenv &&
+            PYTHONPATH={inside_docker_output_path}/python PATH={inside_docker_output_path}/python/bin:$PATH pipenv sync --dev
+        """
+                ### !! Attention !! pip's ERROR: Can not combine '--user' and '--target' (which is an ENV-VAR `PIP_TARGET` to this Docker)
+                ### !! WARNING !! avoid use of pip3's cli-args "--platform {pip_platform}" !!! See switch/match above.
+                ### Note: Avoid `pipenv install`.  switch to `pipenv sync` which is More deterministic than `pipenv install`
+        cmd = ' '.join( cmd.split() ) ### split() and join() will replace \s+ with a single-whitespace-char!
+
         my_asset :aws_lambda.AssetCode = aws_lambda.Code.from_asset(
             ### https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_lambda/Code.html#aws_cdk.aws_lambda.Code.from_asset
             path = str(layer_fldr_path),
@@ -216,17 +226,7 @@ class LambdaLayerUtility():
                     # "-c",
                     _shrink_layer_zipfile(
                         # cmd = f"pip install  --upgrade -r requirements.txt -t {inside_docker_output_path}/python --only-binary=:all:",
-
-                        ### !! Attention !! pip's ERROR: Can not combine '--user' and '--target' (which is an ENV-VAR `PIP_TARGET` to this Docker)
-                        cmd = ' '.join( f"""pip install pipenv &&
-PYTHONPATH={inside_docker_output_path}/python
-PATH={inside_docker_output_path}/python/bin:$PATH
-pipenv sync --dev
-""".split() ),
-                                ### !! Attention !! pip's ERROR: Can not combine '--user' and '--target' (which is an ENV-VAR `PIP_TARGET` to this Docker)
-                                ### !! WARNING !! avoid use of pip3's cli-args "--platform {pip_platform}" !!! See switch/match above.
-                                ### Note: Avoid `pipenv install`.  switch to `pipenv sync` which is More deterministic than `pipenv install`
-
+                        cmd = cmd,
                         install_dir = inside_docker_output_path,
                         layer_opt = layer_opt
                     )
@@ -277,7 +277,19 @@ pipenv sync --dev
                 ## ),
             ),
         )
-        return my_asset
+
+        ### Now calculate the SHA-256 hash and then convert it into HEX
+        pipfile_lock = "Pipfile.lock"
+        requirements_txt = "requirements.txt"
+        if os.path.exists(os.path.join(layer_fldr_path, pipfile_lock)):
+            asset_hash = LambdaLayerUtility.get_sha256_hex_hash_for_file( layer_fldr_path, pipfile_lock )
+        elif os.path.exists(os.path.join(layer_fldr_path, requirements_txt)):
+            asset_hash = LambdaLayerUtility.get_sha256_hex_hash_for_file( layer_fldr_path, requirements_txt )
+        else:
+            raise FileNotFoundError(f"Neither {pipfile_lock} nor {requirements_txt} found in {layer_fldr_path}")
+        print( f"asset_hash = '{asset_hash}'" )
+
+        return my_asset, asset_hash
 
         ### ---------------------------------------------
         # return aws_ecr_assets.DockerImageAsset(
@@ -389,7 +401,7 @@ pipenv sync --dev
 #             case _: raise RuntimeError(f"!! INTERNAL ERROR !! Unknown CPU architecture: '{cpu_arch_str}'")
 
 #         ### ---------------------------------------------
-#         asset_hash = LambdaLayerUtility.get_hash_for_file( layer_fldr_path, "requirements.txt" )
+#         asset_hash = LambdaLayerUtility.get_sha256_hex_hash_for_file( layer_fldr_path, "requirements.txt" )
 #         print( f"asset_hash = '{asset_hash}'" )
 #         # cmd = f"pip install  --upgrade -r requirements.txt -t {inside_docker_output_path}/python --only-binary=:all:",
 #                 ### !! WARNING !! avoid use of pip3's cli-args "--platform {pip_platform}" !!! See switch/match above.
@@ -433,7 +445,7 @@ pipenv sync --dev
     ### =================================================================================
 
     @staticmethod
-    def get_hash_for_file(
+    def get_sha256_hex_hash_for_file(
         layer_fldr_path :Path,
         simple_filename :str
     ):

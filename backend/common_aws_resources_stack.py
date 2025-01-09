@@ -102,13 +102,17 @@ class CommonAWSResourcesStack(Stack):
         print( f"layer-id = '{layer_id}', layer_fldr_path='{layer_fldr_path}' sizing/cold-start-option='{layer_sizing_option}' .." )
 
         my_lambdalayer_asset = None
+        myasset_sha256_hash  = None
         try:
-            my_lambdalayer_asset = config.LambdaConfigs.lookup_lambda_layer_asset(
+            my_lambdalayer_asset, myasset_sha256_hash = config.LambdaConfigs.lookup_lambda_layer_asset(
                 layer_name = layer_id,
                 cpu_arch_str = cpu_arch_str,
             )
         except config.MyLambdaConfigException as e:
+            ### The presence of `config.MyLambdaConfigException` ==> implies ==> not found.  This design ensures only a 2-element-tupe is returned by `lookup_lambda_layer_asset()`
+            ### This same exception is FATAL elsewhere.  But not here.
             pass
+            ### we "pass" and proceed with the fact that `my_lambdalayer_asset` === None.
 
         if not my_lambdalayer_asset:
 
@@ -116,7 +120,7 @@ class CommonAWSResourcesStack(Stack):
                 lambda_layer_id = layer.LAMBDA_LAYER_ID,
                 lambda_layer_builder_script = None ### was: layer.LAMBDA_LAYER_BUILDER_SCRIPT,
             )
-            my_lambdalayer_asset = util.build_lambda_layer_using_docker(
+            my_lambdalayer_asset, myasset_sha256_hash = util.build_lambda_layer_using_docker(
                 tier = tier,
                 cpu_arch_str = cpu_arch_str,
                 layer_fldr_path = layer_fldr_path,
@@ -127,6 +131,7 @@ class CommonAWSResourcesStack(Stack):
                 layer_name = layer_id,
                 cpu_arch_str = cpu_arch_str,
                 layer_asset = my_lambdalayer_asset,
+                asset_sha256_hash = myasset_sha256_hash,
             )
             print( '.'*120 )
 
@@ -134,7 +139,7 @@ class CommonAWSResourcesStack(Stack):
 
         layer_uniq_id = f"layer-{layer_id}-{cpu_arch_str}"
         layer_version_name = aws_names.gen_lambdalayer_name(
-            stk = stk,
+            tier = tier,
             simple_lambdalayer_name = layer_id,
             cpu_arch_str = cpu_arch_str )
         print( f"Creating aws_lambda.LayerVersion(): {layer_version_name} .. via lookup-Key= '{layer_id}-{cpu_arch_str}' // {cpu_arch_str} // {layer_uniq_id} .." )
@@ -144,6 +149,7 @@ class CommonAWSResourcesStack(Stack):
             id = layer_uniq_id,
             layer_version_name = layer_version_name,
             code = my_lambdalayer_asset,
+            description = myasset_sha256_hash,
             # code = aws_lambda.Code.from_asset( str(my_lambda_layer_zipfile) ),
             compatible_runtimes = [aws_lambda.Runtime.PYTHON_3_12, aws_lambda.Runtime.PYTHON_3_11],
             # compatible_architectures=[cpu_arch],
@@ -155,6 +161,7 @@ class CommonAWSResourcesStack(Stack):
             cpu_arch_str = cpu_arch_str,
             stk = stk,
             layer = my_lambda_layerversion,
+            asset_sha256_hash = myasset_sha256_hash,
         )
         print( '_'*120 )
 
