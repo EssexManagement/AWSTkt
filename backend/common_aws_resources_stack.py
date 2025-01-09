@@ -169,7 +169,7 @@ class CommonAWSResourcesStack(Stack):
             # code = aws_lambda.Code.from_asset( str(my_lambda_layer_zipfile) ),
             compatible_runtimes = [aws_lambda.Runtime.PYTHON_3_12, aws_lambda.Runtime.PYTHON_3_11],
             # compatible_architectures=[cpu_arch],
-            removal_policy = RemovalPolicy.DESTROY,
+            removal_policy = RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
         )
 
         LambdaConfigs.cache_lambda_layer(
