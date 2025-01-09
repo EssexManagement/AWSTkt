@@ -1,26 +1,13 @@
 import constants
-from aws_cdk import (
-    Stack,
-)
 
 ### ===============================================================================================
 ### ...............................................................................................
 ### ===============================================================================================
 
-""" Standardized naming for Lambdas """
-def gen_lambda_name( tier :str, simple_lambda_name :str ) -> str:
-    return f"{constants.CDK_APP_NAME}-{constants.CDK_COMPONENT_NAME}-{tier}-{simple_lambda_name}"
-
-### ----------------------------------------------------------------
-""" Standardized naming for BUCKETS """
-def gen_bucket_name( tier :str, simple_bucket_name :str ) -> str:
-    return f"{constants.ENTERPRISE_NAME}-{constants.CDK_APP_NAME}-{constants.CDK_COMPONENT_NAME}-{tier}-{simple_bucket_name}".lower()
-
-### ----------------------------------------------------------------
 """ Supports Standardized naming for ANY AWS-Resource.  See also `gen_awsresource_name()` """
 def gen_awsresource_name_prefix(
     tier :str,
-    cdk_component_name :str,
+    cdk_component_name :str = constants.CDK_COMPONENT_NAME,
 ) -> str:
     return f"{constants.CDK_APP_NAME}-{cdk_component_name}-{tier}"
 
@@ -36,7 +23,44 @@ def gen_awsresource_name(
     prefix = gen_awsresource_name_prefix( tier=tier, cdk_component_name=cdk_component_name )
     return f"{prefix}-{simple_resource_name}"
 
+
+### ===============================================================================================
+### ...............................................................................................
+### ===============================================================================================
+
+### The `dev` environment's VPC is shared by DEVELOPER-environments also.
+# SHARED_VPC_NAME = f"{CDK_APP_NAME}-{CDK_COMPONENT_NAME}-pipeline-dev/{CDK_APP_NAME}-{CDK_COMPONENT_NAME}-dev/Stateful/vpc_db/VPC"
+def get_vpc_name( tier :str ) -> str:
+    if tier not in constants.STD_TIERS:
+        tier = "dev"
+    return f"{gen_awsresource_name_prefix(tier)}/Stateful/vpc-only/VPC"
+    # return f"{gen_awsresource_name_prefix(tier)}/{gen_awsresource_name_prefix(tier)}/Stateful/vpc_db/VPC"
+
+def get_subnet_name( tier :str, simple_subnet_name :str ) -> str:
+    if tier not in constants.STD_TIERS:
+        tier = "dev"
+    return f"{gen_awsresource_name_prefix(tier)}-{simple_subnet_name}"
+    # return f"{gen_awsresource_name_prefix(tier)}/{gen_awsresource_name_prefix(tier)}/Stateful/vpc_db/VPC"
+
 ### ----------------------------------------------------------------
+""" Standardized naming for Lambdas """
+def gen_lambda_name( tier :str, simple_lambda_name :str ) -> str:
+    return f"{gen_awsresource_name_prefix(tier)}-{simple_lambda_name}"
+
+### ----------------------------------------------------------------
+""" Standardized naming for BUCKETS """
+def gen_bucket_name( tier :str, simple_bucket_name :str ) -> str:
+    return f"{constants.ENTERPRISE_NAME}-{gen_awsresource_name_prefix(tier)}-{simple_bucket_name}".lower()
+
+
+### ----------------------------------------------------------------
+""" Standardized naming for dynamo tables """
+def gen_dynamo_table_name( tier :str, simple_table_name :str ) -> str:
+    return f"{constants.ENTERPRISE_NAME}-{gen_awsresource_name_prefix(tier)}-{simple_table_name}".lower()
+
+
+### ----------------------------------------------------------------
+
 """ Since Lambda-Layers need to be the 1st things created, so that any stack with any lambda can take advantage of such layers..
     .. and since we do NOT want Stack-output/references between the "common-stack" (that creates the layers) with the various OTHER stacks ..
     .. the best way is to have proper naming convention for the Lambda-Layers.
@@ -47,21 +71,23 @@ def gen_awsresource_name(
             Example: `psycopg2` and `psycopg-pandas`
     param # 4 cpu_arch_str :str - 'arm64'|'amd64'
 """
-def gen_lambdalayer_name(
+def gen_common_lambdalayer_name(
     tier :str,
     simple_commonstack_name :str,
     simple_lambdalayer_name :str,
     cpu_arch_str :str,
+    component_name :str = constants.CDK_COMPONENT_NAME,
 ) -> str:
-    return f"{constants.CDK_APP_NAME}-{constants.CDK_COMPONENT_NAME}-{tier}_{simple_commonstack_name}_{simple_lambdalayer_name}_{cpu_arch_str}"
+    return f"{constants.CDK_APP_NAME}-{component_name}-{tier}_{simple_commonstack_name}_{simple_lambdalayer_name}_{cpu_arch_str}"
 
 
 def gen_lambdalayer_name(
-    stk :Stack,
+    tier :str,
     simple_lambdalayer_name :str,
     cpu_arch_str :str,
+    component_name :str = constants.CDK_COMPONENT_NAME,
 ) -> str:
-    return f"{stk.stack_name}_{simple_lambdalayer_name}_{cpu_arch_str}"
+    return f"{constants.CDK_APP_NAME}-{component_name}-{tier}_{simple_lambdalayer_name}_{cpu_arch_str}"
 
 ### -----------------------------------
     ###  No !!! We cannot use $LATEST as the suffix for a Lambda Layer ARN.
