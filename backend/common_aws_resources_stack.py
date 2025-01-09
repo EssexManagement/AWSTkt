@@ -25,6 +25,8 @@ import backend.lambda_layer.psycopg.lambda_layer_psycopg as layer_psycopg
 import backend.lambda_layer.psycopg_pandas.lambda_layer_psycopg_pandas as layer_psycopg_pandas
 import backend.lambda_layer.psycopg3.lambda_layer_psycopg3 as layer_psycopg3
 import backend.lambda_layer.psycopg3_pandas.lambda_layer_psycopg3_pandas as layer_psycopg3_pandas
+from backend.lambda_layer.lambda_layer_hashes import lambda_layer_hashes
+
 ### ==============================================================================================
 
 LAYER_MODULES = [
@@ -101,6 +103,13 @@ class CommonAWSResourcesStack(Stack):
         layer_sizing_option :LambdaLayerOption = layer.LAMBDA_LAYER_SIZING_OPTION
         print( f"layer-id = '{layer_id}', layer_fldr_path='{layer_fldr_path}' sizing/cold-start-option='{layer_sizing_option}' .." )
 
+        lkp_str_key :str = aws_names.gen_lambdalayer_name( tier, layer_id, cpu_arch_str )
+        print( f"lkp_str_key = '{lkp_str_key}'" )
+        lkp_lyr :dict[str, str]= lambda_layer_hashes.get( lkp_str_key )
+        print( json.dumps(lkp_lyr, indent=4) )
+        lkp_lyr_arn  = lkp_lyr.get('arn')
+        lkp_lyr_hash = lkp_lyr.get('sha256_hex')
+
         my_lambdalayer_asset = None
         myasset_sha256_hash  = None
         try:
@@ -136,6 +145,13 @@ class CommonAWSResourcesStack(Stack):
             print( '.'*120 )
 
         print( my_lambdalayer_asset )
+
+        ### Detect of anything has changed with this Lambda-Layer (by comparing HASH from deployed-layer with above `myasset_sha256_hash`)
+        if lkp_lyr_hash and myasset_sha256_hash and lkp_lyr_hash == myasset_sha256_hash:
+            print( f"Lambda-Layer '{layer_id}' with CPU-Arch '{cpu_arch_str}' is UNCHANGED.  Skipping re-building the Lambda-Layer." )
+            return
+        else:
+            print( f"Lambda-Layer '{layer_id}' with CPU-Arch '{cpu_arch_str}' has CHANGED!!!  Old hash ='{lkp_lyr_hash}' --versus-- new hash = '{myasset_sha256_hash}'" )
 
         layer_uniq_id = f"layer-{layer_id}-{cpu_arch_str}"
         layer_version_name = aws_names.gen_lambdalayer_name(
