@@ -39,6 +39,7 @@ class GetHashesForLambdaLayers(GenericAWSCLIScript):
 
     def __init__(self,
         appl_name :str,
+        aws_profile :str,
         tier :str,
         purpose :str = THIS_SCRIPT_DATA,
         debug :bool = False,
@@ -50,6 +51,8 @@ class GetHashesForLambdaLayers(GenericAWSCLIScript):
         super().__init__(
             appl_name=appl_name,
             purpose=purpose,
+            aws_profile=aws_profile,
+            tier=tier,
             debug=debug,
         )
         lambda_client = self.awsapi_invoker.session.client('lambda')
@@ -150,9 +153,11 @@ if __name__ == "__main__":
         print( f"EXAMPLE: python {sys.argv[0]} FACT  dev " )
         sys,exit(1)
     else:
+        aws_profile = sys.argv[1]
         tier = sys.argv[2]
         scr = GetHashesForLambdaLayers(
             appl_name = constants.CDK_APP_NAME,
+            aws_profile = aws_profile,
             tier = tier,
             purpose = THIS_SCRIPT_DATA,
             debug = DEBUG,

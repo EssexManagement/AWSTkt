@@ -39,6 +39,7 @@ class GetHashesForLambdaLayers(GenericAWSCLIScript):
 
     def __init__(self,
         appl_name :str,
+        aws_profile :str,
         tier :str,
         file_to_save_hashes_into :pathlib.Path,
         purpose :str = THIS_SCRIPT_DATA,
@@ -51,6 +52,8 @@ class GetHashesForLambdaLayers(GenericAWSCLIScript):
         super().__init__(
             appl_name=appl_name,
             purpose=purpose,
+            aws_profile=aws_profile,
+            tier=tier,
             debug=debug,
         )
 
@@ -200,10 +203,12 @@ if __name__ == "__main__":
         print( f"EXAMPLE: python {sys.argv[0]} FACT  dev  lambda_layer_hashes.py" )
         sys,exit(1)
     else:
+        aws_profile = sys.argv[1]
         tier = sys.argv[2]
         file_to_save_hashes_into = sys.argv[3]
         scr = GetHashesForLambdaLayers(
             appl_name = constants.CDK_APP_NAME,
+            aws_profile = aws_profile,
             tier = tier,
             purpose = THIS_SCRIPT_DATA,
             file_to_save_hashes_into = file_to_save_hashes_into,

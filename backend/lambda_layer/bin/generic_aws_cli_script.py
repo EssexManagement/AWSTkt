@@ -69,15 +69,13 @@ class GenericAWSCLIScript():
     def __init__(self,
         appl_name :str,
         purpose :str,
+        aws_profile :str,
+        tier :str,
         _cache_no_older_than :int = global__cache_no_older_than,
         debug :bool = False,
     ):
-        if len(sys.argv) < 3:
-            print("Usage: python script.py <AWS_PROFILE> <TIER>")
-            sys.exit(1)
-
-        self.aws_profile = sys.argv[1]
-        self.tier        = sys.argv[2]
+        self.aws_profile = aws_profile
+        self.tier        = tier
         self.appl_name   = appl_name
         self.purpose     = purpose
         self.cache_no_older_than = _cache_no_older_than
