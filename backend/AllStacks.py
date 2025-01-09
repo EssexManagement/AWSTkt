@@ -83,7 +83,7 @@ class AppStack(Stack):
             index="handler.py",
             handler="handler",
             runtime=aws_lambda.Runtime.PYTHON_3_12,
-            architecture=aws_lambda.Architecture.ARM_64,
+            architecture=CFUtil.get_cpu_arch_enum( cpu_arch_str ),
             layers=layers,
 
             timeout=Duration.seconds(30),
