@@ -60,7 +60,7 @@ from backend.lambda_layer.bin.get_lambda_layer_hashes import GetHashesForLambdaL
 aws_profile = app.node.try_get_context( 'AWSPROFILE' )
 # detect if running on macos
 
-if platform.system() == 'darwin' or platform.system() == "Windows":
+if platform.system() == 'Darwin' or platform.system() == "Windows":
     if aws_profile is None:
         print( f"!! ERROR !! '-c AWSPROFILE=...'  commandline-arguments are missing.  Assuming this is running INSIDE AWS-CodeBuild!❌" )
         sys.exit( 5 )
