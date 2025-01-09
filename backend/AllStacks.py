@@ -78,13 +78,14 @@ class AppStack(Stack):
         aws_lambda_python_alpha.PythonFunction(
             scope=self,
             id="my-test-python-func",
-            runtime=aws_lambda.Runtime.PYTHON_3_12,
+            function_name=aws_names.gen_lambda_name( tier, 'myTestPythonFn' ),
             entry="backend/src/lambda",
             index="handler.py",
             handler="handler",
+            runtime=aws_lambda.Runtime.PYTHON_3_12,
             architecture=aws_lambda.Architecture.ARM_64,
-            function_name=aws_names.gen_lambda_name( tier, 'myTestPythonFn' ),
             layers=layers,
+
             timeout=Duration.seconds(30),
             log_retention=aws_logs.RetentionDays.ONE_DAY,
             retry_attempts=0,
