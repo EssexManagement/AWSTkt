@@ -82,7 +82,7 @@ class AppStack(Stack):
         aws_lambda_python_alpha.PythonFunction(
             scope=self,
             id="my-test-python-func",
-            function_name=aws_names.gen_lambda_name( tier, 'myTestPythonFn' ),
+            function_name=aws_names.gen_lambda_name( tier, f"myTestPythonFn-{cpu_arch_str}" ),
             entry="backend/src/lambda",
             index="handler.py",
             handler="handler",
