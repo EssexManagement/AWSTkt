@@ -71,6 +71,7 @@ if platform.system() == 'Darwin' or platform.system() == "Windows":
     if aws_profile is None:
         print( f"!! ERROR !! '-c AWSPROFILE=...'  commandline-argument is missing.  Assuming this is running INSIDE AWS-CodeBuild!❌" )
         sys.exit( 5 )
+
 ### update the file `backend/lambda_layer/lambda_layer_hashes.py` (with the latest hashes)
 GetHashesForLambdaLayers(
     appl_name = constants.CDK_APP_NAME,
@@ -112,7 +113,7 @@ AppStack(
     env = env,  ### kwargs !!!
 )
 
-### -----------------------------------
+### ..............................................................................................
 
 add_tags( a_construct=app, tier=tier, aws_env=aws_env, git_branch=git_branch )
 
