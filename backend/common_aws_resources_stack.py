@@ -1,4 +1,5 @@
-from os import path, environ
+import os
+import pathlib
 from typing import Optional, Dict, List
 import json
 
@@ -18,7 +19,7 @@ import common.cdk.aws_names as aws_names
 import common.FSUtils as FSUtils
 from common.cdk.standard_lambda import LambdaLayerOption
 from cdk_utils.CloudFormation_util import add_tags, get_cpu_arch_as_str
-from common.cdk.lambda_layer_util import LambdaLayerUtility
+from common.cdk.StandardLambdaLayer import LambdaLayerUtility
 
 from api import config
 from api.config import LambdaConfigs
@@ -62,7 +63,7 @@ class CommonAWSResourcesStack(Stack):
 
         self.tier = tier
 
-        ### -------- 𝜆-layers by CPU-ARCH -------
+        ### -------- build the 𝜆-layers by CPU-ARCH -------
 
         for cpu_arch in cpu_arch_list:
 

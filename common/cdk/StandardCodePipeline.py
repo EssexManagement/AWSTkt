@@ -20,7 +20,7 @@ from common.cdk.retention_base import (
     DataClassification,
     S3_LIFECYCLE_RULES,
 )
-from common.cdk.retention_s3 import (
+from common.cdk.StandardBucket import (
     create_std_bucket,
     gen_bucket_lifecycle,
 )

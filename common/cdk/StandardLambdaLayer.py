@@ -96,7 +96,7 @@ class LambdaLayerUtility():
         param # 1 : tier :str -- dev|test|int|uat|stage|prod
         param # 2 : cpu_arch_str :str -- 'arm64'|'x86_64'
         param # 3 : layer_fldr_path :Path -- pathlib.Path to the folder containing the Lambda-layer source code.
-        param # 4 : layer_opt : LambdaLayerOption -- See `lambda_layer_util.py` for ENUM's details.
+        param # 4 : layer_opt : LambdaLayerOption -- See `common.cdk.StandardLambdaLayer.py` for ENUM's details.
 
         Returns:
             (1) pathlib.Path to the ZIP-file.
@@ -343,7 +343,7 @@ class LambdaLayerUtility():
 #         param # 1 : tier :str -- dev|test|int|uat|stage|prod
 #         param # 2 : cpu_arch_str :str -- 'arm64'|'x86_64'
 #         param # 3 : layer_fldr_path :Path -- pathlib.Path to the folder containing the Lambda-layer source code.
-#         param # 4 : layer_opt : LambdaLayerOption -- See `lambda_layer_util.py` for ENUM's details.
+#         param # 4 : layer_opt : LambdaLayerOption -- See `common.cdk.StandardLambdaLayer.py` for ENUM's details.
 
 #         Returns the pathlib.Path to the ZIP-file.
 #     """
