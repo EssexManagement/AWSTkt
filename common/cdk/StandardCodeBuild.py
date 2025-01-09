@@ -18,6 +18,7 @@ from aws_cdk import (
 
 import constants
 import common.cdk.constants_cdk as constants_cdk
+import common.cdk.aws_names as aws_names
 from cdk_utils.CloudFormation_util import get_cpu_arch_enum, get_cpu_arch_as_str
 from .standard_logging import get_log_grp, LogGroupType
 
@@ -465,7 +466,7 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
         project = cb_project,
     )
 
-    enhance_CodeBuild_role_for_cdkdeploy( cb_role=cb_project.role, stk=stk )
+    enhance_CodeBuild_role_for_cdkdeploy( cb_role=cb_project.role, cdk_scope=cb_project, stk=stk, tier=tier, )
 
     return my_build_action, my_build_output
 
@@ -829,9 +830,26 @@ def standard_BDDs_JSTSVuejsReactjs(
 def enhance_CodeBuild_role_for_cdkdeploy(
     cb_role :aws_iam.Role,
     stk :Stack,
+    cdk_scope :Construct,
+    tier :str,
 ) -> aws_iam.Role:
     """ To run `cdk deploy` from within CodeBuild, we need a LOT of permissions (to create & destroy)
     """
+
+    cb_role.attach_inline_policy(
+        aws_iam.Policy( cdk_scope, "ListLayersNVersions",
+            statements=[ aws_iam.PolicyStatement(
+                resources=["*"],
+                actions=[ "lambda:ListLayers", "lambda:ListLayerVersions" ],
+        )]),
+    )
+    cb_role.attach_inline_policy(
+        aws_iam.Policy( cdk_scope, "GetAllLayerVersionInfo",
+            statements=[ aws_iam.PolicyStatement(
+                resources=[ f"arn:{stk.partition}:lambda:{stk.region}:{stk.account}:layer:{aws_names.gen_awsresource_name_prefix(tier)}*", ],
+                actions=[ "lambda:GetLayerVersion", "lambda:GetLayerVersionPolicy", "lambda:DeleteLayerVersion", ],
+        )]),
+    )
 
     ### To fix the error: ❌  FACT-backend-dev-SNSStack failed: AccessDenied: User: arn:aws:sts::???:assumed-role/FACT-backend-pipeline-dev-emFACTbackendcdkCodeBuild-???/AWSCodeBuild-2da0a582-???
     ###         is not authorized to perform: iam:PassRole
