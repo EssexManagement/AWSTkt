@@ -109,7 +109,10 @@ class AwsTktPipelineStack(Stack):
                 source_artifact = my_source_artif,
                 cpu_arch = cpu_arch,
                 git_repo_url = f"{git_repo_org_name}/{git_repo_name}",
-                cdk_app_pyfile="layers_app.py"
+                cdk_app_pyfile="layers_app.py",
+                addl_cdk_context = {
+                    "CPU_ARCH": cpu_arch_str
+                }
             )
             all_build_actions.append( a_build_action )
 

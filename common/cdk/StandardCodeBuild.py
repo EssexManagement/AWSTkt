@@ -332,6 +332,7 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
     git_repo_url :Optional[str] = None,
     cdk_app_pyfile :Optional[str] = None,
     python_version :str = constants_cdk.CDK_APP_PYTHON_VERSION,
+    addl_cdk_context :dict[str,str] = {},
 ) -> tuple[codepipeline_actions.CodeBuildAction, codepipeline.Artifact]:
     """
         Single "CodePipeline" Action, that will use `venv` to CACHE the pip-install, and then do BOTH cdk-synth + cdk-deploy.
@@ -366,14 +367,20 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
 
     stk = Stack.of(cdk_scope)
 
+    ### --------------------------
     ### automatically detect if Git-Repo-codebase is using Plain-Pip (and .venv) or whether the Git-Repo-Codebase is using Pipenv/Pifile
-    cdk_deploy_command  =  "if [ -f requirements.txt ]; then PRFX=\"\"; elif [ -f Pipfile.lock ]; then PRFX=\"pipenv run\"; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; "
-    cdk_deploy_command +=  "$PRFX npx cdk deploy  --quiet --all"
+    cdk_deploy_command  =  " if [ -f requirements.txt ]; then PRFX=\"\"; elif [ -f Pipfile.lock ]; then PRFX=\"pipenv run\"; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; "
+    cdk_deploy_command +=  " $PRFX npx cdk deploy  --quiet --all"
     cdk_deploy_command +=  " --require-approval never --concurrency 10 --asset-parallelism true --asset-prebuild"
-    cdk_deploy_command += f" --context tier=\"{tier}\""
-    if cdk_app_pyfile:   cdk_deploy_command += f" --app \"python3 {cdk_app_pyfile}\""
-    if git_repo_url:     cdk_deploy_command += f" --context git_repo=\"{git_repo_url}\""
 
+    cdk_deploy_command += f" --context tier=\"{tier}\""
+    if git_repo_url:     cdk_deploy_command += f" --context git_repo=\"{git_repo_url}\""
+    for key in addl_cdk_context.keys():
+        cdk_deploy_command += f" --context {key}=\"{addl_cdk_context.get(key)}\""
+
+    if cdk_app_pyfile:   cdk_deploy_command += f" --app \"python3 {cdk_app_pyfile}\""
+
+    ### --------------------------
     artif_name, subproj_name, sub_proj_fldrpath = gen_artifact_name(
         tier=tier,
         codebase_root_folder=codebase_root_folder,
