@@ -166,8 +166,8 @@ class CommonAWSResourcesStack(Stack):
         print( f"Creating aws_lambda.LayerVersion(): {layer_version_name} .. via lookup-Key= '{layer_id}-{cpu_arch_str}' // {cpu_arch_str} // {layer_uniq_id} .." )
 
         # if the "Pipfile" modified-timestamp is more recent than that of "Pipefile.lock" throw an exception
-        FSUtils.assert_not_newer_than( myfile=f"{layer_fldr_path}/Pipfile",         newer_than_this=f"{layer_fldr_path}/Pipfile.lock", ignore_missing_files=False )
-        FSUtils.assert_not_newer_than( myfile=f"{layer_fldr_path}/requirements.in", newer_than_this=f"{layer_fldr_path}/requirements.txt", ignore_missing_files=True )
+        FSUtils.assert_not_newer_than( myfile=pathlib.Path(f"{layer_fldr_path}/Pipfile"),         newer_than_this=pathlib.Path(f"{layer_fldr_path}/Pipfile.lock"),     ignore_missing_files=False )
+        FSUtils.assert_not_newer_than( myfile=pathlib.Path(f"{layer_fldr_path}/requirements.in"), newer_than_this=pathlib.Path(f"{layer_fldr_path}/requirements.txt"), ignore_missing_files=True )
 
         my_lambda_layerversion = aws_lambda.LayerVersion(
             scope = self,
