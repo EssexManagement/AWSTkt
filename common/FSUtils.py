@@ -92,10 +92,8 @@ def assert_not_newer_than(
     compare_to_mtime = os.path.getmtime(newer_than_this)
 
     # Compare timestamps
-    if myfile_mtime > compare_to_mtime:
-        raise RuntimeError(
-            f"{myfile} is newer than {newer_than_this}! "
-        )
+    if    not    myfile_mtime > compare_to_mtime:
+        raise RuntimeError( f"{myfile} is newer than {newer_than_this}! " )
 
 
 ### ==============================================================================================
