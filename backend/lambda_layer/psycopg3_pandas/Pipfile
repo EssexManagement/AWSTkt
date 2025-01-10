@@ -29,6 +29,7 @@ urllib3 = "*"
 # zipp
 # jsonpickle
 
+regex
 aws-xray-sdk = "*"
 
 SQLAlchemy = "2.0.28"
