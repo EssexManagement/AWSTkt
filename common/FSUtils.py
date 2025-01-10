@@ -72,9 +72,6 @@ def assert_not_newer_than(
         FileNotFoundError: If either Pipfile or Pipfile.lock is missing
         RuntimeError: If Pipfile is newer than Pipfile.lock
     """
-    myfile = pathlib.Path('Pipfile')
-    newer_than_this = pathlib.Path('Pipfile.lock')
-
     # Check if both files exist
     if ignore_missing_files:
         if not myfile.exists():
@@ -92,7 +89,8 @@ def assert_not_newer_than(
     compare_to_mtime = os.path.getmtime(newer_than_this)
 
     # Compare timestamps
-    if    not    myfile_mtime > compare_to_mtime:
+    print( f"myfile_mtime = {myfile_mtime} // compare_to_mtime = {compare_to_mtime}" )
+    if myfile_mtime > compare_to_mtime:
         raise RuntimeError( f"{myfile} is newer than {newer_than_this}! " )
 
 
