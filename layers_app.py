@@ -80,6 +80,9 @@ GetHashesForLambdaLayers(
     # purpose = THIS_SCRIPT_DATA,
     debug = False,
 )
+# Dump the contents of the file `backend/lambda_layer/lambda_layer_hashes.py` (for debugging purposes)
+with open( LAMBDA_LAYER_HASHES_LOCALFILEPATH, 'r' ) as f:
+    print( f.read() )
 
 ### ..............................................................................................
 
