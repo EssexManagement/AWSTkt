@@ -100,10 +100,11 @@ class CommonAWSResourcesStack(Stack):
         print( f"lkp_str_key = '{lkp_str_key}'" )
         ### Since the file `backend/lambda_layer/lambda_layer_hashes.py` was updated -by- this CDK-synth-execution (happened within `layers_app.py`), we need to DYNAMICALLY reload it.
         dyn_reloaded_module = importlib.reload(backend.lambda_layer.lambda_layer_hashes)
-        lkp_lyr :dict[str, str] = dyn_reloaded_module.lambda_layer_hashes.get( tier ).get( lkp_str_key )
+        lkp_obj = dyn_reloaded_module.lambda_layer_hashes.get( tier )
+        lkp_lyr :dict[str, str] = lkp_obj.get( lkp_str_key ) if lkp_obj else None
         print( json.dumps(lkp_lyr, indent=4) )
-        lkp_lyr_arn  = lkp_lyr.get('arn', None) if lkp_lyr else None
-        lkp_lyr_hash = lkp_lyr.get('sha256_hex', None) if lkp_lyr else None
+        lkp_lyr_arn  = lkp_lyr.get('arn') if lkp_lyr else None
+        lkp_lyr_hash = lkp_lyr.get('sha256_hex') if lkp_lyr else None
 
         my_lambdalayer_asset = None
         myasset_sha256_hash  = None
@@ -181,7 +182,7 @@ class CommonAWSResourcesStack(Stack):
         )
 
         LambdaConfigs.cache_lambda_layer(
-            layer_name = layer_id,
+            layer_simple_name = layer_id,
             cpu_arch_str = cpu_arch_str,
             stk_containing_layers = this_stk,
             layer = my_lambda_layerversion,
