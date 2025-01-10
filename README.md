@@ -1,19 +1,6 @@
-# Attention !
+# All possible ways to create/manage/use Lambda-Layers
 
-This is for TICKET opened with AWS Tech-SUPPORT.
-
-AWS Case # `173260180100988`
-
-Opened on 2024-11-26 06:16:41
-
-Tital: _CodeBuild unable to_
-
-Severity: System impaired
-
-<BR/><BR/><BR/><BR/>
-<HR/><HR/><HR/><HR/>
-
-# HOW-TO
+# HOW-TO - deploy the CDK-stacks
 
 ```bash
 PYTHON_VERSION="3.12"
@@ -40,6 +27,27 @@ GITHUB_REPOSITORY=$(git ls-remote --get-url | sed -e 's/..*github.com\/\(.*\)/\1
 
 Change above cmd tto remove ~~`cdk synth`~~ and use `cdk deploy` instead.
 
+
+<BR/><BR/><BR/><BR/>
+<HR/><HR/><HR/><HR/>
+
+# Scenarios / Use-Cases
+
+1. No Layers deployed (a.k.a. brand new clean AWS-Account):
+    1. (Sunny Day Scenario): This `cdk deploy` execution will do 2 things:
+        1. deploy the Lambda-Layers as CDK-Constructs and then
+        2. use THAT same CDK-construct REFERENCES within 𝜆-function-Construct's layers-param ALSO.
+    1. (Rainy-Day Scenario): The `LambdaConfig` class's STATIC-methods `lookup_lambda_layer(..)` and `cache_lambda_layer(..)` should be ROBUST -- even if developer makes mistakes, given that the Layers are NOT deployed.<BR/>
+        Basically, catch errors durin SYNTH itself.
+    1. The `backend/lambda_layer/bin/get_lambda_layer_hashes.py` script (that uses boto3) must support all of these above scenarios.
+1. Layers are already deployed:
+    1. (Sunny Day Scenario):<BR/>
+        The git-repo's `backend/lambda_layer/lambda_layer_hashes.py` has correct ARNs for the Lambda-Layers.<BR/>
+        So, .. the Lambda-Layers should --NOT-- be re-deployed.<BR/>
+        Also, the `LambdaConfig` class's STATIC-methods `lookup_lambda_layer(..)` and `cache_lambda_layer(..)` should be ROBUST -- and use cdk's `aws_lambda.LambdaLayer.from_layer_arn()`; No cdk-SYNTH or cdk-DEPLOY errors!!!
+    1. (Rainy-Day Scenario):<BR/>
+        The git-repo's `backend/lambda_layer/lambda_layer_hashes.py` has OUTDATED ARNs for the Lambda-Layers.<BR/>
+        The `backend/lambda_layer/bin/get_lambda_layer_hashes.py` script should address this --automatically-- during "cdk-deploy"!
 
 <BR/><BR/><BR/><BR/>
 <HR/><HR/><HR/><HR/>
