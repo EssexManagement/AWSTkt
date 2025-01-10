@@ -44,6 +44,37 @@ Change above cmd tto remove ~~`cdk synth`~~ and use `cdk deploy` instead.
 <BR/><BR/><BR/><BR/>
 <HR/><HR/><HR/><HR/>
 
+# APPENDIX - Clean-up
+
+```bash
+TIER=.. .. ...            ### ❌❌❌
+AWSPROFILE=.. .. ...      ### ❌❌❌
+AWSREGION="us-east-1"     ### Should match the DEFAULT-region of the aove AWSPROFILE !!!
+
+\rm -f "/tmp/${AWSPROFILE}-${AWSREGION}-all-LambdaLayers.json"
+OutputFileName="backend/lambda_layer/lambda_layer_hashes.py"
+ScriptCLIArgs=( ${AWSPROFILE} ${TIER} ${OutputFileName} )
+
+### Download LATEST-VERSIONS information about the DEPLOYED Lambda-LAYERS
+ScriptPath="backend/lambda_layer/bin/get_lambda_layer_hashes.py"
+PYTHONPATH=${PWD}:${PYTHONPATH} PATH=${PWD}:$PATH pipenv run python3 "${ScriptPath}" ${ScriptCLIArgs[@]}
+
+### Destroy
+ScriptPath="backend/lambda_layer/bin/wipeout_deployed_lambda_layers.py"
+PYTHONPATH=${PWD}:${PYTHONPATH} PATH=${PWD}:$PATH pipenv run python3 "${ScriptPath}" ${ScriptCLIArgs[@]}
+```
+
+Next:<BR/>
+1. Check the AWS-Console for Lambda-LAYERS, to see if OLDER-versions still exist.
+  * !!!! Pay attention to the VERSION-#s on the webpage !!!!
+  * URL to console: https://us-east-1.console.aws.amazon.com/lambda/home?region=us-east-1#/layers
+1. If yes (older version#s exist), repeat -ALL- of the above commands (until ALL older versions are also deleted).
+1. If you see -NO- change on the AWS-Console for Lambda-LAYERS .. STOP and contact the developer of this script.
+
+
+<BR/><BR/><BR/><BR/>
+<HR/><HR/><HR/><HR/>
+
 # APPENDIX - 100% sanity-checking CDK (before deploying)
 
 The above `synth` command only sanity-checks the Pipeline-stack.<BR/>
