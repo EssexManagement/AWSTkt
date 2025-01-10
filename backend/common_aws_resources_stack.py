@@ -125,7 +125,6 @@ class CommonAWSResourcesStack(Stack):
                 lambda_layer_id = layer.LAMBDA_LAYER_ID,
                 lambda_layer_builder_script = None ### was: layer.LAMBDA_LAYER_BUILDER_SCRIPT,
             )
-            # if the "Pipfile" modified-timestamp is more recent than that of "Pipefile.lock" throw an exception
             my_lambdalayer_asset, myasset_sha256_hash = util.build_lambda_layer_using_docker(
                 tier = tier,
                 cpu_arch_str = cpu_arch_str,
@@ -166,8 +165,9 @@ class CommonAWSResourcesStack(Stack):
             cpu_arch_str = cpu_arch_str )
         print( f"Creating aws_lambda.LayerVersion(): {layer_version_name} .. via lookup-Key= '{layer_id}-{cpu_arch_str}' // {cpu_arch_str} // {layer_uniq_id} .." )
 
-        FSUtils.assert_not_newer_than( myfile="Pipfile", newer_than_this="Pipfile.lock", ignore_missing_files=True )
-        FSUtils.assert_not_newer_than( myfile="requirements.in", newer_than_this="requirements.txt", ignore_missing_files=True )
+        # if the "Pipfile" modified-timestamp is more recent than that of "Pipefile.lock" throw an exception
+        FSUtils.assert_not_newer_than( myfile=f"{layer_fldr_path}/Pipfile",         newer_than_this=f"{layer_fldr_path}/Pipfile.lock", ignore_missing_files=False )
+        FSUtils.assert_not_newer_than( myfile=f"{layer_fldr_path}/requirements.in", newer_than_this=f"{layer_fldr_path}/requirements.txt", ignore_missing_files=True )
 
         my_lambda_layerversion = aws_lambda.LayerVersion(
             scope = self,
