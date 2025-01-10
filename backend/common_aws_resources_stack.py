@@ -2,6 +2,7 @@ import os
 import pathlib
 from typing import Optional, Dict, List
 import json
+import importlib
 
 from constructs import Construct
 from aws_cdk import (
@@ -24,6 +25,9 @@ from common.cdk.StandardLambdaLayer import LambdaLayerUtility
 from api import config
 from api.config import LambdaConfigs
 from backend.lambda_layer.layers_config import LAYER_MODULES
+
+### NOTE: We need both the BELOW variations of importing `backend.lambda_layer.lambda_layer_hashes`
+import backend.lambda_layer.lambda_layer_hashes
 from backend.lambda_layer.lambda_layer_hashes import lambda_layer_hashes
 
 ### ==============================================================================================
@@ -95,6 +99,8 @@ class CommonAWSResourcesStack(Stack):
 
         lkp_str_key :str = aws_names.gen_lambdalayer_name( tier, layer_id, cpu_arch_str )
         print( f"lkp_str_key = '{lkp_str_key}'" )
+        ### Since the file `` was updated -by- this CDK-synth-execution (happened within `layers_app.py`), we need to DYNAMICALLY reload it.
+        importlib.reload(backend.lambda_layer.lambda_layer_hashes)
         lkp_lyr :dict[str, str]= lambda_layer_hashes.get( tier ).get( lkp_str_key )
         print( json.dumps(lkp_lyr, indent=4) )
         lkp_lyr_arn  = lkp_lyr.get('arn', None) if lkp_lyr else None
