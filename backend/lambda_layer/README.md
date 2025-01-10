@@ -7,6 +7,7 @@
     * This is important!!!!!
 1. Create a mew `Pipfile`  ([See Example](./psycopg/Pipfile))
 1. Run `pip install pipenv --user`
+1. Run `\rm -rf .cache/ .local/ .venv/ __pycache__/`
 1. Run `pipenv lock --dev --python ${PYTHON_VERSION} --clear`
 1. Verify there is a NEW file named `Pipfile.lock`
 1. `git commit` both these files.
