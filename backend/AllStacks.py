@@ -2,7 +2,7 @@ import os
 import pathlib
 import sys
 import json
-from typing import List, Optional
+from typing import List, Optional, Tuple
 import importlib
 
 from aws_cdk import (
@@ -23,6 +23,8 @@ import cdk_utils.CloudFormation_util as CFUtil
 from common.cdk.standard_lambda import StandardLambda
 
 from backend.lambda_layer.layers_config import LAYER_MODULES
+
+from api.config import LambdaConfigs
 
 ### NOTE: We specifically need this variation of DYNAMICALLY importing `backend.lambda_layer.lambda_layer_hashes`
 import backend.lambda_layer.lambda_layer_hashes
@@ -70,16 +72,28 @@ class AppStack(Stack):
         print( f"{HDR} - layer_full_name = {layer_full_name}" )
         ### Since the file `backend/lambda_layer/lambda_layer_hashes.py` was updated -by- this CDK-synth-execution (happened within `layers_app.py`), we need to DYNAMICALLY reload it.
         dyn_reloaded_module = importlib.reload(backend.lambda_layer.lambda_layer_hashes)
-        layer_version_arn :str = dyn_reloaded_module.lambda_layer_hashes.get(tier).get( layer_full_name ).get('arn')
+        lkp_obj = dyn_reloaded_module.lambda_layer_hashes.get(tier)
+        lkp_obj = lkp_obj.get( layer_full_name ) if lkp_obj else None
+        layer_version_arn :str = lkp_obj.get('arn') if lkp_obj else None
         print( f"{HDR} - layer_version_arn = {layer_version_arn}" )
         # layer_version_arn = f"arn:{self.partition}:lambda:{self.region}:{self.account}:layer:{aws_names.gen_lambdalayer_name(tier,layer_id,cpu_arch_str)}"
             ### Example: arn:aws:lambda:us-east-1:123456789012:layer:AWSTkt-backend-dev_psycopg3-pandas_amd64:5
 
-        ### Since the Layers are built in another Stack, LambdaConfigs.lookup_lambda_layer() will fail .. .. even if I use `stk_containing_layers = common_stk` !!!
-        my_lambda_layerversion = aws_lambda.LayerVersion.from_layer_version_attributes( scope = self,
-            id = f"lkp-layer-{layer_id}-{cpu_arch_str}",
-            layer_version_arn = layer_version_arn,
-        )
+        if ( layer_version_arn ):
+            ### Since the Layers are built in another Stack, LambdaConfigs.lookup_lambda_layer() will fail .. .. even if I use `stk_containing_layers = common_stk` !!!
+            my_lambda_layerversion = aws_lambda.LayerVersion.from_layer_version_attributes( scope = self,
+                id = f"lkp-layer-{layer_id}-{cpu_arch_str}",
+                layer_version_arn = layer_version_arn,
+            )
+        else:
+            ### this Lambda-Layer (99% sure) has NOT yet been deployed (hence ARNs are missing inside `backend.lambda_layer.lambda_layer_hashes`)
+            ### So, we use the CDK-Construct from the other stack.
+            my_lambda_layerversion, _ = LambdaConfigs.lookup_lambda_layer(
+                layer_simple_name = layer_id,
+                stk_containing_layers = common_stk,
+                cpu_arch_str = cpu_arch_str,
+            )
+
         print( my_lambda_layerversion )
         print( my_lambda_layerversion.layer_version_arn )
         ### Since the variable `layer_version_arn` does -NOT- include the version# .. we should expect the resposne to be for the LATEST-version of the layer
