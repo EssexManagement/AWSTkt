@@ -57,19 +57,20 @@ cpu_arch = get_cpu_arch_enum( cpu_arch_str )
 # cpu_arch_str: str = cpu_arch.name.lower()  ### === 'arm64|x86_64' string
 print( f"CPU-ARCH (Enum) ='{cpu_arch}'" )
 
-### ..............................................................................................
-
-# LAMBDA_LAYER_HASHES_LOCALFILEPATH = "backend/lambda_layer/lambda_layer_hashes.py"  ### Avoid hardcoding. Instead do as follows.
-import backend.lambda_layer.lambda_layer_hashes as lambda_layer_hashes_module
-LAMBDA_LAYER_HASHES_LOCALFILEPATH = lambda_layer_hashes_module.__file__
-from backend.lambda_layer.bin.get_lambda_layer_hashes import GetHashesForLambdaLayers
-
 aws_profile = app.node.try_get_context( 'AWSPROFILE' )
 ### detect if running on macos/windows LAPTOP --versus-- running inside AWS-CodeBuild
 if platform.system() == 'Darwin' or platform.system() == "Windows":
     if aws_profile is None:
         print( f"!! ERROR !! '-c AWSPROFILE=...'  commandline-argument is missing.  Assuming this is running INSIDE AWS-CodeBuild!❌" )
         sys.exit( 5 )
+
+### ..............................................................................................
+
+#__ LAMBDA_LAYER_HASHES_LOCALFILEPATH = "backend/lambda_layer/lambda_layer_hashes.py"
+### Avoid hardcoding (as in above line)!!! Instead do as follows.
+import backend.lambda_layer.lambda_layer_hashes as lambda_layer_hashes_module
+LAMBDA_LAYER_HASHES_LOCALFILEPATH = lambda_layer_hashes_module.__file__
+from backend.lambda_layer.bin.get_lambda_layer_hashes import GetHashesForLambdaLayers
 
 ### Dynamically update the code in the file `backend/lambda_layer/lambda_layer_hashes.py` (with the latest sha256-hashes downloaded from AWS)
 GetHashesForLambdaLayers(
