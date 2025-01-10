@@ -48,6 +48,8 @@ Change above cmd tto remove ~~`cdk synth`~~ and use `cdk deploy` instead.
     1. (Rainy-Day Scenario):<BR/>
         The git-repo's `backend/lambda_layer/lambda_layer_hashes.py` has OUTDATED ARNs for the Lambda-Layers.<BR/>
         The `backend/lambda_layer/bin/get_lambda_layer_hashes.py` script should address this --automatically-- during "cdk-deploy"!
+1. update `Pipfile` under 'backend/lambda_layer/psycopg3-pandas/' (without updating `Pipfile.lock`)
+1. update both `Pipfile` & `Pipfile.lock` under 'backend/lambda_layer/psycopg3-pandas/'
 
 <BR/><BR/><BR/><BR/>
 <HR/><HR/><HR/><HR/>
