@@ -22,7 +22,6 @@ from cdk_utils.CloudFormation_util import add_tags, get_cpu_arch_as_str
 ### ==============================================================================================
 
 from backend.lambda_layer.layers_config import LAYER_MODULES
-from backend.lambda_layer.lambda_layer_hashes import lambda_layer_hashes
 
 ### ==============================================================================================
 ### ..............................................................................................
