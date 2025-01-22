@@ -5,6 +5,7 @@ from typing import Optional
 from constructs import Construct
 from aws_cdk import (
     Stack,
+    Duration,
     RemovalPolicy,
     aws_logs,
     aws_lambda,
@@ -57,6 +58,11 @@ CODEBUILD_BUILD_IMAGE = aws_codebuild.LinuxBuildImage.AMAZON_LINUX_2_ARM_3
 CODEBUILD_BUILD_IMAGE_X86 = aws_codebuild.LinuxBuildImage.AMAZON_LINUX_2_5
 CODEBUILD_BUILD_IMAGE_UBUNTU = aws_codebuild.LinuxBuildImage.STANDARD_7_0
 CODEBUILD_EC2_SIZE    = aws_codebuild.ComputeType.LARGE
+
+### ===============================================================================================
+
+### Define how long will --all- BDDs be allowed to run, before CodeBuild-project TIMES-OUT.  This is a generic/common setting.
+BDD_CODEBUILD_TIMEOUT = Duration.minutes(120)
 
 ### ===============================================================================================
 ### ...............................................................................................

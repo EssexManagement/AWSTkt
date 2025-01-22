@@ -809,7 +809,7 @@ def standard_BDDs_JSTSVuejsReactjs(
             ),
         },
         logging = _get_logging_options( cdk_scope, tier, stk, subproj_name ),
-        timeout=Duration.minutes(120),
+        timeout = constants_cdk.BDD_CODEBUILD_TIMEOUT,
     )
 
     my_build_action = codepipeline_actions.CodeBuildAction(
