@@ -6,6 +6,7 @@ import pathlib
 from constructs import Construct
 from aws_cdk import (
     Stack,
+    Duration,
     RemovalPolicy,
     aws_codepipeline as codepipeline,
     aws_codebuild,
@@ -463,7 +464,8 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
                 "CPU_ARCH": aws_codebuild.BuildEnvironmentVariable( value=cpu_arch_str, type=aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT),
             }
         ),
-        logging = _get_logging_options( cdk_scope, tier, stk, subproj_name )
+        logging = _get_logging_options( cdk_scope, tier, stk, subproj_name ),
+        timeout=Duration.minutes(120),
     )
 
     my_build_action = codepipeline_actions.CodeBuildAction(
@@ -627,7 +629,8 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
                 "CPU_ARCH": aws_codebuild.BuildEnvironmentVariable( value=cpu_arch_str, type=aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT),
             }
         ),
-        logging = _get_logging_options( cdk_scope, tier, stk, subproj_name )
+        logging = _get_logging_options( cdk_scope, tier, stk, subproj_name ),
+        timeout=Duration.minutes(120),
     )
 
     my_build_action = codepipeline_actions.CodeBuildAction(
@@ -711,18 +714,14 @@ def standard_BDDs_JSTSVuejsReactjs(
             'version': '0.2',
             "env": {        ### Ubuntu requires "bash" to be explicitly specified. AL2 does NOT. So .. ..
                 "shell": "bash",
-                "variables": { ### If "env" is defined, it --BETTER-- have a "variables" sub-section !!!
-                    "NoSuch": "Variable"
-                }
-            },
-            "env": {
                 "secrets-manager": {
                     "EMFACT_PASSWORD_CCDI": "$TEST_PROVIDER_SM:EMFACT_PASSWORD_CCDI",
                 },
-                "variables": {
+                "variables": { ### If "env" is defined, it --BETTER-- have a "variables" sub-section !!!
+                    "NoSuch": "Variable",
                     "ENDPOINT_URL": frontend_website_url,
-                    # "STAGE": tier, ### LEGACY !!! QE-team has standardized all their script already on this env-variable.
-                    # "tier": tier,
+                    # "STAGE": tier, ### LEGACY !!! QE-team's standardized env-variable, is set inside `phases` below.
+                    # "tier": tier,  ### ! Warning ! QE-team prefers it hardcoded INSIDE `phases` below.
                     # "aws_env": aws_env,
                     # "git_branch": git_branch,
                 },
@@ -809,7 +808,8 @@ def standard_BDDs_JSTSVuejsReactjs(
                 value="noninteractive",                                 ### apt-get be quieter
             ),
         },
-        logging = _get_logging_options( cdk_scope, tier, stk, subproj_name )
+        logging = _get_logging_options( cdk_scope, tier, stk, subproj_name ),
+        timeout=Duration.minutes(120),
     )
 
     my_build_action = codepipeline_actions.CodeBuildAction(

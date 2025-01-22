@@ -104,6 +104,9 @@ class LambdaConfigs():
     @staticmethod
     def get_memory_size(item :dict) -> Optional[str]: return item.get('memory')
     @staticmethod
+    def get_ephemeral_storage_size(item: dict) -> Optional[str]:
+        return item.get('ephemeral_storage_size', 512)
+    @staticmethod
     def get_cpu_arch(item :dict) -> Optional[str]: return item.get('cpu-arch', None) or DEFAULT_CPU_ARCH_NAMESTR
     @staticmethod
     def get_extra_env_vars(item :dict) -> Optional[str]: return item.get('extra-env-vars', {})

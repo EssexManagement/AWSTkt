@@ -41,9 +41,11 @@ cpu_arch = get_cpu_arch_enum( cpu_arch_str )
 print( f"CPU-ARCH (Enum) ='{cpu_arch}'" )
 
 ### ..............................................................................................
+cdk_component_name=f"{constants.CDK_COMPONENT_NAME}-pipeline"
+stack_id = aws_names.gen_awsresource_name_prefix( tier=tier, cdk_component_name=cdk_component_name )
 
 AwsTktPipelineStack( scope=app,
-    construct_id=f"{constants.CDK_APP_NAME}-PIPELINE",
+    stack_id=stack_id,
     tier=tier,
     aws_env=constants.DEV_TIER,
     git_branch=constants.get_git_branch(tier),

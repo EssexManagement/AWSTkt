@@ -82,18 +82,51 @@ def get_python_runtime_containerimage_uri(cpu_arch_str :str) -> str:
 ### ---------------------------------------------------------------------------------------------------
 
 def add_tags( a_construct :Construct, tier :str, aws_env :str, git_branch :str ) -> None:
+    effective_tier = tier if tier in constants.STD_TIERS else "dev"
     Tags.of(a_construct).add(key="PRODUCT", value=constants.HUMAN_FRIENDLY_APP_NAME.lower())
-    Tags.of(a_construct).add(key="ENVIRONMENT",  value=tier.lower())
+    Tags.of(a_construct).add(key="ENVIRONMENT",  value=effective_tier.lower())
     Tags.of(a_construct).add(key="VERSION", value=a_construct.node.try_get_context("git-source")["git_commit_hashes"][tier])
     Tags.of(a_construct).add(key="application", value=constants.CDK_APP_NAME)
     Tags.of(a_construct).add(key="component",   value=constants.CDK_COMPONENT_NAME)
     Tags.of(a_construct).add(key="tier",  value=tier)
     Tags.of(a_construct).add(key="aws_env",  value=aws_env)
     Tags.of(a_construct).add(key="git_branch", value=git_branch)
-    Tags.of(a_construct).add(key="BUILD", value=constants_cdk.BUILD_KICKOFF_TIMESTAMP_STR)
+    # Tags.of(a_construct).add(key="BUILD", value=constants_cdk.BUILD_KICKOFF_TIMESTAMP_STR)
     if a_construct.node.try_get_context("git_repo"):
         Tags.of(a_construct).add(key="SOURCE", value=a_construct.node.try_get_context("git_repo"))
         Tags.of(a_construct).add(key="repo",   value=a_construct.node.try_get_context("git_repo"))
+
+### ---------------------------------------------------------------------------------------------------
+
+def get_tags_as_json( tier :str, aws_env :str, git_branch :str ) -> None:
+    effective_tier = tier if tier in constants.STD_TIERS else "dev"
+    return {
+        "PRODUCT": constants.HUMAN_FRIENDLY_APP_NAME.lower(),
+        "ENVIRONMENT":  effective_tier.lower(),
+        "VERSION": "Not-defined-VPC-EndPoints",
+        "application": constants.CDK_APP_NAME,
+        "component":   constants.CDK_COMPONENT_NAME,
+        "tier":  tier,
+        "aws_env":  aws_env,
+        "git_branch": git_branch,
+        # "BUILD": constants_cdk.BUILD_KICKOFF_TIMESTAMP_STR,
+    }
+
+### ---------------------------------------------------------------------------------------------------
+
+def get_tags_as_array( tier :str, aws_env :str, git_branch :str ) -> None:
+    effective_tier = tier if tier in constants.STD_TIERS else "dev"
+    return [
+        { "Key": "PRODUCT", "Value": constants.HUMAN_FRIENDLY_APP_NAME.lower() },
+        { "Key": "ENVIRONMENT", "Value": effective_tier.lower() },
+        { "Key": "VERSION", "Value": "Not-defined-VPC-EndPoints" },
+        { "Key": "application", "Value": constants.CDK_APP_NAME },
+        { "Key": "component", "Value":   constants.CDK_COMPONENT_NAME },
+        { "Key": "tier", "Value": tier },
+        { "Key": "aws_env", "Value":  aws_env },
+        { "Key": "git_branch", "Value": git_branch },
+        # { "Key": "BUILD", "Value": constants_cdk.BUILD_KICKOFF_TIMESTAMP_STR },
+    ]
 
 ### ---------------------------------------------------------------------------------------------------
 

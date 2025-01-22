@@ -119,11 +119,13 @@ def create_std_bucket(
     encryption: aws_s3.BucketEncryption = None,
     cors_rule_list: Optional[list] = None,
     bucket_name: Optional[str] = None,
+    enable_S3PreSignedURLs :bool = False,
     # block_public_access :aws_s3.BlockPublicAccess,
     **kwargs,
 ) -> aws_s3.Bucket:
+    HDR = " create_std_bucket() within " + __file__
 
-    print(f"tier='{tier}' inside create_std_bucket() within " + __file__)
+    print(f"tier='{tier}' :" + HDR )
     server_access_logs_bucket = lookup_access_logs_bucket(scope=scope, tier=tier)
     versioned2, removal_policy2, auto_delete_objects2 = __calculate_s3_props(
         tier, data_classification_type, versioned, removal_policy
@@ -133,6 +135,27 @@ def create_std_bucket(
         tier=tier, data_classification_type=data_classification_type, keep_older_versions=versioned2
     )
 
+    block_public_access = aws_s3.BlockPublicAccess.BLOCK_ALL
+    # if enable_S3PreSignedURLs:
+    #     ### This allows bucket-policies while still blocking ACLs
+    #     block_public_access = aws_s3.BlockPublicAccess(
+    #         block_public_acls=True,
+    #         block_public_policy=False,      ### Allow Bucket-specific policies
+    #         ignore_public_acls=True,
+    #         restrict_public_buckets=False,   ### Allow bucket policies to work
+    #     )
+    # else:
+    #     block_public_access = aws_s3.BlockPublicAccess.BLOCK_ALL
+
+    if cors_rule_list is None:
+        cors_rule_list = [] ### To ensure .append() invocation below never has an exception thrown.
+    cors_rule_list.append( aws_s3.CorsRule(
+        allowed_methods=[ aws_s3.HttpMethods.GET, aws_s3.HttpMethods.PUT ],
+        allowed_origins=['*'],
+        allowed_headers=['*'],
+        max_age=24*3600 ### seconds
+    ))
+
     return aws_s3.Bucket(
         scope = scope,
         id = id,
@@ -140,11 +163,12 @@ def create_std_bucket(
         auto_delete_objects = auto_delete_objects2,
         versioned = versioned2,
         removal_policy = removal_policy2,
-        block_public_access = aws_s3.BlockPublicAccess.BLOCK_ALL,
-        # object_ownership = aws_s3.ObjectOwnership.BUCKET_OWNER_ENFORCED,
+        block_public_access = block_public_access,
+        object_ownership = aws_s3.ObjectOwnership.BUCKET_OWNER_ENFORCED,
+        # object_ownership = aws_s3.ObjectOwnership.BUCKET_OWNER_PREFERRED,
         # access_control = aws_s3.BucketAccessControl.PRIVATE, ### deprecated. ### <-- ATTENTION !! Must NOT be set for CF's logging bucket
-        ### Fix CloudFormation STACK-ERROR -> Bucket cannot have ACLs set with ObjectOwnership's BucketOwnerEnforced setting
-        ### Fix cfn-lint ERROR -> E3045 A bucket with AccessControl set should also have OwnershipControl configured
+                ### Fix CloudFormation STACK-ERROR -> Bucket cannot have ACLs set with ObjectOwnership's BucketOwnerEnforced setting
+                ### Fix cfn-lint ERROR -> E3045 A bucket with AccessControl set should also have OwnershipControl configured
         encryption=encryption if encryption else aws_s3.BucketEncryption.S3_MANAGED,
         enforce_ssl = True,
         cors = cors_rule_list,
@@ -165,33 +189,62 @@ def gen_s3_bucket_props(
     data_classification_type: DATA_CLASSIFICATION_TYPES,
     lifecycle_rules: list[aws_s3.LifecycleRule],
     versioned: bool = False,
+    removal_policy: RemovalPolicy = None,
+    encryption: aws_s3.BucketEncryption = None,
+    cors_rule_list: Optional[list] = None,
+    bucket_name: Optional[str] = None,
+    enable_S3PreSignedURLs :bool = False,
 ) -> aws_s3.BucketProps:
     """per Security Guidelines, all buckets should IDEALLY have the following properties set."""
 
-    print(f"tier='{tier}' inside gen_s3_bucket_props() within " + __file__)
+    HDR = " gen_s3_nucket_props() within " + __file__
+
+    print(f"tier='{tier}' :" + HDR )
     server_access_logs_bucket = lookup_access_logs_bucket(scope=scope, tier=tier)
-    versioned3, removal_policy3, auto_delete_objects3 = __calculate_s3_props(
-        tier, data_classification_type, versioned, None
+    versioned2, removal_policy2, auto_delete_objects2 = __calculate_s3_props(
+        tier, data_classification_type, versioned, removal_policy
     )
 
     all_lifecycle_rules = gen_bucket_lifecycle(
-        tier=tier, data_classification_type=data_classification_type, keep_older_versions=versioned3
+        tier=tier, data_classification_type=data_classification_type, keep_older_versions=versioned2
     )
 
+    block_public_access = aws_s3.BlockPublicAccess.BLOCK_ALL
+    # if enable_S3PreSignedURLs:
+    #     ### This allows bucket-policies while still blocking ACLs
+    #     block_public_access = aws_s3.BlockPublicAccess(
+    #         block_public_acls=True,
+    #         block_public_policy=False,      ### Allow Bucket-specific policies
+    #         ignore_public_acls=True,
+    #         restrict_public_buckets=False   ### Allow bucket policies to work
+    #     )
+    # else:
+    #     block_public_access = aws_s3.BlockPublicAccess.BLOCK_ALL
+
+    if cors_rule_list is None:
+        cors_rule_list = [] ### To ensure .append() invocation below never has an exception thrown.
+    cors_rule_list.append( aws_s3.CorsRule(
+        allowed_methods=[ aws_s3.HttpMethods.GET, aws_s3.HttpMethods.PUT ],
+        allowed_origins=['*'],
+        allowed_headers=['*'],
+        max_age=24*3600 ### seconds
+    ))
+
     s3_bucket_props = aws_s3.BucketProps(
-        auto_delete_objects=auto_delete_objects3,
-        versioned=versioned3,
-        removal_policy=removal_policy3,
-        block_public_access=aws_s3.BlockPublicAccess.BLOCK_ALL,
-        # object_ownership = aws_s3.ObjectOwnership.BUCKET_OWNER_ENFORCED,
+        auto_delete_objects = auto_delete_objects2,
+        versioned = versioned2,
+        removal_policy = removal_policy2,
+        block_public_access = block_public_access,
+        object_ownership = aws_s3.ObjectOwnership.BUCKET_OWNER_ENFORCED,
         # access_control = aws_s3.BucketAccessControl.PRIVATE, ### deprecated. ### <-- ATTENTION !! Must NOT be set for CF's logging bucket
-        ### Fix CloudFormation STACK-ERROR -> Bucket cannot have ACLs set with ObjectOwnership's BucketOwnerEnforced setting
-        ### Fix cfn-lint ERROR -> E3045 A bucket with AccessControl set should also have OwnershipControl configured
-        encryption=aws_s3.BucketEncryption.S3_MANAGED,
-        enforce_ssl=True,
-        server_access_logs_bucket=server_access_logs_bucket,
-        lifecycle_rules=(
-            lifecycle_rules if lifecycle_rules else all_lifecycle_rules[S3_LIFECYCLE_RULES.LOW_COST.name]
+                ### Fix CloudFormation STACK-ERROR -> Bucket cannot have ACLs set with ObjectOwnership's BucketOwnerEnforced setting
+                ### Fix cfn-lint ERROR -> E3045 A bucket with AccessControl set should also have OwnershipControl configured
+        encryption = encryption if encryption else aws_s3.BucketEncryption.S3_MANAGED,
+        enforce_ssl = True,
+        cors = cors_rule_list,
+        server_access_logs_bucket = server_access_logs_bucket,
+        lifecycle_rules = (
+            lifecycle_rules if lifecycle_rules else all_lifecycle_rules[S3_LIFECYCLE_RULES.INTELLIGENT_TIERING.name]
         ),
     )
     print(s3_bucket_props)

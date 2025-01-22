@@ -197,16 +197,17 @@ def lkp_cdk_json_for_codestar_arn(
 
     stk = Stack.of(cdk_scope)
 
-    if "codestar-connection" in git_src_code_config and tier in git_src_code_config["codestar-connection"]:
-        codestar_connection_name = git_src_code_config["codestar-connection"][tier]["name"]
-        codestar_connection_arn = git_src_code_config["codestar-connection"][tier]["arn"]
+    effective_tier = tier if tier in constants.STD_TIERS else "dev"
+    if "codestar-connection" in git_src_code_config and effective_tier in git_src_code_config["codestar-connection"]:
+        codestar_connection_name = git_src_code_config["codestar-connection"][effective_tier]["name"]
+        codestar_connection_arn = git_src_code_config["codestar-connection"][effective_tier]["arn"]
     else:
         ### WARNING !!! maxLength: 32
-        codestar_connection_name = f"{constants.CDK_APP_NAME}-GitHub-V2-{tier}"
+        codestar_connection_name = f"{constants.CDK_APP_NAME}-GitHub-V2-{effective_tier}"
         # create a arn:aws:codestar-connections
         codestar_connection = aws_codestarconnections.CfnConnection( scope=cdk_scope, id="codestar-connection",
             connection_name = codestar_connection_name,
-            # provider_type = "GitHub",
+            provider_type = "GitHub",
         )
         codestar_connection_arn = f"arn:{stk.partition}:codestar-connections:{stk.region}:{stk.account}:connection/{codestar_connection.ref}"
 

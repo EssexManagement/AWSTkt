@@ -7,7 +7,7 @@ from aws_cdk import (
 )
 from constructs import Construct
 
-import constants as constants
+import constants
 import common.cdk.constants_cdk as constants_cdk
 import common.cdk.aws_names as aws_names
 import cdk_utils.CdkDotJson_util as CdkDotJson_util
@@ -16,31 +16,42 @@ from cdk_utils.CloudFormation_util import get_cpu_arch_as_str
 import common.cdk.StandardCodePipeline
 import common.cdk.StandardCodeBuild
 
+### ---------------------------------------------------------------------------------------------------
+
 class AwsTktPipelineStack(Stack):
 
     def __init__(self,
         scope: Construct,
-        construct_id: str,
+        stack_id: str,
         tier: str,
         aws_env :str,
         git_branch :str,
         **kwargs
     ) -> None:
+        """
+            1st param:  typical CDK scope (parent Construct/stack)
+            2nd param:  stack_id :str
+            3rd param:  tier (dev|int|uat|tier)
+            4th param:  aws_env - typically the AWS_ACCOUNT AWSPROFILE (DEVINT_SHARED|UAT|PROD)
+            5th param:  git_branch :dtr
+        """
         super().__init__(
             scope,
-            construct_id,
-            stack_name=construct_id,
+            stack_id,
+            stack_name=stack_id,
             **kwargs)
 
-        # LambdaLayerBuilder( self, "LambdaLayerBuilder" )
+        ### -----------------------------------
+        pipeline_name = stack_id    ### perhaps it can be named better?
+        stk_prefix = aws_names.gen_awsresource_name_prefix( tier=tier, cdk_component_name=constants.CDK_COMPONENT_NAME )
+        # stk_prefix = f"{constants.CDK_APP_NAME}-{constants.CDK_COMPONENT_NAME}-{tier}"
+        codebuild_projname = "Appln_CDKSynthDeploy"
 
-        stack_id=self.stack_name
-
+        ### -----------------------------------
         _ , git_repo_name , git_repo_org_name = CdkDotJson_util.lkp_gitrepo_details(cdk_scope=self)
 
-        pipeline_source_gitbranch="main"
-        # codestar_connection_arn=f"arn:{self.partition}:codeconnections:{self.region}:{self.account}:connection/{???}"
-        git_src_code_config , _ , git_commit_hash, pipeline_source_gitbranch = CdkDotJson_util.lkp_cdk_json(
+        ### -----------------------------------
+        git_src_code_config , _ , app_git_branch, pipeline_source_gitbranch = CdkDotJson_util.lkp_cdk_json(
                                                                     cdk_scope=self, ### This stack
                                                                     tier=tier,
                                                                     aws_env=aws_env)
@@ -49,15 +60,15 @@ class AwsTktPipelineStack(Stack):
                                                                     tier=tier,
                                                                     aws_env=aws_env,
                                                                     git_src_code_config=git_src_code_config)
+        # codestar_connection_arn=f"arn:{self.partition}:codeconnections:{self.region}:{self.account}:connection/{???}"
+
+        print( f"tier='{tier}' within "+ __file__ )
+        print( f"aws_env='{aws_env}' within "+ __file__ )
+        print( f"App's git_branch='{app_git_branch}' within "+ __file__ )
+        print( f"pipelin's source_gitbranch = '{pipeline_source_gitbranch}' within "+ __file__ )
+        print( f"codestar_connection_arn = '{codestar_connection_arn}' within "+ __file__ )
 
         ### -----------------------------------
-        pipeline_name = stack_id    ### perhaps it can be named better?
-        stk_prefix = self.stack_name
-        codebuild_projname = "Appln_CDKSynthDeploy"
-        print( f"codestar_connection_arn = '{codestar_connection_arn}' within "+ __file__ )
-        print( f"pipeline_source_gitbranch = '{pipeline_source_gitbranch}' within "+ __file__ )
-
-        ### ---------------------------------------------
 
         # Source stage
         my_source_artif = codepipeline.Artifact()
@@ -70,8 +81,8 @@ class AwsTktPipelineStack(Stack):
             cdk_scope = self,
             pipeline_name = pipeline_name,
             stack_id = None,
-            tier=tier,
-            aws_env=aws_env,
+            tier = tier,
+            aws_env = aws_env,
             git_repo_name     = git_repo_name,
             git_repo_org_name = git_repo_org_name,
             codestar_connection_arn   = codestar_connection_arn,
@@ -102,7 +113,7 @@ class AwsTktPipelineStack(Stack):
             # Build action within CodePipeline
             a_build_action, a_build_output = common.cdk.StandardCodeBuild.adv_CodeBuildCachingSynthAndDeploy_Python(
                 cdk_scope = self,
-                tier=tier,
+                tier = tier,
                 codebase_root_folder = ".",
                 subproj_name = None,
                 cb_proj_name = f"{stk_prefix}_{codebuild_projname}",
