@@ -4,6 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+
 ### Note: boto3 and regex are a REQUIREMENT within `backend/lambda_layer/bin/get_lambda_layer_hashes.py`
 boto3 = "*"
 regex = "*"
@@ -11,34 +12,24 @@ regex = "*"
 aws-cdk-lib = "*"
 constructs = "*"
 "aws-cdk.aws-lambda-python-alpha" = "*"
+aws-cdk-aws-lambda-python-alpha = "*"
 cdk-ecr-deployment = "*"
 aws-cdk-asset-awscli-v1 = "*"
 aws-cdk-asset-kubectl-v20 = "*"
 aws-cdk-asset-node-proxy-agent-v6 = "*"
-aws-cdk-aws-lambda-python-alpha = "*"
 aws-cdk-cloud-assembly-schema = "*"
-attrs = "*"
-cattrs = "*"
-certifi = "*"
-charset-normalizer = "*"
-idna = "*"
-importlib-resources = "*"
-jsii = "*"
-jsonschema-specifications = "*"
-publication = "*"
-python-dateutil = "*"
-referencing = "*"
-requests = "*"
-rpds-py = "*"
-six = "*"
+
 typeguard = "*"
 typing-extensions = "*"
-urllib3 = "*"
-zipp = "*"
-importlib-metadata = "*"
-pytz = "*"
-docker = "*"
 jsonschema = "*"
+jsonschema-specifications = "*"
+
+pytz = "*"
+python-dateutil = "*"
+
+requests = "*"
+
+docker = "*"
 
 [dev-packages]
 
