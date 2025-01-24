@@ -94,7 +94,7 @@ The following will sanity-check that the pipeline will not fail during cdk-synth
 ```bash
 ( unset BUILDPLATFORM; unset DOCKER_DEFAULT_PLATFORM; unset TARGETPLATFORM;
   CPU_ARCH="$(uname -m)";  ### PICK ONE !!!
-  CPU_ARCH="x86_64";       ### PICK ONE !!!
+  CPU_ARCH="amd64";       ### PICK ONE !!!
   pipenv run npx cdk synth --quiet --all --app "python3 cdk_lambda_layers_app.py"  -c tier=${TIER} -c CPU_ARCH=${CPU_ARCH} -c git_repo=${GITHUB_REPOSITORY} -c  AWSPROFILE=${AWSPROFILE} --profile ${AWSPROFILE} --region ${AWSREGION}
 )
 ```
