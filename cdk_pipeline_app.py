@@ -29,18 +29,6 @@ app = cdk.App()
 HDR = " inside "+ __file__
 
 ### ..............................................................................................
-
-# cpu_arch_str: str = os.environ.get("CPU_ARCH", None)
-cpu_arch_str: str = app.node.try_get_context( 'CPU_ARCH' )
-print( f"CPU_ARCH (Env-Var) = '{cpu_arch_str}' within "+ HDR )
-if not cpu_arch_str:
-    print( f"!! ERROR !! '-c =CPU_ARCH=x86_64|arm64'  commandline-argument is missing.  Assuming this is running INSIDE AWS-CodeBuild!❌" )
-    sys.exit( 3 )
-cpu_arch = get_cpu_arch_enum( cpu_arch_str )
-# cpu_arch_str: str = cpu_arch.name.lower()  ### === 'arm64|x86_64' string
-print( f"CPU-ARCH (Enum) ='{cpu_arch}'" )
-
-### ..............................................................................................
 cdk_component_name=f"{constants.CDK_COMPONENT_NAME}-pipeline"
 stack_id = aws_names.gen_awsresource_name_prefix( tier=tier, cdk_component_name=cdk_component_name )
 
