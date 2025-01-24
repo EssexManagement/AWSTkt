@@ -18,9 +18,9 @@ pipenv sync --dev
 ### source .venv/bin/activate
 ### pip install -r requirements.txt
 
-GITHUB_REPOSITORY=$(git ls-remote --get-url | sed -e 's/..*github.com\/\(.*\)/\1/');
-
-( unset BUILDPLATFORM; unset DOCKER_DEFAULT_PLATFORM; unset TARGETPLATFORM;
+(
+  GITHUB_REPOSITORY=$(git ls-remote --get-url | sed -e 's/..*github.com\/\(.*\)/\1/');
+  unset BUILDPLATFORM; unset DOCKER_DEFAULT_PLATFORM; unset TARGETPLATFORM;
   pipenv run npx cdk synth --quiet --all --app "python3 cdk_pipeline_app.py"  -c tier=${TIER} -c git_repo=${GITHUB_REPOSITORY} --profile ${AWSPROFILE} --region ${AWSREGION}
 )
 ```
@@ -95,7 +95,7 @@ The following will sanity-check that the pipeline will not fail during cdk-synth
 ( unset BUILDPLATFORM; unset DOCKER_DEFAULT_PLATFORM; unset TARGETPLATFORM;
   CPU_ARCH="$(uname -m)";  ### PICK ONE !!!
   CPU_ARCH="x86_64";       ### PICK ONE !!!
-  pipenv run npx cdk synth --quiet --all --app "python3 layers_app.py"  -c tier=${TIER} -c CPU_ARCH=${CPU_ARCH} -c git_repo=${GITHUB_REPOSITORY} -c  AWSPROFILE=${AWSPROFILE} --profile ${AWSPROFILE} --region ${AWSREGION}
+  pipenv run npx cdk synth --quiet --all --app "python3 cdk_lambda_layers_app.py"  -c tier=${TIER} -c CPU_ARCH=${CPU_ARCH} -c git_repo=${GITHUB_REPOSITORY} -c  AWSPROFILE=${AWSPROFILE} --profile ${AWSPROFILE} --region ${AWSREGION}
 )
 ```
 
