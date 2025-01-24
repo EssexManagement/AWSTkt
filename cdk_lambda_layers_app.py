@@ -11,7 +11,7 @@ from constructs import Construct
 import constants as constants
 import common.cdk.constants_cdk as constants_cdk
 import common.cdk.aws_names as aws_names
-from cdk_utils.CloudFormation_util import get_cpu_arch_enum, add_tags
+from cdk_utils.CloudFormation_util import get_cpu_arch_enum, get_cpu_arch_as_str, add_tags
 from backend.common_aws_resources_stack import CommonAWSResourcesStack
 from backend.AllStacks import AppStack
 
@@ -56,6 +56,14 @@ if not cpu_arch_str:
 cpu_arch = get_cpu_arch_enum( cpu_arch_str )
 # cpu_arch_str: str = cpu_arch.name.lower()  ### === 'arm64|x86_64' string
 print( f"CPU-ARCH (Enum) ='{cpu_arch}'" )
+if cpu_arch_str != get_cpu_arch_as_str(cpu_arch):
+    print( f"!! ERROR !! Invalid value of '-c =CPU_ARCH={cpu_arch_str}'  commandline-argument!❌" )
+    print( f"!! ERROR !! Valid values are: ", end="");
+    c :cdk.aws_lambda.Architecture;
+    for c in constants_cdk.CPU_ARCH_LIST:
+        print( get_cpu_arch_as_str(c), end=", ")
+    print()
+    sys.exit( 4 )
 
 aws_profile = app.node.try_get_context( 'AWSPROFILE' )
 ### detect if running on macos/windows LAPTOP --versus-- running inside AWS-CodeBuild
