@@ -98,7 +98,7 @@ class CommonAWSResourcesStack(Stack):
 
         lkp_str_key :str = aws_names.gen_lambdalayer_name( tier, layer_id, cpu_arch_str )
         print( f"lkp_str_key = '{lkp_str_key}'" )
-        ### Since the file `backend/lambda_layer/lambda_layer_hashes.py` was updated -by- this CDK-synth-execution (happened within `layers_app.py`), we need to DYNAMICALLY reload it.
+        ### Since the file `backend/lambda_layer/lambda_layer_hashes.py` was updated -by- this CDK-synth-execution (happened within `cdk_lambda_layers_app.py`), we need to DYNAMICALLY reload it.
         dyn_reloaded_module = importlib.reload(backend.lambda_layer.lambda_layer_hashes)
         lkp_obj = dyn_reloaded_module.lambda_layer_hashes.get( tier )
         lkp_lyr :dict[str, str] = lkp_obj.get( lkp_str_key ) if lkp_obj else None

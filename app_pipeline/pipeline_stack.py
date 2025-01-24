@@ -23,7 +23,7 @@ class AwsTktPipelineStack(Stack):
     def __init__(self,
         scope: Construct,
         stack_id: str,
-        tier: str,
+        tier :str,
         aws_env :str,
         git_branch :str,
         **kwargs
@@ -68,7 +68,7 @@ class AwsTktPipelineStack(Stack):
         print( f"pipelin's source_gitbranch = '{pipeline_source_gitbranch}' within "+ __file__ )
         print( f"codestar_connection_arn = '{codestar_connection_arn}' within "+ __file__ )
 
-        ### -----------------------------------
+        ### ---------------------------------------------
 
         # Source stage
         my_source_artif = codepipeline.Artifact()
@@ -120,7 +120,7 @@ class AwsTktPipelineStack(Stack):
                 source_artifact = my_source_artif,
                 cpu_arch = cpu_arch,
                 git_repo_url = f"{git_repo_org_name}/{git_repo_name}",
-                cdk_app_pyfile="layers_app.py",
+                cdk_app_pyfile="cdk_lambda_layers_app.py",
                 addl_cdk_context = {
                     "CPU_ARCH": cpu_arch_str
                 }
