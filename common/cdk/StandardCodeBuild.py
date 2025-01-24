@@ -85,6 +85,8 @@ def standard_CodeBuildSynth_NodeJS(
     """
 
     HDR = " : standard_CodeBuildSynth_NodeJS(): "
+    stk = Stack.of(cdk_scope)
+
     print(f"subproj_name={subproj_name}"+ HDR )
     print(f"codebase_root_folder={codebase_root_folder}"+ HDR )
     print(f"cb_proj_name={cb_proj_name}"+ HDR )
@@ -93,8 +95,6 @@ def standard_CodeBuildSynth_NodeJS(
     print( f"CPU_ARCH(str) = '{cpu_arch_str}'" )
     cb_proj_name += f"-{cpu_arch_str}"
     print( f"cb_proj_name='{cb_proj_name}'" )
-
-    stk = Stack.of(cdk_scope)
 
     git_repo_org_name = source_artifact.get_metadata( key="git_repo_org_name"  )
     git_repo_name = source_artifact.get_metadata( key="git_repo_name"  )
@@ -155,7 +155,7 @@ def standard_CodeBuildSynth_NodeJS(
             }
         }),
         environment=aws_codebuild.BuildEnvironment(
-            privileged   = (cpu_arch == aws_lambda.Architecture.X86_64), ### Docker running on -ONLY- X86-based EC2s/CodeBuild-images.  Do NOT ask why!!!
+            privileged   = (cpu_arch.name == aws_lambda.Architecture.X86_64.name), ### Docker running on -ONLY- X86-based EC2s/CodeBuild-images.  Do NOT ask why!!!
             build_image  = _get_codebuild_linux_image( tier, cpu_arch ),
             compute_type = constants_cdk.CODEBUILD_EC2_SIZE,
             environment_variables = {
@@ -209,6 +209,8 @@ def standard_CodeBuildSynth_Python(
     """
 
     HDR = " : standard_CodeBuildSynth_Python(): "
+    stk = Stack.of(cdk_scope)
+
     print(f"subproj_name={subproj_name}"+ HDR )
     print(f"codebase_root_folder={codebase_root_folder}"+ HDR )
     print(f"cb_proj_name={cb_proj_name}"+ HDR )
@@ -218,6 +220,11 @@ def standard_CodeBuildSynth_Python(
     cb_proj_name += f"-{cpu_arch_str}"
     print( f"cb_proj_name='{cb_proj_name}'" )
 
+    git_repo_org_name = source_artifact.get_metadata( key="git_repo_org_name"  )
+    git_repo_name = source_artifact.get_metadata( key="git_repo_name"  )
+    git_repo_url  = f"{git_repo_org_name}/{git_repo_name}"
+    print( f"git_repo_url={git_repo_url} within "+ HDR )
+
     ### Synth only
     ### automatically detect if Git-Repo-codebase is using Plain-Pip (and .venv) or whether the Git-Repo-Codebase is using Pipenv/Pifile
     cdk_deploy_command  =  "if [ -f requirements.txt ]; then PRFX=\"\"; elif [ -f Pipfile.lock ]; then PRFX=\"pipenv run\"; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; "
@@ -226,19 +233,12 @@ def standard_CodeBuildSynth_Python(
     cdk_synth_command += f" --context tier=\"{tier}\""
     if git_repo_url:     cdk_synth_command += f" --context git_repo=\"{git_repo_url}\""
 
-    stk = Stack.of(cdk_scope)
-
     artif_name, subproj_name, sub_proj_fldrpath = gen_artifact_name(
         tier=tier,
         codebase_root_folder=codebase_root_folder,
         subproj_name=subproj_name,
         cb_proj_name=cb_proj_name
     )
-
-    git_repo_org_name = source_artifact.get_metadata( key="git_repo_org_name"  )
-    git_repo_name = source_artifact.get_metadata( key="git_repo_name"  )
-    git_repo_url  = f"{git_repo_org_name}/{git_repo_name}"
-    print( f"git_repo_url={git_repo_url} within "+ HDR )
 
     my_build_output  = codepipeline.Artifact("build_"+artif_name)
 
@@ -301,7 +301,7 @@ def standard_CodeBuildSynth_Python(
             # }
         }),
         environment=aws_codebuild.BuildEnvironment(
-            privileged   = (cpu_arch == aws_lambda.Architecture.X86_64), ### Docker running on -ONLY- X86-based EC2s/CodeBuild-images.  Do NOT ask why!!!
+            privileged   = (cpu_arch.name == aws_lambda.Architecture.X86_64.name), ### Docker running on -ONLY- X86-based EC2s/CodeBuild-images.  Do NOT ask why!!!
             build_image  = _get_codebuild_linux_image( tier, cpu_arch ),
             compute_type = constants_cdk.CODEBUILD_EC2_SIZE,
             environment_variables = {
@@ -456,7 +456,7 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
 
         }),
         environment=aws_codebuild.BuildEnvironment(
-            privileged   = (cpu_arch == aws_lambda.Architecture.X86_64), ### Docker running on -ONLY- X86-based EC2s/CodeBuild-images.  Do NOT ask why!!!
+            privileged   = (cpu_arch.name == aws_lambda.Architecture.X86_64.name), ### Docker running on -ONLY- X86-based EC2s/CodeBuild-images.  Do NOT ask why!!!
             build_image  = _get_codebuild_linux_image( tier, cpu_arch ),
             compute_type = constants_cdk.CODEBUILD_EC2_SIZE,
             environment_variables = {
@@ -515,6 +515,8 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
     """
 
     HDR = " : standard_CodeBuildSynth_FrontendPythonCDK(): "
+    stk = Stack.of(cdk_scope)
+
     print(f"subproj_name={subproj_name}"+ HDR )
     print(f"codebase_root_folder={codebase_root_folder}"+ HDR )
     print(f"cb_proj_name={cb_proj_name}"+ HDR )
@@ -524,6 +526,11 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
     cb_proj_name += f"-{cpu_arch_str}"
     print( f"cb_proj_name='{cb_proj_name}'" )
 
+    git_repo_org_name = source_artifact.get_metadata( key="git_repo_org_name"  )
+    git_repo_name = source_artifact.get_metadata( key="git_repo_name"  )
+    git_repo_url  = f"{git_repo_org_name}/{git_repo_name}"
+    print( f"git_repo_url={git_repo_url} within "+ HDR )
+
     ### automatically detect if Git-Repo-codebase is using Plain-Pip (and .venv) or whether the Git-Repo-Codebase is using Pipenv/Pifile
     cdk_deploy_command  =  "if [ -f requirements.txt ]; then PRFX=\"\"; elif [ -f Pipfile.lock ]; then PRFX=\"pipenv run\"; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; "
     cdk_deploy_command +=  "$PRFX npx cdk deploy  --quiet --all"
@@ -531,19 +538,12 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
     cdk_deploy_command += f" --context tier=\"{tier}\""
     if git_repo_url:     cdk_deploy_command += f" --context git_repo=\"{git_repo_url}\""
 
-    stk = Stack.of(cdk_scope)
-
     artif_name, subproj_name, sub_proj_fldrpath = gen_artifact_name(
         tier=tier,
         codebase_root_folder=codebase_root_folder,
         subproj_name=subproj_name,
         cb_proj_name=cb_proj_name
     )
-
-    git_repo_org_name = source_artifact.get_metadata( key="git_repo_org_name"  )
-    git_repo_name = source_artifact.get_metadata( key="git_repo_name"  )
-    git_repo_url  = f"{git_repo_org_name}/{git_repo_name}"
-    print( f"git_repo_url={git_repo_url} within "+ HDR )
 
     my_build_output  = codepipeline.Artifact("build_"+artif_name)
 
@@ -621,7 +621,7 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
             # }
         }),
         environment=aws_codebuild.BuildEnvironment(
-            privileged   = (cpu_arch == aws_lambda.Architecture.X86_64), ### Docker running on -ONLY- X86-based EC2s/CodeBuild-images.  Do NOT ask why!!!
+            privileged   = (cpu_arch.name == aws_lambda.Architecture.X86_64.name), ### Docker running on -ONLY- X86-based EC2s/CodeBuild-images.  Do NOT ask why!!!
             build_image  = _get_codebuild_linux_image( tier, cpu_arch ),
             compute_type = constants_cdk.CODEBUILD_EC2_SIZE,
             environment_variables = {
@@ -682,19 +682,18 @@ def standard_BDDs_JSTSVuejsReactjs(
     """
 
     HDR = " : standard_BDDs_JSTSVuejsReactjs(): "
+    stk = Stack.of(cdk_scope)
+
     print(f"subproj_name={subproj_name}"+ HDR )
     print(f"codebase_root_folder={codebase_root_folder}"+ HDR )
     print(f"cb_proj_name={cb_proj_name}"+ HDR )
-    print( f"CPU-ARCH (Enum) ='{cpu_arch}'" )
-    cb_proj_name += f"-{cpu_arch_str}"
-    print( f"cb_proj_name='{cb_proj_name}'" )
-
-    if cpu_arch != aws_lambda.Architecture.X86_64:
-        raise Exception( f"param CPU-ARCH (Enum) = '{cpu_arch}' and should be X86 ONLY !!! within "+ HDR )
+    print( f"CPU-ARCH (Enum) ='{cpu_arch.name}'" )
     cpu_arch_str: str = get_cpu_arch_as_str( cpu_arch )
     print( f"CPU_ARCH(str) = '{cpu_arch_str}'" )
-
-    stk = Stack.of(cdk_scope)
+    cb_proj_name += f"-{cpu_arch_str}";
+    print( f"cb_proj_name='{cb_proj_name}'" );
+    if not cpu_arch.name == aws_lambda.Architecture.X86_64.name:
+        raise Exception( f"param CPU-ARCH (Enum) = '{cpu_arch.name}' and should be X86 ONLY !!! within "+ HDR )
 
     artif_name, subproj_name, sub_proj_fldrpath = gen_artifact_name(
         tier=tier,
@@ -786,14 +785,14 @@ def standard_BDDs_JSTSVuejsReactjs(
             },
         }),
         environment=aws_codebuild.BuildEnvironment( ### What kind of machine or O/S to use for CodeBuild
-            privileged   = (cpu_arch == aws_lambda.Architecture.X86_64), ### Docker running on -ONLY- X86-based EC2s/CodeBuild-images.  Do NOT ask why!!!
+            privileged   = (cpu_arch.name == aws_lambda.Architecture.X86_64.name), ### Docker running on -ONLY- X86-based EC2s/CodeBuild-images.  Do NOT ask why!!!
             build_image  = constants_cdk.CODEBUILD_BUILD_IMAGE_UBUNTU, ### <--------- Chromium-headless REQUIRES Ubuntu. -NOT- AmznLinux !!!!!!!!!!!!!!!!!!
             compute_type = constants_cdk.CODEBUILD_EC2_SIZE,
             environment_variables = {
                 "TIER":     aws_codebuild.BuildEnvironmentVariable( value=tier, type=aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT),
                 # "CPU_ARCH": aws_codebuild.BuildEnvironmentVariable( value=cpu_arch_str, type=aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT),
                 "CPU_ARCH": aws_codebuild.BuildEnvironmentVariable(
-                    value = get_cpu_arch_enum(aws_lambda.Architecture.X86_64), ### <----------- Warning: CPU id hardcoded !!!!!!!!!!
+                    value = get_cpu_arch_as_str(aws_lambda.Architecture.X86_64), ### <----------- Warning: CPU id hardcoded !!!!!!!!!!
                     type  = aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT),
             }
         ),
