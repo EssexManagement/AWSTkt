@@ -70,7 +70,7 @@ class AppStack(Stack):
         layer_id = LAYER_MODULES[0].LAMBDA_LAYER_ID  ### <--------------- hardcoding the layer to use !!!!!!!!!!!!!
         layer_full_name = f"{aws_names.gen_lambdalayer_name(tier,layer_id,cpu_arch_str)}"
         print( f"{HDR} - layer_full_name = {layer_full_name}" )
-        ### Since the file `backend/lambda_layer/lambda_layer_hashes.py` was updated -by- this CDK-synth-execution (happened within `layers_app.py`), we need to DYNAMICALLY reload it.
+        ### Since the file `backend/lambda_layer/lambda_layer_hashes.py` was updated -by- this CDK-synth-execution (happened within `cdk_lambda_layers_app.py`), we need to DYNAMICALLY reload it.
         dyn_reloaded_module = importlib.reload(backend.lambda_layer.lambda_layer_hashes)
         lkp_obj = dyn_reloaded_module.lambda_layer_hashes.get(tier)
         lkp_obj = lkp_obj.get( layer_full_name ) if lkp_obj else None
