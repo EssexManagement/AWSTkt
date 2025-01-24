@@ -103,6 +103,7 @@ class AwsTktPipelineStack(Stack):
         )
 
         ### -----------------------------------
+        ### numerous CPU-specific 𝜆-layers are created in ISOLATED CodeBuild-projects.
 
         all_build_actions :list[aws_codepipeline_actions.CodeBuildAction] = []
 
@@ -116,7 +117,7 @@ class AwsTktPipelineStack(Stack):
                 tier = tier,
                 codebase_root_folder = ".",
                 subproj_name = None,
-                cb_proj_name = f"{stk_prefix}_{codebuild_projname}",
+                cb_proj_name = f"{stk_prefix}_LambdaLayer",
                 source_artifact = my_source_artif,
                 cpu_arch = cpu_arch,
                 git_repo_url = f"{git_repo_org_name}/{git_repo_name}",
@@ -129,7 +130,7 @@ class AwsTktPipelineStack(Stack):
 
         ### all of these above build-actions MUST happen in parallel, as they are same builds happening on different CPUs-architectures.
         my_pipeline_v2.add_stage(
-            stage_name = f"codebuild_projname-{cpu_arch_str}",
+            stage_name = f"codebuild_LambdaLayers-{cpu_arch_str}",
             actions = all_build_actions,
         )
 
