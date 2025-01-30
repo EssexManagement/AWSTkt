@@ -59,6 +59,9 @@ CODEBUILD_BUILD_IMAGE_X86 = aws_codebuild.LinuxBuildImage.AMAZON_LINUX_2_5
 CODEBUILD_BUILD_IMAGE_UBUNTU = aws_codebuild.LinuxBuildImage.STANDARD_7_0
 CODEBUILD_EC2_SIZE    = aws_codebuild.ComputeType.LARGE
 
+USE_CODEBUILD_CACHE = True
+CODEBUILD_FILECACHE_FLDRPATH = "tmp/CodeBuild_FileCacheFldr"  ### Keep this in sync with
+
 ### ===============================================================================================
 
 ### Define how long will --all- BDDs be allowed to run, before CodeBuild-project TIMES-OUT.  This is a generic/common setting.

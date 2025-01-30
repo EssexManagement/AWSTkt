@@ -12,7 +12,7 @@ import constants as constants
 import common.cdk.constants_cdk as constants_cdk
 import common.cdk.aws_names as aws_names
 from cdk_utils.CloudFormation_util import get_cpu_arch_enum, get_cpu_arch_as_str, add_tags
-from backend.common_aws_resources_stack import CommonAWSResourcesStack
+from backend.lambda_layer.lambda_layers_builder_stacks import LambdaLayersBuilderStacks
 from backend.AllStacks import AppStack
 
 ### ==============================================================================================
@@ -96,9 +96,9 @@ with open( LAMBDA_LAYER_HASHES_LOCALFILEPATH, 'r' ) as f:
 ### ..............................................................................................
 
 ### Stack # 1
-common_stk = CommonAWSResourcesStack(
+common_stk = LambdaLayersBuilderStacks(
     scope = scope,
-    simple_id = f"CommonRsrc-{cpu_arch_str}",
+    simple_id = f"LambdaLayers-{cpu_arch_str}",
     stk_prefix = stk_prefix,
     tier = tier,
     aws_env=aws_env,

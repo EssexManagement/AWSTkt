@@ -115,10 +115,40 @@ def join_path(lhs: PathLike, rhs: PathLike) -> pathlib.PurePath:
 ### ..............................................................................................
 ### ==============================================================================================
 
-def get_sha_hash_for_file(req_file_path: PathLike) -> str:
+def get_sha256_hex_hash_for_file(
+    layer_fldr_path :pathlib.Path,
+    simple_filename :str
+):
+    """
+        !! WARNING !! Will fail for SUPER-LARGE files.
+        !! WARNING !! Will fail for BINARY files.
+        For Binary & Ginormous files, use `get_sha_hash_for_binary_or_ginormous_file()` instead.
+
+        Per CDK's aws_lambda.Code.from_asset(..)
+        this custom hash will be SHA256 hashed and encoded as hex.
+    """
+    req_file_path = layer_fldr_path / simple_filename
+
+    # Check if requirements.txt exists
+    if not req_file_path.exists():
+        raise FileNotFoundError(f"!! ERROR !! file '{simple_filename}' not found inside Folder: '{req_file_path}'.")
+
+    # Read the contents of requirements.txt and create a hash
+    with open( req_file_path, 'rb' ) as f:
+        content = f.read()
+        # Create SHA256 hash of the contents
+        hash_object = hashlib.sha256(content)
+        hash_object = hash_object.hexdigest()
+        return hash_object
+    raise RuntimeError("!! ERROR !! Unable to read file contents of file '{simple_filename}' under folder '{req_file_path}'.")
+
+### ..............................................................................................
+
+def get_sha_hash_for_binary_or_ginormous_file(req_file_path: PathLike) -> str:
     """
     Calculate SHA256 hash of a file's contents.
     Meant to be used for generating a custom-hash for the Lambda code/Lambda-layer code.
+    NOTE: This can handle BINARY-files as well as SUPER-GINORMOUS text-files!
 
     Args:
         req_file_path: Path to the file
@@ -135,6 +165,7 @@ def get_sha_hash_for_file(req_file_path: PathLike) -> str:
     if not is_valid_file(path_str):
         raise ValueError(f"!! ERROR !! file '{path_str}' not found!")
 
+    ### Note: this is the right way to handle Binary-files and VERY large text-files.
     sha256_hash = hashlib.sha256()
 
     ### Per CDK's aws_lambda.Code.from_asset(..)

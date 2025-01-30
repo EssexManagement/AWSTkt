@@ -1,4 +1,5 @@
 from typing import Optional, Union
+from enum import Enum, auto, unique
 import os
 import re
 import pathlib
@@ -53,6 +54,168 @@ def _get_codebuild_linux_image(
         case aws_lambda.Architecture.X86_64.name: return constants_cdk.CODEBUILD_BUILD_IMAGE_X86
         case _: raise ValueError(f"Unsupported CPU architecture '{cpu_arch.name}'")
 
+
+def _cache_chk_n_clean_cmd() -> str:
+
+    """ nicely-compacted 1-liner bash-command that is a COMPLEX for-loop.
+        NOTE: cache-cleanup -MUST- be done before doing any builds/cdk-synth/cdk-deploy within CodeBuild.
+        FYI --- If cache is corrupted use AWS-CLI as: `aws codebuild invalidate-project-cache --project-name "${CBProjectName}"`
+    """
+
+    return "${CODEBUILD_SRC_DIR}/devops/bin/CodeBuild-InstallPhase-CleanUpOld-cmds.sh"
+
+    ### The following (basically inline-bash-cmds used as-is within CodeBuild's commands) .. was getting TOO LARGE!!
+    ### Hence the following has been replaced with a bash-script (see above)
+    ###    The uncompacted-string in here, is for human-friendly editing.
+    # one_liner_bash_cmd = f"""
+    #     echo 'Checking cache age...';
+    #     for dir in   .venv   node_modules   ~/.local/share/virtualenvs  .pipenv; do
+    #         if [ -d "$dir" ]; then
+    #             dir_age=$(find "$dir" -maxdepth 0 -mtime +1);
+    #             if [ ! -z "$dir_age" ]; then
+    #                 echo "Cache directory $dir is older than 24 hours, clearing...";
+    #                 rm -rf "$dir";
+    #             else
+    #                 echo "Cache directory $dir is fresh (less than 24 hours old)";
+    #             fi
+    #         fi
+    #     done
+    #     """
+
+#     return " ".join( one_liner_bash_cmd.split() ) ### split() and join() will replace \s+ with a single-whitespace-char!
+
+
+def _pip_or_pipenv_install_cmd() -> str:
+
+    """ nicely-compacted 1-liner bash-command that is a COMPLEX for-loop.
+    """
+
+    ### !! ATTENTION !! `venv` is installed into  `.`     and !! NOT !! into the traditional ~~.venv~~
+    ### .venv/ can NOT be a symlink (which is what CodeBuild does to CACHED-folders)
+    ### Hence we TRICK `python/pip` by `cd` into that symlink, and install `venv` module into `.` (a.k.a. CWD)
+    ###    The uncompacted-string in here, is for human-friendly editing.
+    one_liner_bash_cmd = """
+            if [ -f requirements.txt ]; then
+                mkdir -p .venv; cd .venv;
+                python -m venv .;
+                cd ..;
+                .   .venv/bin/activate;
+                pip install -r requirements.txt;
+            elif [ -f Pipfile.lock ]; then
+                pip install pipenv --user;
+                pipenv sync --dev;
+            else
+                echo 'Both requirements.txt and Pipfile.lock are MISSING';
+                exit 111;
+            fi;
+        """
+
+    return " ".join( one_liner_bash_cmd.split() ) ### split() and join() will replace \s+ with a single-whitespace-char!
+
+
+@unique
+class _ArchiveCmds(Enum):
+    CREATE_TARFILE = (auto(),),
+    UN_TAR = (auto(),),
+
+def _zip_cmds_re_cached_fldrs(
+    cmd1 :_ArchiveCmds,
+    sub_proj_fldrpath :str,
+    whether_to_use_adv_caching :bool
+) -> list[str]:
+    """ internal-use only utility.
+        All folders (like node_modules & python's venv) that do NOT work when cached, are to be zipped and restored via scripts.
+    """
+    retstr = f"""${{CODEBUILD_SRC_DIR}}/devops/bin/CodeBuild-InstallPhase-Archive-cmds.sh
+        \"{ "un-tar" if ( cmd1.name == _ArchiveCmds.UN_TAR.name ) else "create-tar" }\"
+        \"{ sub_proj_fldrpath }\"
+        \"{ whether_to_use_adv_caching }\" ;
+    """
+    retstr = " ".join( retstr.split() )
+    return retstr
+
+    ### The following (basically inline-bash-cmds used as-is within CodeBuild's commands) .. was getting TOO LARGE!!
+    ### Hence the following has been replaced with a bash-script (see above)
+    # if not whether_to_use_adv_caching:
+    #     return "echo \"--NO-- advanced-caching (for node_modules and python's-venv)\""
+
+    # fldr_list = [
+    #     "node_modules",
+    #     ".venv"
+    # ]
+    # retstr = "pwd; ls -la; ls -la $( readlink node_modules ); "
+    # for ddd in fldr_list:
+    #     if cmd1:
+    #         # retstr += f"date; tar -xf ./{ddd}.tar {sub_proj_fldrpath}/{ddd}; "
+    #         retstr += f"date; tar -xf $( readlink ./{ddd}.tar ) {sub_proj_fldrpath}/{ddd}; "
+    #     else:
+    #         retstr += f"date; tar -cf ./{ddd}.tar {sub_proj_fldrpath}/{ddd}; "
+    # retstr += " date; "
+    # return retstr
+
+
+
+def _gen_NodeJSCodeBuild_cache_fldrs_list(
+    use_CodeBuild_cache :bool,
+    sub_proj_fldrpath :str,
+) -> str:
+
+    """ internal-use only utility.
+        Generate (as appropriate based on `use_CodeBuild_cache` bool-param) ..
+            .. the list of folder-paths to CACHE within CodeBuild-PROJECT.
+        Folder-paths for BOTH node_modules ONLY (for NodeJS-only CodeBuild-projects)
+    """
+
+    if use_CodeBuild_cache:
+        cb_cache = {
+            "paths": []
+        }
+        fldr_list = ["."]
+        if not sub_proj_fldrpath == '.':
+            fldr_list.append(sub_proj_fldrpath)
+        for ddd in fldr_list:
+            cb_cache["paths"].append(
+                f"{ddd}/{constants_cdk.CODEBUILD_FILECACHE_FLDRPATH}/**/*", ### CodeBuild only caches Folders. So, files have to be put into a folder!
+            )
+    else:
+        cb_cache = None
+
+    return cb_cache
+
+
+def _gen_PythonCodeBuild_cache_fldrs_list(
+    use_CodeBuild_cache :bool,
+    sub_proj_fldrpath :str,
+) -> str:
+
+    """ internal-use only utility.
+        Generate (as appropriate based on `use_CodeBuild_cache` bool-param) ..
+            .. the list of folder-paths to CACHE within CodeBuild-PROJECT.
+        Folder-paths for BOTH node_modules as well as Python(pipenv/pip)
+    """
+
+    if use_CodeBuild_cache:
+        cb_cache = {
+            "paths": []
+        }
+        fldr_list = ["."] # initialize
+        if not sub_proj_fldrpath == '.':
+            fldr_list.append(sub_proj_fldrpath)
+        for ddd in fldr_list:
+                cb_cache["paths"].append( f"{ddd}/{constants_cdk.CODEBUILD_FILECACHE_FLDRPATH}/**/*" ) ### CodeBuild only caches Folders. So, files have to be put into a folder!
+                cb_cache["paths"].append( f"{ddd}/.pipenv/**/*" )  # Add this for pipenv cache
+                ### .venv/ can NOT be a symlink (which is what CodeBuild does to CACHED-folders)
+                ### .node_modules/ can NOT be a symlink (which is what CodeBuild does to CACHED-folders)
+                # cb_cache["paths"].append( f"{ddd}/node_modules/**/*" )
+                # cb_cache["paths"].append( f"{ddd}/.venv/**/*" )
+        ### This line below is FIXED path from user-home-dir
+        cb_cache["paths"].append( "~/.local/share/virtualenvs/**/*" ) # Add this re: pipenv cache
+    else:
+        cb_cache = None
+
+    return cb_cache
+
+
 ### ---------------------------------------------------------------------------------
 def standard_CodeBuildSynth_NodeJS(
     cdk_scope :Construct,
@@ -62,6 +225,8 @@ def standard_CodeBuildSynth_NodeJS(
     cb_proj_name :str,
     source_artifact :codepipeline.Artifact,
     cpu_arch :aws_lambda.Architecture = aws_lambda.Architecture.ARM_64,
+    use_CodeBuild_cache :bool = False,
+    whether_to_use_adv_caching :bool = True,
 ) -> tuple[codepipeline_actions.CodeBuildAction, codepipeline.Artifact]:
     """
         Simple CDK-Synth only.
@@ -78,7 +243,9 @@ def standard_CodeBuildSynth_NodeJS(
                     /or/ can ALSO be the relative-folder-PATH (relative to above `codebase_root_folder` param).
         5th param:  cb_proj_name :str  => When the Infrastructure project in `subfldr` is deployed, DEFINE what the CodeBuild-Project should be named.
         6th param"  source_artifact :codepipeline.Artifact => It representing the SOURCE (usually configured via `cdk_utils/StandardCodePipeline.py`)
-        7th param: (OPTIONAL) cpu_arch :aws_lambda.Architecture => OPTIONAL;  Default=aws_lambda.Architecture.ARM_64
+        7th param:  (OPTIONAL) cpu_arch :aws_lambda.Architecture => OPTIONAL;  Default=aws_lambda.Architecture.ARM_64
+        8th param:  (OPTIONAL) use_CodeBuild_cache -- whether to cache `node_modules`
+        9th param:  (OPTIONAL) whether_to_use_adv_caching :bool -- since CodeBuild can --NOT-- cache "node_modules" and python's "venv", 'True' will turn on VERY ADVANCED HARD-to-FOLLOW caching, that could come to bit your ass later.
         Returns on objects of types:-
                     1. codepipeline_actions.CodeBuildAction
                     3. codepipeline.Artifact (representing the BUILD-Artifact)
@@ -103,8 +270,7 @@ def standard_CodeBuildSynth_NodeJS(
 
     ### Synth only
     ### automatically detect if Git-Repo-codebase is using Plain-Pip (and .venv) or whether the Git-Repo-Codebase is using Pipenv/Pifile
-    cdk_synth_command  =  "if [ -f requirements.txt ]; then PRFX=\"\"; elif [ -f Pipfile.lock ]; then PRFX=\"pipenv run\"; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; "
-    cdk_synth_command +=  "$PRFX npx cdk synth  --quiet --all"
+    cdk_synth_command  =  " npx cdk synth  --quiet --all"
     cdk_synth_command +=  " --concurrency 10 --asset-parallelism true --asset-prebuild"
     cdk_synth_command += f" --context TIER=\"{tier}\""
     cdk_synth_command += f" --context tier=\"{tier}\""
@@ -126,34 +292,62 @@ def standard_CodeBuildSynth_NodeJS(
         ### project_name=f'{pipeline_id}-{subproj_name}',
         build_spec=aws_codebuild.BuildSpec.from_object({
             'version': '0.2',
-            "env": {        ### Ubuntu requires "bash" to be explicitly specified. AL2 does NOT. So .. ..
+            'env': {        ### Ubuntu requires "bash" to be explicitly specified. AL2 does NOT. So .. ..
                 "shell": "bash",
-                "variables": { ### If "env" is defined, it --BETTER-- have a "variables" sub-section !!!
+                "variables": { ### If 'env' is defined, it --BETTER-- have a "variables" sub-section !!!
                     "NoSuch": "Variable"
                 }
             },
             'phases': {
                 'install': {
                     'commands': [
+
                         ### requests.exceptions.HTTPError: 409 Client Error: Conflict for url: http+docker://localhost/v1.44/containers/??????????v=False&link=False&force=False
                         ### Give CodeBuild permissions to access Docker daemon
                         # "nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2 & ",
                         # "timeout 15 sh -c 'until docker info; do echo .; sleep 1; done'", ### wait for Docker-daemon to finish RE-STARTING.
                         f'cd {sub_proj_fldrpath}',
                         "pwd",
+                        "env",
+
+                        ### Just for node_modules & python-venv, we have a WORKAROUND for caching  zip-up the folder (as appropriate) before/after doing anything else.
+                        _zip_cmds_re_cached_fldrs( _ArchiveCmds.UN_TAR, sub_proj_fldrpath, whether_to_use_adv_caching ),
+                        ### cache-cleanup before doing anything else
+                        ### FYI --- If cache is corrupted use AWS-CLI as: `aws codebuild invalidate-project-cache --project-name "${CBProjectName}"`
+                        _cache_chk_n_clean_cmd(),
+
                         'npm i --include-dev',
                         'npm --version; node --version; npx cdk --version',
                     ],
                 },
                 'build': {
                     'commands': [ cdk_synth_command ]
+                },
+                'post_build': {
+                    'commands': [
+                        ### Just for node_modules & python-venv, we have a WORKAROUND for caching  zip-up the folder (as appropriate) before/after doing anything else.
+                        _zip_cmds_re_cached_fldrs( _ArchiveCmds.CREATE_TARFILE, sub_proj_fldrpath, whether_to_use_adv_caching ), ### creates '.tar' files.
+                    ]
                 }
             },
             'artifacts': {
                 'base-directory': f'{sub_proj_fldrpath}/cdk.out',
                 'files': ['**/*']
-            }
+            },
+            "cache": _gen_NodeJSCodeBuild_cache_fldrs_list(use_CodeBuild_cache, sub_proj_fldrpath)
+                ### REF: https://docs.aws.amazon.com/codebuild/latest/userguide/build-caching.html#caching-local
+                ### In above URL, you'll note that "aws_codebuild.LocalCacheMode.CUSTOM" === "local caching"
+                ### In above URL, you'll note that .. Only directories can be specified for caching. You cannot specify individual files.
+                ### In above URL, you'll note that .. Local caching is --NOT-- supported when CodeBuild runs in --VPC-- !!!
+                ### NOTE: Avoid directory names that are the same in the source and in the cache.
         }),
+        cache = aws_codebuild.Cache.local( aws_codebuild.LocalCacheMode.CUSTOM ),
+                ### This above line converts to following CloudFormation:
+                ###        "Cache": {
+                ###             "Type": "LOCAL",
+                ###             "Modes": [ "LOCAL_CUSTOM_CACHE" ]
+                ###        },
+
         environment=aws_codebuild.BuildEnvironment(
             privileged   = (cpu_arch.name == aws_lambda.Architecture.X86_64.name), ### Docker running on -ONLY- X86-based EC2s/CodeBuild-images.  Do NOT ask why!!!
             build_image  = _get_codebuild_linux_image( tier, cpu_arch ),
@@ -185,6 +379,8 @@ def standard_CodeBuildSynth_Python(
     source_artifact :codepipeline.Artifact,
     cpu_arch :aws_lambda.Architecture = aws_lambda.Architecture.ARM_64,
     python_version :str = constants_cdk.CDK_APP_PYTHON_VERSION,
+    use_CodeBuild_cache :bool = False,
+    whether_to_use_adv_caching :bool = True,
 ) -> tuple[codepipeline_actions.CodeBuildAction, codepipeline.Artifact]:
     """
         Simple CDK-Synth only.
@@ -203,6 +399,8 @@ def standard_CodeBuildSynth_Python(
         6th param:  source_artifact :codepipeline.Artifact => It representing the SOURCE (usually configured via `cdk_utils/StandardCodePipeline.py`)
         7th param: (OPTIONAL) cpu_arch :aws_lambda.Architecture => OPTIONAL;  Default=aws_lambda.Architecture.ARM_64
         8th param:  OPTIONAL: python_version # as a string
+        9th param:  OPTIONAL: use_CodeBuild_cache -- whether to cache PIP & PIPENV
+        10th param:  (OPTIONAL) whether_to_use_adv_caching :bool -- since CodeBuild can --NOT-- cache "node_modules" and python's "venv", 'True' will turn on VERY ADVANCED HARD-to-FOLLOW caching, that could come to bit your ass later.
         Returns on objects of types:-
                     1. codepipeline_actions.CodeBuildAction
                     3. codepipeline.Artifact (representing the BUILD-Artifact)
@@ -251,31 +449,42 @@ def standard_CodeBuildSynth_Python(
         # cache=aws_codebuild.Cache.local(aws_codebuild.LocalCacheMode.CUSTOM),     ### match this with the `cache` json-element inside the BuildSpec below.
 
         build_spec = aws_codebuild.BuildSpec.from_object({
-            "version": 0.2,
-            "env": {        ### Ubuntu requires "bash" to be explicitly specified. AL2 does NOT. So .. ..
+            'version': 0.2,
+            'env': {        ### Ubuntu requires "bash" to be explicitly specified. AL2 does NOT. So .. ..
                 "shell": "bash",
-                "variables": { ### If "env" is defined, it --BETTER-- have a "variables" sub-section !!!
-                    "NoSuch": "Variable"
+                "variables": { ### If 'env' is defined, it --BETTER-- have a "variables" sub-section !!!
+                    "NoSuch": "Variable",
+                    "PIPENV_CACHE_DIR": ".pipenv/pipcache", ## LOCAL-DIR location for Pipenv to store it’s package cache. Default is to use appdir’s user cache directory.
+                    "WORKON_HOME": ".pipenv/venvs" ### https://docs.pipenv.org/advanced/#custom-virtual-environment-location
                 }
             },
             "phases": {
-                "install": {
-                    "runtime-versions": {
+                'install': {
+                    'runtime-versions': {
                         "python": python_version
                     },
-                    "commands": [
+                    'commands': [
+
                         ### requests.exceptions.HTTPError: 409 Client Error: Conflict for url: http+docker://localhost/v1.44/containers/??????????v=False&link=False&force=False
                         ### Give CodeBuild permissions to access Docker daemon
                         # "nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2 & ",
                         # "timeout 15 sh -c 'until docker info; do echo .; sleep 1; done'", ### wait for Docker-daemon to finish RE-STARTING.
                         f"cd {sub_proj_fldrpath}",
                         "pwd",
+                        "env",
+
+                        ### Just for node_modules & python-venv, we have a WORKAROUND for caching  zip-up the folder (as appropriate) before/after doing anything else.
+                        _zip_cmds_re_cached_fldrs( _ArchiveCmds.UN_TAR, sub_proj_fldrpath, whether_to_use_adv_caching ),
+                        # cache-cleanup before doing anything else
+                        ### FYI --- If cache is corrupted use AWS-CLI as: `aws codebuild invalidate-project-cache --project-name "${CBProjectName}"`
+                        _cache_chk_n_clean_cmd(),
+
                         'npm i --include-dev',
 
                         "pip install --upgrade pip",
                         # "python -m pip install pip-tools",
                         # "python -m piptools compile --quiet --resolver=backtracking requirements.in",
-                        "if [ -f requirements.txt ]; then python -m venv .venv;   .   .venv/bin/activate;  pip install -r requirements.txt; elif [ -f Pipfile.lock ]; then pip install pipenv --user; pipenv sync --dev; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; ",
+                        _pip_or_pipenv_install_cmd(),
                         ### ERROR: Pip Can not perform a '--user' install. User site-packages are not visible in this virtualenv.
                         ###     Courtesy Notice: Pipenv found itself running within a virtual environment,  so it will automatically use that environment, instead of  creating its own for any project.
                         ###     You can set PIPENV_IGNORE_VIRTUALENVS=1 to force pipenv to ignore that environment and create  its own instead.
@@ -284,22 +493,34 @@ def standard_CodeBuildSynth_Python(
                         "if [ -f requirements.txt ]; then npx cdk --version; elif [ -f Pipfile.lock ]; then pipenv run npx cdk --version; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; ",
                     ],
                 },
-                "build": {
-                    "commands": [ cdk_synth_command ]
+                'build': {
+                    'commands': [ cdk_synth_command ]
+                },
+                'post_build': {
+                    'commands': [
+                        ### Just for node_modules & python-venv, we have a WORKAROUND for caching  zip-up the folder (as appropriate) before/after doing anything else.
+                        _zip_cmds_re_cached_fldrs( _ArchiveCmds.CREATE_TARFILE, sub_proj_fldrpath, whether_to_use_adv_caching ), ### creates '.tar' files.
+                    ]
                 },
             },
             'artifacts': {
                 'base-directory': f'{sub_proj_fldrpath}/cdk.out',
                 'files': ['**/*']
             },
-
-            # "cache": {
-            #     "paths": [
-            #         ".venv/**/*",
-            #         "node_modules/**/*",
-            #     ]
-            # }
+            "cache": _gen_PythonCodeBuild_cache_fldrs_list( use_CodeBuild_cache, sub_proj_fldrpath )
+                ### REF: https://docs.aws.amazon.com/codebuild/latest/userguide/build-caching.html#caching-local
+                ### In above URL, you'll note that "aws_codebuild.LocalCacheMode.CUSTOM" === "local caching"
+                ### In above URL, you'll note that .. Only directories can be specified for caching. You cannot specify individual files.
+                ### In above URL, you'll note that .. Local caching is --NOT-- supported when CodeBuild runs in --VPC-- !!!
+                ### NOTE: Avoid directory names that are the same in the source and in the cache.
         }),
+        cache = aws_codebuild.Cache.local( aws_codebuild.LocalCacheMode.CUSTOM ),
+                ### This above line converts to following CloudFormation:
+                ###        "Cache": {
+                ###             "Type": "LOCAL",
+                ###             "Modes": [ "LOCAL_CUSTOM_CACHE" ]
+                ###        },
+
         environment=aws_codebuild.BuildEnvironment(
             privileged   = (cpu_arch.name == aws_lambda.Architecture.X86_64.name), ### Docker running on -ONLY- X86-based EC2s/CodeBuild-images.  Do NOT ask why!!!
             build_image  = _get_codebuild_linux_image( tier, cpu_arch ),
@@ -333,7 +554,9 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
     git_repo_url :Optional[str] = None,
     cdk_app_pyfile :Optional[str] = None,
     python_version :str = constants_cdk.CDK_APP_PYTHON_VERSION,
+    use_CodeBuild_cache :bool = False,
     addl_cdk_context :dict[str,str] = {},
+    whether_to_use_adv_caching :bool = True,
 ) -> tuple[codepipeline_actions.CodeBuildAction, codepipeline.Artifact]:
     """
         Single "CodePipeline" Action, that will use `venv` to CACHE the pip-install, and then do BOTH cdk-synth + cdk-deploy.
@@ -351,6 +574,9 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
         8th param:  OPTIONAL: git_repo_url :str -- ghORG/gitRepoName.git
         9th param:  OPTIONAL: cdk_app_pyfile :str -- Example: all_pipelines.py (this is located in root-folder of git-repo)
         10th param:  OPTIONAL: python_version# as a string
+        11th param:  OPTIONAL: use_CodeBuild_cache -- whether to cache PIP & PIPENV
+        12th param:  OPTIONAL: addl_cdk_context -- equivalent of "-c CTX_KEY='..' "  CDK-CLI command args
+        13th param:  (OPTIONAL) whether_to_use_adv_caching :bool -- since CodeBuild can --NOT-- cache "node_modules" and python's "venv", 'True' will turn on VERY ADVANCED HARD-to-FOLLOW caching, that could come to bit your ass later.
         Returns on objects of types:-
                     1. codepipeline_actions.CodeBuildAction
                     3. codepipeline.Artifact (representing the BUILD-Artifact)
@@ -400,19 +626,22 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
         # cache=aws_codebuild.Cache.local(aws_codebuild.LocalCacheMode.CUSTOM),     ### match this with the `cache` json-element inside the BuildSpec below.
 
         build_spec = aws_codebuild.BuildSpec.from_object({
-            "version": 0.2,
-            "env": {        ### Ubuntu requires "bash" to be explicitly specified. AL2 does NOT. So .. ..
+            'version': 0.2,
+            'env': {        ### Ubuntu requires "bash" to be explicitly specified. AL2 does NOT. So .. ..
                 "shell": "bash",
-                "variables": { ### If "env" is defined, it --BETTER-- have a "variables" sub-section !!!
-                    "NoSuch": "Variable"
+                "variables": { ### If 'env' is defined, it --BETTER-- have a "variables" sub-section !!!
+                    "NoSuch": "Variable",
+                    "PIPENV_CACHE_DIR": ".pipenv/pipcache", ## LOCAL-DIR location for Pipenv to store it’s package cache. Default is to use appdir’s user cache directory.
+                    "WORKON_HOME": ".pipenv/venvs" ### https://docs.pipenv.org/advanced/#custom-virtual-environment-location
                 }
             },
             "phases": {
-                "install": {
-                    "runtime-versions": {
+                'install': {
+                    'runtime-versions': {
                         "python": python_version
                     },
-                    "commands": [
+                    'commands': [
+
                         ### requests.exceptions.HTTPError: 409 Client Error: Conflict for url: http+docker://localhost/v1.44/containers/??????????v=False&link=False&force=False
                         ### Give CodeBuild permissions to access Docker daemon
                         # "nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2 & ",
@@ -420,12 +649,19 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
                         f"cd {sub_proj_fldrpath}",
                         "pwd",
                         "env",
+
+                        ### Just for node_modules & python-venv, we have a WORKAROUND for caching  zip-up the folder (as appropriate) before/after doing anything else.
+                        _zip_cmds_re_cached_fldrs( _ArchiveCmds.UN_TAR, sub_proj_fldrpath, whether_to_use_adv_caching ),
+                        # cache-cleanup before doing anything else
+                        ### FYI --- If cache is corrupted use AWS-CLI as: `aws codebuild invalidate-project-cache --project-name "${CBProjectName}"`
+                        _cache_chk_n_clean_cmd(),
+
                         "npm i --include-dev",
 
                         "pip install --upgrade pip",
                         # "python -m pip install pip-tools",
                         # "python -m piptools compile --quiet --resolver=backtracking requirements.in",
-                        "if [ -f requirements.txt ]; then python -m venv .venv;   .   .venv/bin/activate;  pip install -r requirements.txt; elif [ -f Pipfile.lock ]; then pip install pipenv --user; pipenv sync --dev; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; ",
+                        _pip_or_pipenv_install_cmd(),
                         ### ERROR: Pip Can not perform a '--user' install. User site-packages are not visible in this virtualenv.
                         ###     Courtesy Notice: Pipenv found itself running within a virtual environment,  so it will automatically use that environment, instead of  creating its own for any project.
                         ###     You can set PIPENV_IGNORE_VIRTUALENVS=1 to force pipenv to ignore that environment and create  its own instead.
@@ -437,9 +673,15 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
                         f"git checkout $(jq '.context.[\"git-source\"].git_commit_hashes.{tier}' cdk.json --raw-output)",
                     ],
                 },
-                "build": {
-                    "commands": [ cdk_deploy_command ]
+                'build': {
+                    'commands': [ cdk_deploy_command ]
                     ### NOTE !! cdk deploy is expected via function-parameter-inputs/
+                },
+                'post_build': {
+                    'commands': [
+                        ### Just for node_modules & python-venv, we have a WORKAROUND for caching  zip-up the folder (as appropriate) before/after doing anything else.
+                        _zip_cmds_re_cached_fldrs( _ArchiveCmds.CREATE_TARFILE, sub_proj_fldrpath, whether_to_use_adv_caching ), ### creates '.tar' files.
+                    ]
                 },
             },
             'artifacts': {
@@ -447,14 +689,20 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
                 'files': ['**/*']
             },
 
-            # "cache": {
-            #     "paths": [
-            #         ".venv/**/*",
-            #         "node_modules/**/*",
-            #     ]
-            # }
-
+            "cache": _gen_PythonCodeBuild_cache_fldrs_list( use_CodeBuild_cache, sub_proj_fldrpath )
+                ### REF: https://docs.aws.amazon.com/codebuild/latest/userguide/build-caching.html#caching-local
+                ### In above URL, you'll note that "aws_codebuild.LocalCacheMode.CUSTOM" === "local caching"
+                ### In above URL, you'll note that .. Only directories can be specified for caching. You cannot specify individual files.
+                ### In above URL, you'll note that .. Local caching is --NOT-- supported when CodeBuild runs in --VPC-- !!!
+                ### NOTE: Avoid directory names that are the same in the source and in the cache.
         }),
+        cache = aws_codebuild.Cache.local( aws_codebuild.LocalCacheMode.CUSTOM ),
+                ### This above line converts to following CloudFormation:
+                ###        "Cache": {
+                ###             "Type": "LOCAL",
+                ###             "Modes": [ "LOCAL_CUSTOM_CACHE" ]
+                ###        },
+
         environment=aws_codebuild.BuildEnvironment(
             privileged   = (cpu_arch.name == aws_lambda.Architecture.X86_64.name), ### Docker running on -ONLY- X86-based EC2s/CodeBuild-images.  Do NOT ask why!!!
             build_image  = _get_codebuild_linux_image( tier, cpu_arch ),
@@ -490,6 +738,8 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
     cpu_arch :aws_lambda.Architecture = aws_lambda.Architecture.ARM_64,
     python_version :str = constants_cdk.CDK_APP_PYTHON_VERSION,
     frontend_vuejs_rootfolder :str = "frontend/ui",
+    use_CodeBuild_cache :bool = False,
+    whether_to_use_adv_caching :bool = True,
 ) -> tuple[codepipeline_actions.CodeBuildAction, codepipeline.Artifact]:
     """
         Simple CDK-Synth only. -NO- Caching supported.  -NO- cdk-deploy included.
@@ -509,6 +759,8 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
         7th param: (OPTIONAL) cpu_arch :aws_lambda.Architecture => OPTIONAL;  Default=aws_lambda.Architecture.ARM_64
         8th param:  OPTIONAL: python_version # as a string
         9th param:  OPTIONAL: where is the JS/TS/VueJS/ReactJS code-base located in this git-repo;  Default = "frontend/ui"
+        10th param:  OPTIONAL: use_CodeBuild_cache -- whether to cache PIP & PIPENV
+        11th param:  (OPTIONAL) whether_to_use_adv_caching :bool -- since CodeBuild can --NOT-- cache "node_modules" and python's "venv", 'True' will turn on VERY ADVANCED HARD-to-FOLLOW caching, that could come to bit your ass later.
         Returns on objects of types:-
                     1. codepipeline_actions.CodeBuildAction
                     3. codepipeline.Artifact (representing the BUILD-Artifact)
@@ -556,31 +808,42 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
         # cache=aws_codebuild.Cache.local(aws_codebuild.LocalCacheMode.CUSTOM),     ### match this with the `cache` json-element inside the BuildSpec below.
 
         build_spec = aws_codebuild.BuildSpec.from_object({
-            "version": 0.2,
-            "env": {        ### Ubuntu requires "bash" to be explicitly specified. AL2 does NOT. So .. ..
+            'version': 0.2,
+            'env': {        ### Ubuntu requires "bash" to be explicitly specified. AL2 does NOT. So .. ..
                 "shell": "bash",
-                "variables": { ### If "env" is defined, it --BETTER-- have a "variables" sub-section !!!
-                    "NoSuch": "Variable"
+                "variables": { ### If 'env' is defined, it --BETTER-- have a "variables" sub-section !!!
+                    "NoSuch": "Variable",
+                    "PIPENV_CACHE_DIR": ".pipenv/pipcache", ## LOCAL-DIR location for Pipenv to store it’s package cache. Default is to use appdir’s user cache directory.
+                    "WORKON_HOME": ".pipenv/venvs" ### https://docs.pipenv.org/advanced/#custom-virtual-environment-location
                 }
             },
             "phases": {
-                "install": {
-                    "runtime-versions": {
+                'install': {
+                    'runtime-versions': {
                         "python": python_version
                     },
-                    "commands": [
+                    'commands': [
+
                         ### requests.exceptions.HTTPError: 409 Client Error: Conflict for url: http+docker://localhost/v1.44/containers/??????????v=False&link=False&force=False
                         ### Give CodeBuild permissions to access Docker daemon
                         # "nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2 & ",
                         # "timeout 15 sh -c 'until docker info; do echo .; sleep 1; done'", ### wait for Docker-daemon to finish RE-STARTING.
                         f"cd {sub_proj_fldrpath}",
                         "pwd",
+                        "env",
+
+                        ### Just for node_modules & python-venv, we have a WORKAROUND for caching  zip-up the folder (as appropriate) before/after doing anything else.
+                        _zip_cmds_re_cached_fldrs( _ArchiveCmds.UN_TAR, sub_proj_fldrpath, whether_to_use_adv_caching ),
+                        # cache-cleanup before doing anything else
+                        ### FYI --- If cache is corrupted use AWS-CLI as: `aws codebuild invalidate-project-cache --project-name "${CBProjectName}"`
+                        _cache_chk_n_clean_cmd(),
+
                         'npm i --include-dev',
 
                        "pip install --upgrade pip",
                         # "python -m pip install pip-tools",
                         # "python -m piptools compile --quiet --resolver=backtracking requirements.in",
-                        "if [ -f requirements.txt ]; then python -m venv .venv;   .   .venv/bin/activate;  pip install -r requirements.txt; elif [ -f Pipfile.lock ]; then pip install pipenv --user; pipenv sync --dev; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; ",
+                        _pip_or_pipenv_install_cmd(),
                         ### ERROR: Pip Can not perform a '--user' install. User site-packages are not visible in this virtualenv.
                         ###     Courtesy Notice: Pipenv found itself running within a virtual environment,  so it will automatically use that environment, instead of  creating its own for any project.
                         ###     You can set PIPENV_IGNORE_VIRTUALENVS=1 to force pipenv to ignore that environment and create  its own instead.
@@ -589,8 +852,8 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
                         "if [ -f requirements.txt ]; then npx cdk --version; elif [ -f Pipfile.lock ]; then pipenv run npx cdk --version; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; ",
                     ],
                 },
-                "build": {
-                    "commands": [
+                'build': {
+                    'commands': [
                         ### 1st create frontend JS/TS/Vuejs/Reactjs deployable
 
                         f"cd {frontend_vuejs_rootfolder}",    ### go into a subfolder!
@@ -607,19 +870,31 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
                         cdk_deploy_command,
                     ]
                 },
+                'post_build': {
+                    'commands': [
+                        ### Just for node_modules & python-venv, we have a WORKAROUND for caching  zip-up the folder (as appropriate) before/after doing anything else.
+                        _zip_cmds_re_cached_fldrs( _ArchiveCmds.CREATE_TARFILE, sub_proj_fldrpath, whether_to_use_adv_caching ), ### creates '.tar' files.
+                    ]
+                },
             },
             'artifacts': {
                 'base-directory': f'{sub_proj_fldrpath}/cdk.out',
                 'files': ['**/*']
             },
-
-            # "cache": {
-            #     "paths": [
-            #         ".venv/**/*",
-            #         "node_modules/**/*",
-            #     ]
-            # }
+            "cache": _gen_PythonCodeBuild_cache_fldrs_list( use_CodeBuild_cache, sub_proj_fldrpath )
+                ### REF: https://docs.aws.amazon.com/codebuild/latest/userguide/build-caching.html#caching-local
+                ### In above URL, you'll note that "aws_codebuild.LocalCacheMode.CUSTOM" === "local caching"
+                ### In above URL, you'll note that .. Only directories can be specified for caching. You cannot specify individual files.
+                ### In above URL, you'll note that .. Local caching is --NOT-- supported when CodeBuild runs in --VPC-- !!!
+                ### NOTE: Avoid directory names that are the same in the source and in the cache.
         }),
+        cache = aws_codebuild.Cache.local( aws_codebuild.LocalCacheMode.CUSTOM ),
+                ### This above line converts to following CloudFormation:
+                ###        "Cache": {
+                ###             "Type": "LOCAL",
+                ###             "Modes": [ "LOCAL_CUSTOM_CACHE" ]
+                ###        },
+
         environment=aws_codebuild.BuildEnvironment(
             privileged   = (cpu_arch.name == aws_lambda.Architecture.X86_64.name), ### Docker running on -ONLY- X86-based EC2s/CodeBuild-images.  Do NOT ask why!!!
             build_image  = _get_codebuild_linux_image( tier, cpu_arch ),
@@ -657,6 +932,8 @@ def standard_BDDs_JSTSVuejsReactjs(
     test_user_sm_name :str,
     cpu_arch :aws_lambda.Architecture = aws_lambda.Architecture.ARM_64,
     frontend_vuejs_rootfolder :str = "frontend/ui",
+    use_CodeBuild_cache :bool = False,
+    whether_to_use_adv_caching :bool = True,
 ) -> tuple[codepipeline_actions.CodeBuildAction, codepipeline.Artifact]:
     """
         -NO- CDK !!
@@ -675,6 +952,8 @@ def standard_BDDs_JSTSVuejsReactjs(
                             Example: f"{constants.CDK_APP_NAME}/{tier}/testing/frontend/test_user"
         9th param: (OPTIONAL) cpu_arch :aws_lambda.Architecture => OPTIONAL;  Default=aws_lambda.Architecture.ARM_64
         10th param:  OPTIONAL: frontend_vuejs_rootfolder :str -- where is the JS/TS/VueJS/ReactJS code-base located in this git-repo;  Default = "frontend/ui"
+        11th param:  OPTIONAL: use_CodeBuild_cache -- whether to cache PIP & PIPENV
+        12th param:  (OPTIONAL) whether_to_use_adv_caching :bool -- since CodeBuild can --NOT-- cache "node_modules" and python's "venv", 'True' will turn on VERY ADVANCED HARD-to-FOLLOW caching, that could come to bit your ass later.
 
         Returns 2 objects of types:-
                     1. codepipeline_actions.CodeBuildAction
@@ -711,12 +990,12 @@ def standard_BDDs_JSTSVuejsReactjs(
         ### project_name=f'{pipeline_id}-{subproj_name}',
         build_spec=aws_codebuild.BuildSpec.from_object({
             'version': '0.2',
-            "env": {        ### Ubuntu requires "bash" to be explicitly specified. AL2 does NOT. So .. ..
+            'env': {        ### Ubuntu requires "bash" to be explicitly specified. AL2 does NOT. So .. ..
                 "shell": "bash",
                 "secrets-manager": {
                     "EMFACT_PASSWORD_CCDI": "$TEST_PROVIDER_SM:EMFACT_PASSWORD_CCDI",
                 },
-                "variables": { ### If "env" is defined, it --BETTER-- have a "variables" sub-section !!!
+                "variables": { ### If 'env' is defined, it --BETTER-- have a "variables" sub-section !!!
                     "NoSuch": "Variable",
                     "ENDPOINT_URL": frontend_website_url,
                     # "STAGE": tier, ### LEGACY !!! QE-team's standardized env-variable, is set inside `phases` below.
@@ -728,8 +1007,17 @@ def standard_BDDs_JSTSVuejsReactjs(
             'phases': {
                 'install': {
                     'commands': [
+
                         f'cd {sub_proj_fldrpath}',
                         "pwd",
+                        "env",
+
+                        ### Just for node_modules & python-venv, we have a WORKAROUND for caching  zip-up the folder (as appropriate) before/after doing anything else.
+                        _zip_cmds_re_cached_fldrs( _ArchiveCmds.UN_TAR, sub_proj_fldrpath, whether_to_use_adv_caching ),
+                        # cache-cleanup before doing anything else
+                        ### FYI --- If cache is corrupted use AWS-CLI as: `aws codebuild invalidate-project-cache --project-name "${CBProjectName}"`
+                        _cache_chk_n_clean_cmd(),
+
                         'npm i --include-dev',
                         'npm --version; node --version; npx cdk --version',
                     ],
@@ -774,6 +1062,12 @@ def standard_BDDs_JSTSVuejsReactjs(
                         '/bin/bash -c "source scripts/run_test.sh && db_warmup" ',
                         '/bin/bash -c "source scripts/run_test.sh && run_ccdi_bdd_tests" ',
                     ]
+                },
+                'post_build': {
+                    'commands': [
+                        ### Just for node_modules & python-venv, we have a WORKAROUND for caching  zip-up the folder (as appropriate) before/after doing anything else.
+                        _zip_cmds_re_cached_fldrs( _ArchiveCmds.CREATE_TARFILE, sub_proj_fldrpath, whether_to_use_adv_caching ), ### creates '.tar' files.
+                    ]
                 }
             },
             "reports": {
@@ -783,7 +1077,20 @@ def standard_BDDs_JSTSVuejsReactjs(
                     "file-format": "CUCUMBERJSON",
                 }
             },
+            "cache": _gen_NodeJSCodeBuild_cache_fldrs_list( use_CodeBuild_cache, sub_proj_fldrpath ),
+                ### REF: https://docs.aws.amazon.com/codebuild/latest/userguide/build-caching.html#caching-local
+                ### In above URL, you'll note that "aws_codebuild.LocalCacheMode.CUSTOM" === "local caching"
+                ### In above URL, you'll note that .. Only directories can be specified for caching. You cannot specify individual files.
+                ### In above URL, you'll note that .. Local caching is --NOT-- supported when CodeBuild runs in --VPC-- !!!
+                ### NOTE: Avoid directory names that are the same in the source and in the cache.
         }),
+        cache = aws_codebuild.Cache.local( aws_codebuild.LocalCacheMode.CUSTOM ),
+                ### This above line converts to following CloudFormation:
+                ###        "Cache": {
+                ###             "Type": "LOCAL",
+                ###             "Modes": [ "LOCAL_CUSTOM_CACHE" ]
+                ###        },
+
         environment=aws_codebuild.BuildEnvironment( ### What kind of machine or O/S to use for CodeBuild
             privileged   = (cpu_arch.name == aws_lambda.Architecture.X86_64.name), ### Docker running on -ONLY- X86-based EC2s/CodeBuild-images.  Do NOT ask why!!!
             build_image  = constants_cdk.CODEBUILD_BUILD_IMAGE_UBUNTU, ### <--------- Chromium-headless REQUIRES Ubuntu. -NOT- AmznLinux !!!!!!!!!!!!!!!!!!
@@ -1044,6 +1351,22 @@ def enhance_CodeBuild_role_for_cdkdeploy(
                 f"arn:{stk.partition}:ec2:{stk.region}:{stk.account}:vpc-endpoint/*",
                 f"arn:{stk.partition}:ec2:{stk.region}:{stk.account}:vpc-endpoint-connection/*",
     ]))
+    cb_role.add_to_principal_policy(
+        aws_iam.PolicyStatement(
+            actions=[
+                "ec2:DescribeSecurityGroups",
+                "ec2:DescribeSecurityGroupRules",
+                "ec2:DescribeSubnets",
+                "ec2:DescribeTags",
+                "ec2:DescribeVpcs",
+                "ec2:DescribeVpcEndpoints",
+                "ec2:DescribeVpcEndpointServices",
+                "ec2:DescribeVpcEndpointServiceConfigurations",
+                "ec2:DescribeVpcEndpointConnectionNotifications",
+                "ec2:DescribeVpcBlockPublicAccessOptions"
+            ],
+            resources=[ '*' ]
+    ))
     cb_role.add_to_principal_policy(
         aws_iam.PolicyStatement(
             actions=["cloudfront:*"],
