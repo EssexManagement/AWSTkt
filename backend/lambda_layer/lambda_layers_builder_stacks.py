@@ -33,7 +33,7 @@ import backend.lambda_layer.lambda_layer_hashes
 ### ..............................................................................................
 ### ==============================================================================================
 
-class CommonAWSResourcesStack(Stack):
+class LambdaLayersBuilderStacks(Stack):
     def __init__( self,
         scope: Construct,
         simple_id: str,
