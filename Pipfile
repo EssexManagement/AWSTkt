@@ -31,6 +31,8 @@ requests = "*"
 
 docker = "*"
 
+cdk-nag = "*"
+
 [dev-packages]
 
 [requires]
