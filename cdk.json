@@ -27,7 +27,8 @@
           }
       },
       "git_commit_hashes" : {
-        "dev" : "main"
+        "dev" : "main",
+        "AWSTkt" : "main"
       }
     },
     "cidr" : {
@@ -47,7 +48,8 @@
     },
     "PostgreSQL-Engine-Version": {
       "!Attention!": "the major-version specified -BELOW- .. .. is converted to EXACT-ENGINE-Version within common/cdk/constants_cdk.py",
-      "dev": "16"
+      "dev": "16",
+      "developer": "16"
     },
     "retention": {
       "db_backup_retention": {
@@ -65,15 +67,15 @@
       "dev" : {"hour" : "13", "minute" : "0"}
     },
     "frontend_domain" : {
-      "factrial.com": {
-        "dev" :  "{}.dev.factrial.com"
+      "MyCompany.com": {
+        "dev" :  "{}.dev.MyCompany.com"
       }
     },
-    "root_domain": "factrial.com",
+    "root_domain": "MyCompany.com",
     "LambdaInsights": "arn:aws:lambda:us-east-1:580247275435:layer:LambdaInsightsExtension:16",
     "OtelPython": "arn:aws:lambda:us-east-1:901920570463:layer:aws-otel-python-amd64-ver-1-12-0:1",
     "support-email": [
-        "sarma.seetamraju@nih.gov"
+        "USeetamraju@Emmes.com"
     ],
     "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
     "@aws-cdk/core:checkSecretUsage": true,
