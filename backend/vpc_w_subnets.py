@@ -65,10 +65,11 @@ class VpcWithSubnetsConstruct(Construct):
             raise ValueError(f"cdk.json file is MISSING value for `cidr`-- BOTH for the tier=`{tier} as well as for `dev`.")
         print(f"cidr_block = '{cidr_block}'")
 
-        if tier not in constants.STD_TIERS:
-            print( f"For tier='{tier}', --NOT-- creating a new VPC. Instead RE-USING dev-environment's VPC='{aws_names.get_vpc_name(tier)}' // "+ __file__)
-            self._vpc = aws_ec2.Vpc.from_lookup(self, f"vpcLookup", vpc_name=aws_names.get_vpc_name(tier))
-        else:
+        # if tier not in constants.STD_TIERS:
+        #     print( f"For tier='{tier}', --NOT-- creating a new VPC. Instead RE-USING dev-environment's VPC='{aws_names.get_vpc_name(tier)}' // "+ __file__)
+        #     self._vpc = aws_ec2.Vpc.from_lookup(self, f"vpcLookup", vpc_name=aws_names.get_vpc_name(tier))
+        # else:
+        if True:
 
             # cidr_block = '192.168.50.0/24'
             ### NIST 800-53 finding -- VPC Flow Logs are mandatory, else HIGH-finding
