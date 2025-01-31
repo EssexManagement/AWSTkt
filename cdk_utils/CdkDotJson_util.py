@@ -160,12 +160,16 @@ def lkp_cdk_json(
     # gitTokenRefARN = gitTokenRefARN.format( stk.region, stk.account )
     # print( f"gitTokenRefARN = '{gitTokenRefARN}' within "+ __file__ )
 
+    git_commit_hashes = git_src_code_config["git_commit_hashes"]
+    print( json.dumps( git_commit_hashes, indent=4 ) )
     if tier in constants.STD_TIERS:
-        git_commit_hashes = git_src_code_config["git_commit_hashes"]
-        print( json.dumps( git_commit_hashes, indent=4 ) )
         git_commit_hash :str = git_commit_hashes[tier]
     else:
-        git_commit_hash = tier ### assuming developer always wants to use LATEST git-commit (latest git-hash)
+        if tier in git_commit_hashes:
+            ### In case Developer-tier wants an override
+            git_commit_hash = git_commit_hashes[tier]
+        else:
+            git_commit_hash = tier ### assuming developer always wants to use LATEST git-commit (latest git-hash)
 
     print( f"git_commit_hash='{git_commit_hash}'" )
 
