@@ -36,8 +36,8 @@ BUILD_KICKOFF_TIMESTAMP_STR = localized_now.strftime('%Y-%m-%d %H:%M:%S %Z')
 
 ### ===============================================================================================
 
-DEFAULT_CPU_ARCH         = aws_lambda.Architecture.ARM_64
-DEFAULT_CPU_ARCH_NAMESTR = aws_lambda.Architecture.ARM_64.name
+DEFAULT_CPU_ARCH              = aws_lambda.Architecture.ARM_64
+DEFAULT_CPU_ARCH_NAMESTR :str = aws_lambda.Architecture.ARM_64.name
 CPU_ARCH_LIST :list[aws_lambda.Architecture] = [
     aws_lambda.Architecture.ARM_64,
     aws_lambda.Architecture.X86_64,
