@@ -1,11 +1,13 @@
 from pathlib import Path
 from common.cdk.standard_lambda import LambdaLayerOption
+from common.cdk.StandardLambdaLayer import LambdaLayerProps
 
-LAMBDA_LAYER_ID = "psycopg3"
-LAMBDA_LAYER_FLDR = Path(__file__).parent
-# LAMBDA_LAYER_FLDR = constants.PROJ_ROOT_FLDR_PATH / 'api/lambda_layer/psycopg'
-
-LAMBDA_LAYER_SIZING_OPTION = LambdaLayerOption.LARGER_ZIP_FILE_FASTER_COLDSTART
+props = LambdaLayerProps(
+    lambda_layer_id = "psycopg3",
+    lambda_layer_fldr = Path(__file__).parent,
+    # lambda_layer_fldr = constants.PROJ_ROOT_FLDR_PATH / 'api/lambda_layer/psycopg',
+    lambda_layer_sizing_option = LambdaLayerOption.LARGER_ZIP_FILE_FASTER_COLDSTART,
+)
 
 ### ==========================================================================================================
 

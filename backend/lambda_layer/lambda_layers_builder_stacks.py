@@ -20,7 +20,7 @@ import common.cdk.aws_names as aws_names
 import common.FSUtils as FSUtils
 from common.cdk.standard_lambda import LambdaLayerOption
 from cdk_utils.CloudFormation_util import add_tags, get_cpu_arch_as_str
-from common.cdk.StandardLambdaLayer import LambdaLayerUtility
+from common.cdk.StandardLambdaLayer import LambdaLayerUtility, LambdaLayerProps
 
 from api import config
 from api.config import LambdaConfigs
@@ -81,7 +81,7 @@ class LambdaLayersBuilderStacks(Stack):
     def _create_lambda_layer(self,
         tier :str,
         cpu_arch :aws_lambda.Architecture,
-        layer :any,
+        layer :LambdaLayerProps,
     ) -> None:
         """ For each cpu-architecture, create lambda-layers (assuming `LambdaLayersAssetBuilder` class has done its job properly)
         """
@@ -91,9 +91,9 @@ class LambdaLayersBuilderStacks(Stack):
         print( '$'*60)
         print( f"Building Lambda-Layer ZIP-file for CPU-Arch: '{cpu_arch_str}' .. .." )
         print( '^'*120 )
-        layer_id = layer.LAMBDA_LAYER_ID
-        layer_fldr_path = layer.LAMBDA_LAYER_FLDR
-        layer_sizing_option :LambdaLayerOption = layer.LAMBDA_LAYER_SIZING_OPTION
+        layer_id = layer.lambda_layer_id
+        layer_fldr_path = layer.lambda_layer_fldr
+        layer_sizing_option :LambdaLayerOption = layer.lambda_layer_sizing_option
         print( f"layer-id = '{layer_id}', layer_fldr_path='{layer_fldr_path}' sizing/cold-start-option='{layer_sizing_option}' .." )
 
         lkp_str_key :str = aws_names.gen_lambdalayer_name( tier, layer_id, cpu_arch_str )
@@ -116,16 +116,40 @@ class LambdaLayersBuilderStacks(Stack):
         except config.MyLambdaConfigException as e:
             ### The presence of `config.MyLambdaConfigException` ==> implies ==> not found.  This design ensures only a 2-element-tupe is returned by `lookup_lambda_layer_asset()`
             ### This same exception is FATAL elsewhere.  But not here.
+            print( f"Lookup 𝜆-layer for layer_id ='{layer_id}' and cpu_arch_str= '{cpu_arch_str}' returned: '{myasset_sha256_hash}'" )
             pass
             ### we "pass" and proceed with the fact that `my_lambdalayer_asset` === None.
+
+        ### -------------------------------------
+        if myasset_sha256_hash == None:
+            myasset_sha256_hash  = LambdaLayerUtility.gen_sha256_hash_for_layer( layer_fldr_path = layer_fldr_path )
+            print( f"Pipfile/requirements.txt sha256_hash = '{myasset_sha256_hash}' for layer_fldr_path = '{layer_fldr_path}'" )
+
+        ### Detect of anything has changed with this Lambda-Layer (by comparing HASH from deployed-layer with above `myasset_sha256_hash`)
+        if lkp_lyr_hash and myasset_sha256_hash and lkp_lyr_hash == myasset_sha256_hash:
+            print( f"Lambda-Layer '{layer_id}' with CPU-Arch '{cpu_arch_str}' is UNCHANGED.  Skipping re-building the Lambda-Layer." )
+
+            ### ! Attention ! This from_layer_version_attribute() invocation uses "common" stack as Scope.
+            ### So, this "my_lambda_layerversion" will NOT work in another stack!!!!!!!!
+            # my_lambda_layerversion = aws_lambda.LayerVersion.from_layer_version_attributes( scope = self,
+            #     id = f"lkp-layer-{layer_id}-{cpu_arch_str}",
+            #     layer_version_arn = lkp_lyr_arn,
+            # )
+
+            return
+
+        ### -------------------------------------
+        ### This means .. the Layer needs to be RE-built and RE-deployed !!!
+        ### SOMETHING HAS CHANGED re: this 𝜆-Layer.  We must cdk-build + deploy a NEW VERSION of this 𝜆-LAYER.
+        print( f"Lambda-Layer '{layer_id}' with CPU-Arch '{cpu_arch_str}' has CHANGED!!!  Old hash ='{lkp_lyr_hash}' --versus-- new hash = '{myasset_sha256_hash}'" )
 
         if not my_lambdalayer_asset:
 
             util = LambdaLayerUtility(
-                lambda_layer_id = layer.LAMBDA_LAYER_ID,
+                lambda_layer_id = layer.lambda_layer_id,
                 lambda_layer_builder_script = None ### was: layer.LAMBDA_LAYER_BUILDER_SCRIPT,
             )
-            my_lambdalayer_asset, myasset_sha256_hash = util.build_lambda_layer_using_docker(
+            my_lambdalayer_asset = util.build_lambda_layer_using_docker(
                 tier = tier,
                 cpu_arch_str = cpu_arch_str,
                 layer_fldr_path = layer_fldr_path,
@@ -141,22 +165,6 @@ class LambdaLayersBuilderStacks(Stack):
             print( '.'*120, '\n' )
 
         print( my_lambdalayer_asset )
-
-        ### Detect of anything has changed with this Lambda-Layer (by comparing HASH from deployed-layer with above `myasset_sha256_hash`)
-        if lkp_lyr_hash and myasset_sha256_hash and lkp_lyr_hash == myasset_sha256_hash:
-            print( f"Lambda-Layer '{layer_id}' with CPU-Arch '{cpu_arch_str}' is UNCHANGED.  Skipping re-building the Lambda-Layer." )
-
-            ### ! Attention ! This from_layer_version_attribute() invocation uses "common" stack as Scope.
-            ### So, this "my_lambda_layerversion" will NOT work in another stack!!!!!!!!
-            # my_lambda_layerversion = aws_lambda.LayerVersion.from_layer_version_attributes( scope = self,
-            #     id = f"lkp-layer-{layer_id}-{cpu_arch_str}",
-            #     layer_version_arn = lkp_lyr_arn,
-            # )
-
-            return
-
-        ### This means .. the Layer needs to be RE-built and RE-deployed !!!
-        print( f"Lambda-Layer '{layer_id}' with CPU-Arch '{cpu_arch_str}' has CHANGED!!!  Old hash ='{lkp_lyr_hash}' --versus-- new hash = '{myasset_sha256_hash}'" )
 
         layer_uniq_id = f"layer-{layer_id}-{cpu_arch_str}"
         layer_version_name = aws_names.gen_lambdalayer_name(

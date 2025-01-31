@@ -1,14 +1,19 @@
 # Creating a new Lambda-layer
 
+1. Just in case you have an active `venv` on current-shell -- as a precaution -- open a new bash-shell!!!
+    * This is important, so that you do NOT mess up your existing .venv !!!!!
 1. Create a new SUB-FOLDER under [`backend/lambda_layer`](../../backend/lambda_layer/).
-1. `cd` into it.
+1. `cd` into the sub-folder SPECIFIC to the 𝜆-layer.
     * This is important!!!!!
     * This is important!!!!!
     * This is important!!!!!
+    * Example `cd "./numpy-etc"`
 1. Create a mew `Pipfile`  ([See Example](./psycopg/Pipfile))
-1. Run `pip install pipenv --user`
-1. Run `\rm -rf .cache/ .local/ .venv/ __pycache__/`
-1. Run `pipenv lock --dev --python ${PYTHON_VERSION} --clear`
+1. Run `\rm -rf ~/.cache/ ~/.local/ ~/.venv/ .cache/ .local/ .venv/ __pycache__/`
+1. Run `pip install pipenv`
+1. Run `pipenv lock --dev --clear --python ${PYTHON_VERSION}`
+    * Note: set the value of the bash-variable called `PYTHON_VERSION` in above cli-command
+    * It should match the constant defined within `common/cdk/constants_cdk.py`
 1. Verify there is a NEW file named `Pipfile.lock`
 1. `git commit` both these files.
 
