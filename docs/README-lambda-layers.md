@@ -19,6 +19,7 @@ pipenv sync --dev
 ### pip install -r requirements.txt
 
 (
+  TIER="AWSTkt";
   GITHUB_REPOSITORY=$(git ls-remote --get-url | sed -e 's/..*github.com\/\(.*\)/\1/');
   unset BUILDPLATFORM; unset DOCKER_DEFAULT_PLATFORM; unset TARGETPLATFORM;
   pipenv run npx cdk synth --quiet --all --app "python3 cdk_pipeline_app.py"  -c tier=${TIER} -c git_repo=${GITHUB_REPOSITORY} --profile ${AWSPROFILE} --region ${AWSREGION}
@@ -93,6 +94,7 @@ The following will sanity-check that the pipeline will not fail during cdk-synth
 
 ```bash
 (
+  TIER="AWSTkt";
   GITHUB_REPOSITORY=$(git ls-remote --get-url | sed -e 's/..*github.com\/\(.*\)/\1/');
   CPU_ARCH="$(uname -m)";  ### PICK ONE !!!
   CPU_ARCH="amd64";       ### PICK ONE !!!
