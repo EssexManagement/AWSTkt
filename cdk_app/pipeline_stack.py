@@ -60,6 +60,7 @@ class AwsTktPipelineStack(Stack):
                                                                     tier=tier,
                                                                     aws_env=aws_env,
                                                                     git_src_code_config=git_src_code_config)
+
         # codestar_connection_arn=f"arn:{self.partition}:codeconnections:{self.region}:{self.account}:connection/{???}"
 
         print( f"tier='{tier}' within "+ __file__ )
@@ -122,6 +123,7 @@ class AwsTktPipelineStack(Stack):
                 cpu_arch = cpu_arch,
                 git_repo_url = f"{git_repo_org_name}/{git_repo_name}",
                 cdk_app_pyfile="cdk_lambda_layers_app.py",
+                use_CodeBuild_cache = constants_cdk.USE_CODEBUILD_CACHE,
                 addl_cdk_context = {
                     "CPU_ARCH": cpu_arch_str
                 }
@@ -130,8 +132,46 @@ class AwsTktPipelineStack(Stack):
 
         ### all of these above build-actions MUST happen in parallel, as they are same builds happening on different CPUs-architectures.
         my_pipeline_v2.add_stage(
-            stage_name = f"codebuild_LambdaLayers-{cpu_arch_str}",
+            stage_name = f"codebuild_LambdaLayers-ALL-CpuArch",
             actions = all_build_actions,
         )
+
+        ### -----------------------------------
+        ### Pipeline-stage to Build+Deploy the application
+
+        a_build_action :aws_codepipeline_actions.CodeBuildAction = None
+
+        # Build action within CodePipeline
+        a_build_action, a_build_output = common.cdk.StandardCodeBuild.adv_CodeBuildCachingSynthAndDeploy_Python(
+            cdk_scope = self,
+            tier = tier,
+            codebase_root_folder = ".",
+            subproj_name = None,
+            cb_proj_name = f"{stk_prefix}_{codebuild_projname}",
+            source_artifact = my_source_artif,
+            cpu_arch = constants_cdk.DEFAULT_CPU_ARCH,
+            git_repo_url = f"{git_repo_org_name}/{git_repo_name}",
+            cdk_app_pyfile="cdk_app.py",
+            use_CodeBuild_cache = constants_cdk.USE_CODEBUILD_CACHE,
+            addl_cdk_context = {
+                "CPU_ARCH": constants_cdk.DEFAULT_CPU_ARCH_NAMESTR
+            }
+        )
+
+        ### all of these above build-actions MUST happen in parallel, as they are same builds happening on different CPUs-architectures.
+        my_pipeline_v2.add_stage(
+            stage_name = f"codebuild_projname-{cpu_arch_str}",
+            actions = [ a_build_action ],
+        )
+
+        ### -----------------------------------
+
+        ### Mark found a classic "race-condition" where CodePipeline AWS-resource was starting to get created BEFORE the Key-Alias and other dependency-resources were COMPLETELY created.
+        my_pipeline_v2.role.node.add_dependency( my_pipeline_v2.artifact_bucket )
+        # pipeline_lvl2.pipeline.node.add_dependency( pipeline_lvl2.pipeline.artifact_bucket.encryption_key )
+        # pipeline_lvl2.pipeline.role.node.add_dependency( pipeline_lvl2.pipeline.artifact_bucket.encryption_key )
+        # pipeline_lvl2.pipeline.role.node.add_dependency( pipeline_lvl2.pipeline.artifact_bucket.policy )
+        # pipeline_lvl2.pipeline.node.add_dependency( pipeline_lvl2.pipeline.role ) ### Circular dependency alert!!!!!!!!!
+        # pipeline_lvl2.pipeline.artifact_bucket.node.add_dependency( pipeline_lvl2.pipeline.artifact_bucket.encryption_key ) ### Circular dependency alert!
 
 ### EoF
