@@ -6,7 +6,7 @@ from typing import List, Optional, Tuple
 import importlib
 
 from aws_cdk import (
-    Stack,
+    Stack,  App,
     CfnOutput,  CfnParameter,
     Duration,
     RemovalPolicy,
@@ -63,7 +63,7 @@ stk_refs = StackReferences()
 
 class Gen_AllApplicationStacks(Construct):
     def __init__( self,
-        scope: Construct,
+        app: App,
         id_: str,
         stack_prefix :Optional[str],
         tier :str,
@@ -74,7 +74,7 @@ class Gen_AllApplicationStacks(Construct):
         """ In a separate stack, create AWS-REsources needed across all other stacks.
             Example: Lambda-Layers (incl. building the ZIP-files for the Python-layers)
 
-            1st param:  typical CDK scope (parent Construct/stack)
+            1st param:  typical CDK app (created via `aws_cdk.App()`)
             2nd param:  simple_id :str  => Very simple stack_id (do --NOT-- PREFIX it with `stack_prefix` (next param) that's common across all stacks in the app);
                         See also `stack_prefix` optional-parameter.
             3rd param:  stack_prefix :str     => This is typically common-PREFIX across all stacks, to make all stacks look uniform.
@@ -83,7 +83,7 @@ class Gen_AllApplicationStacks(Construct):
             6th param : git_branch :str - the git branch that is being deployed
             7th param:  cpu_arch_str :str  => "arm64" or "amd64"
         """
-        super().__init__(scope, id_)   ### This is --NOT-- as stack; So, Do NOT pass kwargs (into Constructs)!
+        super().__init__(app, id_)   ### This is --NOT-- as stack; So, Do NOT pass kwargs (into Constructs)!
 
         print( f"tier='{tier}' within "+ __file__ )
         print( f"aws_env='{aws_env}' within "+ __file__ )
@@ -96,8 +96,8 @@ class Gen_AllApplicationStacks(Construct):
         ### ----------------------------------------------
         id_ = stack_prefix+ "-AWSLandingZone"
         # if bundlings_all_stks or (bundling_stks.index(id_) >= 0):
-        aws_landingzone = AWSLandingZoneStack(  ### Do nothing Stack-construct.  Acts as "scope" construct below.
-            scope = self,
+        aws_landingzone = AWSLandingZoneStack(
+            scope = app,
             id_ = id_,
             tier = tier,
             aws_env = aws_env,
@@ -106,7 +106,7 @@ class Gen_AllApplicationStacks(Construct):
         )
 
         common_stk = CommonAWSResourcesStack(
-            scope = None,
+            scope = app,
             simple_id = "CommonRsrcs",
             stk_prefix = stack_prefix,
             tier = tier,
@@ -116,13 +116,13 @@ class Gen_AllApplicationStacks(Construct):
         )
 
         lambdas_stk = LambdaStack(
-            scope = None,
-            simple_id = "CommonRsrcs",
+            scope = app,
+            simple_id = "AllMyLambdas",
             stk_prefix = stack_prefix,
             tier = tier,
             aws_env = aws_env,
             git_branch = git_branch,
-            vpc = aws_landingzone.vpc,
+            vpc = None, ### aws_landingzone.vpc, !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             common_stk = common_stk,
             # db_stk = db_stk,
             **kwargs
