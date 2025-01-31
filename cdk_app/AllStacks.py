@@ -22,12 +22,10 @@ import common.cdk.aws_names as aws_names
 import cdk_utils.CloudFormation_util as CFUtil
 from common.cdk.standard_lambda import StandardLambda
 
-from backend.lambda_layer.layers_config import LAYER_MODULES
+from backend.vpc_w_subnets import VpcWithSubnetsConstruct
+from backend.common_aws_resources_stack import CommonAWSResourcesStack
 
 from api.config import LambdaConfigs
-
-### NOTE: We specifically need this variation of DYNAMICALLY importing `backend.lambda_layer.lambda_layer_hashes`
-import backend.lambda_layer.lambda_layer_hashes
 
 ### ==============================================================================================
 ### ..............................................................................................
@@ -35,12 +33,22 @@ import backend.lambda_layer.lambda_layer_hashes
 
 HDR = " inside "+ __file__
 
+class StackReferences:
+    def __init__(self):
+        pass
+
+stk_refs = StackReferences()
+
+### ===============================================================================================
+### ...............................................................................................
+### ===============================================================================================
+
 
 class AppStack(Stack):
     def __init__( self,
         scope: Construct,
         simple_id: str,
-        stk_prefix :Optional[str],
+        stack_prefix :Optional[str],
         tier :str,
         aws_env :str,
         git_branch :str,
@@ -52,9 +60,9 @@ class AppStack(Stack):
             Example: Lambda-Layers (incl. building the ZIP-files for the Python-layers)
 
             1st param:  typical CDK scope (parent Construct/stack)
-            2nd param:  simple_id :str  => Very simple stack_id (do --NOT-- PREFIX it with `stk_prefix` (next param) that's common across all stacks in the app);
-                        See also `stk_prefix` optional-parameter.
-            3rd param:  stk_prefix :str     => This is typically common-PREFIX across all stacks, to make all stacks look uniform.
+            2nd param:  simple_id :str  => Very simple stack_id (do --NOT-- PREFIX it with `stack_prefix` (next param) that's common across all stacks in the app);
+                        See also `stack_prefix` optional-parameter.
+            3rd param:  stack_prefix :str     => This is typically common-PREFIX across all stacks, to make all stacks look uniform.
             4th param:  tier :str           => (dev|int|uat|tier)
             5th param:  aws_env :str        => typically the AWS_ACCOUNT AWSPROFILE; Example: DEVINT_SHARED|UAT|PROD
             6th param : git_branch :str - the git branch that is being deployed
@@ -62,11 +70,40 @@ class AppStack(Stack):
         """
         super().__init__( scope=scope,
             id = simple_id,
-            stack_name = f"{stk_prefix}-{simple_id}".replace('_',''),
+            stack_name = f"{stack_prefix}-{simple_id}".replace('_',''),
             **kwargs
         )
 
-        self.tier = tier
+        print( f"tier='{tier}' within "+ __file__ )
+        print( f"aws_env='{aws_env}' within "+ __file__ )
+        print( f"git_branch='{git_branch}' within "+ __file__ )
+
+        ### ----------------------------------------------
+        bundling_stks :list[str] = self.node.try_get_context("aws:cdk:bundling-stacks")
+        bundlings_all_stks = bundling_stks.index("**") >= 0
+
+        ### ----------------------------------------------
+        id_ = stack_prefix+ "-AWSLandingZone"
+        # if bundlings_all_stks or (bundling_stks.index(id_) >= 0):
+        aws_landingzone = AWSLandingZoneStack(  ### Do nothing Stack-construct.  Acts as "scope" construct below.
+            scope = self,
+            id_ = id_,
+            tier = tier,
+            aws_env = aws_env,
+            git_branch = git_branch,
+            **kwargs
+        )
+
+        common_stk = CommonAWSResourcesStack(
+            scope = None,
+            simple_id = "CommonRsrcs",
+            stack_prefix = stack_prefix,
+            tier = tier,
+            aws_env = aws_env,
+            git_branch = git_branch,
+            **kwargs
+        )
+
         layer_id = LAYER_MODULES[0].LAMBDA_LAYER_ID  ### <--------------- hardcoding the layer to use !!!!!!!!!!!!!
         layer_full_name = f"{aws_names.gen_lambdalayer_name(tier,layer_id,cpu_arch_str)}"
         print( f"{HDR} - layer_full_name = {layer_full_name}" )
@@ -111,6 +148,41 @@ class AppStack(Stack):
             layers=layers,
             timeout=Duration.seconds(30),
         )
+
+### ==============================================================================================
+### ..............................................................................................
+### ==============================================================================================
+
+class AWSLandingZoneStack(Stack):
+    """ Has 3 properties: vpc_con, vpc and rds_security_group
+    """
+
+    def __init__(self,
+        scope: Construct,
+        id_: str,
+        tier: str,
+        aws_env: str,
+        git_branch: str,
+        **kwargs
+    ) -> None:
+        super().__init__(scope, id_, stack_name=id_, **kwargs)
+
+        # define stack-cloudformation-param named "cdkAppName"
+        cdk_app_name_cfnp = CfnParameter(self, "cdkAppName",
+            type="String",
+            description="The name of the CDK app",
+            default=constants.CDK_APP_NAME,
+        )
+
+        self.vpc_con = VpcWithSubnetsConstruct( scope = self,
+            construct_id = "vpc-only",
+            tier=tier,
+            aws_env=aws_env,
+            git_branch=git_branch,
+            cdk_app_name = cdk_app_name_cfnp,
+        )
+
+        self.vpc = self.vpc_con.vpc
 
 ### ..............................................................................................
 
