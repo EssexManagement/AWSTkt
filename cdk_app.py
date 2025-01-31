@@ -94,7 +94,7 @@ with open( LAMBDA_LAYER_HASHES_LOCALFILEPATH, 'r' ) as f:
 
 ### ----- following code should be __SIMILAR__ (NOT identical)  to the lines 102-110 of `deployment.py`
 all_stks = Gen_AllApplicationStacks(
-    scope   = app,
+    app   = app,
     id_     = f"{constants.CDK_APP_NAME}-{constants.CDK_COMPONENT_NAME}-{tier}",
     stack_prefix = f"{constants.CDK_APP_NAME}-{constants.CDK_COMPONENT_NAME}-{tier}",
     tier    = tier,
