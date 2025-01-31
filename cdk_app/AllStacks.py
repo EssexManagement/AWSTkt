@@ -64,13 +64,11 @@ stk_refs = StackReferences()
 class Gen_AllApplicationStacks(Construct):
     def __init__( self,
         scope: Construct,
-        simple_id: str,
+        id_: str,
         stack_prefix :Optional[str],
         tier :str,
         aws_env :str,
         git_branch :str,
-        cpu_arch_str :str,
-        common_stk :Stack,
         **kwargs,
     ) -> None:
         """ In a separate stack, create AWS-REsources needed across all other stacks.
@@ -110,7 +108,7 @@ class Gen_AllApplicationStacks(Construct):
         common_stk = CommonAWSResourcesStack(
             scope = None,
             simple_id = "CommonRsrcs",
-            stack_prefix = stack_prefix,
+            stk_prefix = stack_prefix,
             tier = tier,
             aws_env = aws_env,
             git_branch = git_branch,
@@ -120,7 +118,7 @@ class Gen_AllApplicationStacks(Construct):
         lambdas_stk = LambdaStack(
             scope = None,
             simple_id = "CommonRsrcs",
-            stack_prefix = stack_prefix,
+            stk_prefix = stack_prefix,
             tier = tier,
             aws_env = aws_env,
             git_branch = git_branch,
@@ -164,16 +162,17 @@ class LambdaStack(Stack):
         layer_simple_id = props.lambda_layer_id  ### <--------------- hardcoding the layer to use !!!!!!!!!!!!!
 
         ### ----- derived-variables -----
-        layer_full_name = f"{aws_names.gen_lambdalayer_name(tier,layer_simple_id,cpu_arch_str)}"
-        print( f"{HDR} - layer_full_name = {layer_full_name}" )
-        lambda_layers_names = [ layer_full_name ]
+        lambda_layers_simple_names = [ layer_simple_id ]
+        # layer_full_name = f"{aws_names.gen_lambdalayer_name(tier,layer_simple_id,cpu_arch_str)}"
+        # print( f"{HDR} - layer_full_name = {layer_full_name}" )
+        # lambda_layers_names = [ layer_full_name ]
 
         # layer_version_arn = f"arn:{self.partition}:lambda:{self.region}:{self.account}:layer:{aws_names.gen_lambdalayer_name(tier,layer_simple_id,cpu_arch_str)}"
             ### Example: arn:aws:lambda:us-east-1:123456789012:layer:AWSTkt-backend-dev_psycopg3-pandas_amd64:5
 
         ### ----- 𝜆-Layers lookup -----
         lambda_specific_layers = []  ### initialized to None above. Hence.
-        for nm in lambda_layers_names:
+        for nm in lambda_layers_simple_names:
             print( f"\tincluding the lambda_layer: '{nm}' for '{lambda_fullname}'" )
             myLayerObj, _ = LambdaConfigs.lookup_lambda_layer(
                 layer_simple_name = nm,
