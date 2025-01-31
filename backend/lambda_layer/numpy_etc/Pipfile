@@ -1,0 +1,42 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+
+attrs = "*"
+# certifi
+# chardet
+# dictdiffer
+# greenlet
+idna = "*"
+importlib-metadata = "*"
+jmespath = "*"
+jsonschema = "*"
+
+numpy = "*"
+
+python-dateutil = "*"
+pytz = "*"
+
+requests = "*"
+# s3transfer
+six = "*"
+typing-extensions = "*"
+urllib3 = "*"
+# wget
+# zipp
+# jsonpickle
+
+aws-xray-sdk = "*"
+
+PyYAML = "*"
+# PyYAML==6.0.1
+
+# SQLAlchemy (2.0.36) ### pip-ERROR: poetry 1.5.1 requires urllib3<2.0.0,>=1.26.0, but you have urllib3 2.2.3 which is incompatible.
+
+[dev-packages]
+
+[requires]
+python_version = "3.12"
