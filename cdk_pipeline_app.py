@@ -6,7 +6,7 @@ import aws_cdk as cdk
 
 import constants as constants
 import common.cdk.aws_names as aws_names
-from app_pipeline.pipeline_stack import AwsTktPipelineStack
+from cdk_app.pipeline_stack import AwsTktPipelineStack
 from cdk_utils.CloudFormation_util import get_cpu_arch_enum, add_tags
 
 ### ..............................................................................................
