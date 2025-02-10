@@ -5,12 +5,11 @@ from typing import Optional
 from constructs import Construct
 from aws_cdk import (
     Stack,
-    Duration,
     RemovalPolicy,
+    Duration,
     aws_logs,
     aws_lambda,
     aws_rds,
-    aws_codebuild,
 )
 
 import constants
@@ -36,13 +35,6 @@ BUILD_KICKOFF_TIMESTAMP_STR = localized_now.strftime('%Y-%m-%d %H:%M:%S %Z')
 
 ### ===============================================================================================
 
-DEFAULT_CPU_ARCH              = aws_lambda.Architecture.ARM_64
-DEFAULT_CPU_ARCH_NAMESTR :str = aws_lambda.Architecture.ARM_64.name
-CPU_ARCH_LIST :list[aws_lambda.Architecture] = [
-    aws_lambda.Architecture.ARM_64,
-    aws_lambda.Architecture.X86_64,
-]
-
 ENGINE_VERSION_LOOKUP :dict = {
     # '11': rds.AuroraPostgresEngineVersion.VER_11_13,
     # '12': rds.AuroraPostgresEngineVersion.VER_12_18,
@@ -51,16 +43,6 @@ ENGINE_VERSION_LOOKUP :dict = {
     '15': aws_rds.AuroraPostgresEngineVersion.VER_15_8,
     '16': aws_rds.AuroraPostgresEngineVersion.VER_16_4,
 }
-
-### ---------------------------------------------------------------------------------
-
-CODEBUILD_BUILD_IMAGE = aws_codebuild.LinuxBuildImage.AMAZON_LINUX_2_ARM_3
-CODEBUILD_BUILD_IMAGE_X86 = aws_codebuild.LinuxBuildImage.AMAZON_LINUX_2_5
-CODEBUILD_BUILD_IMAGE_UBUNTU = aws_codebuild.LinuxBuildImage.STANDARD_7_0
-CODEBUILD_EC2_SIZE    = aws_codebuild.ComputeType.LARGE
-
-USE_CODEBUILD_CACHE = True
-CODEBUILD_FILECACHE_FLDRPATH = "tmp/CodeBuild_FileCacheFldr"  ### Keep this in sync with
 
 ### ===============================================================================================
 

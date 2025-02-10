@@ -91,7 +91,8 @@ def add_tags( a_construct :Construct, tier :str, aws_env :str, git_branch :str )
     Tags.of(a_construct).add(key="tier",  value=tier)
     Tags.of(a_construct).add(key="aws_env",  value=aws_env)
     Tags.of(a_construct).add(key="git_branch", value=git_branch)
-    # Tags.of(a_construct).add(key="BUILD", value=constants_cdk.BUILD_KICKOFF_TIMESTAMP_STR)
+    # if tier == constants.PROD_TIER or tier == constants.UAT_TIER:
+    #     Tags.of(a_construct).add(key="BUILD", value=constants_cdk.BUILD_KICKOFF_TIMESTAMP_STR)
     if a_construct.node.try_get_context("git_repo"):
         Tags.of(a_construct).add(key="SOURCE", value=a_construct.node.try_get_context("git_repo"))
         Tags.of(a_construct).add(key="repo",   value=a_construct.node.try_get_context("git_repo"))
@@ -109,7 +110,7 @@ def get_tags_as_json( tier :str, aws_env :str, git_branch :str ) -> None:
         "tier":  tier,
         "aws_env":  aws_env,
         "git_branch": git_branch,
-        # "BUILD": constants_cdk.BUILD_KICKOFF_TIMESTAMP_STR,
+        # "BUILD": constants_cdk.BUILD_KICKOFF_TIMESTAMP_STR if tier == constants.PROD_TIER or tier == constants.UAT_TIER else None,
     }
 
 ### ---------------------------------------------------------------------------------------------------
@@ -125,7 +126,7 @@ def get_tags_as_array( tier :str, aws_env :str, git_branch :str ) -> None:
         { "Key": "tier", "Value": tier },
         { "Key": "aws_env", "Value":  aws_env },
         { "Key": "git_branch", "Value": git_branch },
-        # { "Key": "BUILD", "Value": constants_cdk.BUILD_KICKOFF_TIMESTAMP_STR },
+        # { "Key": "BUILD", "Value": constants_cdk.BUILD_KICKOFF_TIMESTAMP_STR if tier == constants.PROD_TIER or tier == constants.UAT_TIER else None },
     ]
 
 

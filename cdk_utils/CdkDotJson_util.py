@@ -29,26 +29,31 @@ def lkp_waf_acl_for_cloudFront(
     cdk_context,
     effective_tier :str,
 ) -> str:
-    security_config = cdk_context.node.try_get_context("security")
-    # print(f"security_config = {security_config}")
-    if security_config and "WAF-ACL" in security_config:
-        web_acl_json = security_config["WAF-ACL"]
-    else:
-        web_acl_json = None
-    print( f"DEBUG: web_acl_json = '{web_acl_json}'")
+    return _lkp_waf_acl_for_aws_resource(
+        cdk_context = cdk_context,
+        effective_tier = effective_tier,
+        lkp_key = "global",
+    )
+    # security_config = cdk_context.node.try_get_context("security")
+    # # print(f"security_config = {security_config}")
+    # if security_config and "WAF-ACL" in security_config:
+    #     web_acl_json = security_config["WAF-ACL"]
+    # else:
+    #     web_acl_json = None
+    # print( f"DEBUG: web_acl_json = '{web_acl_json}'")
 
-    if web_acl_json and "global" in web_acl_json:
-        web_acl_json = web_acl_json["global"]
-    else:
-        web_acl_json = None
+    # if web_acl_json and "global" in web_acl_json:
+    #     web_acl_json = web_acl_json["global"]
+    # else:
+    #     web_acl_json = None
 
-    if web_acl_json and effective_tier in web_acl_json:
-        web_acl_arn = web_acl_json[effective_tier]
-        if web_acl_arn == "None" or web_acl_arn == "":
-            web_acl_arn = None
-    else:
-        web_acl_arn = None
-    return web_acl_arn
+    # if web_acl_json and effective_tier in web_acl_json:
+    #     web_acl_arn = web_acl_json[effective_tier]
+    #     if web_acl_arn == "None" or web_acl_arn == "":
+    #         web_acl_arn = None
+    # else:
+    #     web_acl_arn = None
+    # return web_acl_arn
 
 ### ---------------------------------------------------------------------------------
 
@@ -73,7 +78,7 @@ def lkp_waf_acl_for_apigw(
     return _lkp_waf_acl_for_aws_resource(
         cdk_context = cdk_context,
         effective_tier = effective_tier,
-        lkp_key = "APIGW-WAF-ACLs",
+        lkp_key = "regional",
     )
 
 """ Lookup ARN for WAF-ACL to be associated with COGNITO USER-POOL.
@@ -113,10 +118,10 @@ def _lkp_waf_acl_for_aws_resource(
         web_acl_json = None
     print( f"DEBUG: web_acl_json = '{web_acl_json}'")
 
-    if web_acl_json and "regional" in web_acl_json:
-        web_acl_regional_json = web_acl_json["regional"]
-    else:
-        web_acl_regional_json = None
+    # if web_acl_json and "regional" in web_acl_json:
+    #     web_acl_regional_json = web_acl_json["regional"]
+    # else:
+    #     web_acl_regional_json = None
     if web_acl_json and lkp_key in web_acl_json:
         web_acl_json          = web_acl_json[ lkp_key ]
     else:
@@ -126,8 +131,6 @@ def _lkp_waf_acl_for_aws_resource(
         web_acl_arn = web_acl_json[effective_tier]
         if web_acl_arn == "None" or web_acl_arn == "":
             web_acl_arn = None
-        if web_acl_arn == "regional":
-            web_acl_arn = web_acl_regional_json[effective_tier]
     else:
         web_acl_arn = None
     return web_acl_arn

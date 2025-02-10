@@ -1,5 +1,4 @@
 from typing import Optional, Union
-from enum import Enum, auto, unique
 import os
 import re
 import pathlib
@@ -11,7 +10,6 @@ from aws_cdk import (
     RemovalPolicy,
     aws_codepipeline as codepipeline,
     aws_codebuild,
-    aws_lambda,
     aws_iam,
     aws_secretsmanager,
     aws_logs,
@@ -20,9 +18,13 @@ from aws_cdk import (
 
 import constants
 import common.cdk.constants_cdk as constants_cdk
-import common.cdk.aws_names as aws_names
-from cdk_utils.CloudFormation_util import get_cpu_arch_enum, get_cpu_arch_as_str
-from .standard_logging import get_log_grp, LogGroupType
+from common.cdk.standard_logging import get_log_grp, LogGroupType
+
+### ---------------------------------------------------------------------------------
+
+CODEBUILD_BUILD_IMAGE = aws_codebuild.LinuxBuildImage.AMAZON_LINUX_2_ARM_3
+CODEBUILD_BUILD_IMAGE_UBUNTU = aws_codebuild.LinuxBuildImage.STANDARD_7_0
+CODEBUILD_EC2_SIZE    = aws_codebuild.ComputeType.X2_LARGE
 
 ### ---------------------------------------------------------------------------------
 
@@ -44,179 +46,26 @@ def _get_logging_options(
         )
     )
 
-def _get_codebuild_linux_image(
-    tier :str,
-    cpu_arch :aws_lambda.Architecture,
-) -> aws_codebuild.IBuildImage:
-    # if tier in constants.STD_TIERS:
-    match cpu_arch.name:
-        case aws_lambda.Architecture.ARM_64.name: return constants_cdk.CODEBUILD_BUILD_IMAGE
-        case aws_lambda.Architecture.X86_64.name: return constants_cdk.CODEBUILD_BUILD_IMAGE_X86
-        case _: raise ValueError(f"Unsupported CPU architecture '{cpu_arch.name}'")
-
-
-def _cache_chk_n_clean_cmd() -> str:
-
-    """ nicely-compacted 1-liner bash-command that is a COMPLEX for-loop.
-        NOTE: cache-cleanup -MUST- be done before doing any builds/cdk-synth/cdk-deploy within CodeBuild.
-        FYI --- If cache is corrupted use AWS-CLI as: `aws codebuild invalidate-project-cache --project-name "${CBProjectName}"`
-    """
-
-    return "${CODEBUILD_SRC_DIR}/devops/bin/CodeBuild-InstallPhase-CleanUpOld-cmds.sh"
-
-    ### The following (basically inline-bash-cmds used as-is within CodeBuild's commands) .. was getting TOO LARGE!!
-    ### Hence the following has been replaced with a bash-script (see above)
-    ###    The uncompacted-string in here, is for human-friendly editing.
-    # one_liner_bash_cmd = f"""
-    #     echo 'Checking cache age...';
-    #     for dir in   .venv   node_modules   ~/.local/share/virtualenvs  .pipenv; do
-    #         if [ -d "$dir" ]; then
-    #             dir_age=$(find "$dir" -maxdepth 0 -mtime +1);
-    #             if [ ! -z "$dir_age" ]; then
-    #                 echo "Cache directory $dir is older than 24 hours, clearing...";
-    #                 rm -rf "$dir";
-    #             else
-    #                 echo "Cache directory $dir is fresh (less than 24 hours old)";
-    #             fi
-    #         fi
-    #     done
-    #     """
-
-#     return " ".join( one_liner_bash_cmd.split() ) ### split() and join() will replace \s+ with a single-whitespace-char!
-
-
-def _pip_or_pipenv_install_cmd() -> str:
-
-    """ nicely-compacted 1-liner bash-command that is a COMPLEX for-loop.
-    """
-
-    ### !! ATTENTION !! `venv` is installed into  `.`     and !! NOT !! into the traditional ~~.venv~~
-    ### .venv/ can NOT be a symlink (which is what CodeBuild does to CACHED-folders)
-    ### Hence we TRICK `python/pip` by `cd` into that symlink, and install `venv` module into `.` (a.k.a. CWD)
-    ###    The uncompacted-string in here, is for human-friendly editing.
-    one_liner_bash_cmd = """
-            if [ -f requirements.txt ]; then
-                mkdir -p .venv; cd .venv;
-                python -m venv .;
-                cd ..;
-                .   .venv/bin/activate;
-                pip install -r requirements.txt;
-            elif [ -f Pipfile.lock ]; then
-                pip install pipenv --user;
-                pipenv sync --dev;
-            else
-                echo 'Both requirements.txt and Pipfile.lock are MISSING';
-                exit 111;
-            fi;
-        """
-
-    return " ".join( one_liner_bash_cmd.split() ) ### split() and join() will replace \s+ with a single-whitespace-char!
-
-
-@unique
-class _ArchiveCmds(Enum):
-    CREATE_TARFILE = (auto(),),
-    UN_TAR = (auto(),),
-
-def _zip_cmds_re_cached_fldrs(
-    cmd1 :_ArchiveCmds,
-    sub_proj_fldrpath :str,
-    whether_to_use_adv_caching :bool
-) -> list[str]:
-    """ internal-use only utility.
-        All folders (like node_modules & python's venv) that do NOT work when cached, are to be zipped and restored via scripts.
-    """
-    retstr = f"""${{CODEBUILD_SRC_DIR}}/devops/bin/CodeBuild-InstallPhase-Archive-cmds.sh
-        \"{ "un-tar" if ( cmd1.name == _ArchiveCmds.UN_TAR.name ) else "create-tar" }\"
-        \"{ sub_proj_fldrpath }\"
-        \"{ whether_to_use_adv_caching }\" ;
-    """
-    retstr = " ".join( retstr.split() )
-    return retstr
-
-    ### The following (basically inline-bash-cmds used as-is within CodeBuild's commands) .. was getting TOO LARGE!!
-    ### Hence the following has been replaced with a bash-script (see above)
-    # if not whether_to_use_adv_caching:
-    #     return "echo \"--NO-- advanced-caching (for node_modules and python's-venv)\""
-
-    # fldr_list = [
-    #     "node_modules",
-    #     ".venv"
-    # ]
-    # retstr = "pwd; ls -la; ls -la $( readlink node_modules ); "
-    # for ddd in fldr_list:
-    #     if cmd1:
-    #         # retstr += f"date; tar -xf ./{ddd}.tar {sub_proj_fldrpath}/{ddd}; "
-    #         retstr += f"date; tar -xf $( readlink ./{ddd}.tar ) {sub_proj_fldrpath}/{ddd}; "
-    #     else:
-    #         retstr += f"date; tar -cf ./{ddd}.tar {sub_proj_fldrpath}/{ddd}; "
-    # retstr += " date; "
-    # return retstr
-
-
-
-def _gen_NodeJSCodeBuild_cache_fldrs_list(
-    use_CodeBuild_cache :bool,
-    sub_proj_fldrpath :str,
-) -> str:
-
-    """ internal-use only utility.
-        Generate (as appropriate based on `use_CodeBuild_cache` bool-param) ..
-            .. the list of folder-paths to CACHE within CodeBuild-PROJECT.
-        Folder-paths for BOTH node_modules ONLY (for NodeJS-only CodeBuild-projects)
-    """
-
-    if use_CodeBuild_cache:
-        cb_cache = {
-            "paths": []
-        }
-        fldr_list = ["."]
-        if not sub_proj_fldrpath == '.':
-            fldr_list.append(sub_proj_fldrpath)
-        for ddd in fldr_list:
-            cb_cache["paths"].append(
-                f"{ddd}/{constants_cdk.CODEBUILD_FILECACHE_FLDRPATH}/**/*", ### CodeBuild only caches Folders. So, files have to be put into a folder!
-            )
-    else:
-        cb_cache = None
-
-    return cb_cache
-
-
-def _gen_PythonCodeBuild_cache_fldrs_list(
-    use_CodeBuild_cache :bool,
-    sub_proj_fldrpath :str,
-) -> str:
-
-    """ internal-use only utility.
-        Generate (as appropriate based on `use_CodeBuild_cache` bool-param) ..
-            .. the list of folder-paths to CACHE within CodeBuild-PROJECT.
-        Folder-paths for BOTH node_modules as well as Python(pipenv/pip)
-    """
-
-    if use_CodeBuild_cache:
-        cb_cache = {
-            "paths": []
-        }
-        fldr_list = ["."] # initialize
-        if not sub_proj_fldrpath == '.':
-            fldr_list.append(sub_proj_fldrpath)
-        for ddd in fldr_list:
-                cb_cache["paths"].append( f"{ddd}/{constants_cdk.CODEBUILD_FILECACHE_FLDRPATH}/**/*" ) ### CodeBuild only caches Folders. So, files have to be put into a folder!
-                cb_cache["paths"].append( f"{ddd}/.pipenv/**/*" )  # Add this for pipenv cache
-                ### .venv/ can NOT be a symlink (which is what CodeBuild does to CACHED-folders)
-                ### .node_modules/ can NOT be a symlink (which is what CodeBuild does to CACHED-folders)
-                # cb_cache["paths"].append( f"{ddd}/node_modules/**/*" )
-                # cb_cache["paths"].append( f"{ddd}/.venv/**/*" )
-        ### This line below is FIXED path from user-home-dir
-        cb_cache["paths"].append( "~/.local/share/virtualenvs/**/*" ) # Add this re: pipenv cache
-    else:
-        cb_cache = None
-
-    return cb_cache
-
-
 ### ---------------------------------------------------------------------------------
+"""
+    Simple CDK-Synth only.
+    Simple CDK-Synth only.
+    Simple CDK-Synth only.
+    -NO- Caching supported.  -NO- cdk-deploy included.
+    This variation is for NodeJS-based CDK-projects
+
+    1st param:  typical CDK scope (parent Construct/stack)
+    2nd param:  tier :str           => (dev|int|uat|tier)
+    3th param:  codebase_root_folder :str => SubFolder within which to find the various "subprojects".
+                    Example-Values: "devops/"  "Operations/"
+    4th param:  subproj_name :str     => typically the sub-folder's name
+                 /or/ can ALSO be the relative-folder-PATH (relative to above `codebase_root_folder` param).
+    5th param:  cb_proj_name :str  => When the Infrastructure project in `subfldr` is deployed, DEFINE what the CodeBuild-Project should be named.
+    6th param"  source_artifact :codepipeline.Artifact => It representing the SOURCE (usually configured via `cdk_utils/StandardCodePipeline.py`)
+    Returns on objects of types:-
+                1. codepipeline_actions.CodeBuildAction
+                3. codepipeline.Artifact (representing the BUILD-Artifact)
+"""
 def standard_CodeBuildSynth_NodeJS(
     cdk_scope :Construct,
     tier :str,
@@ -224,44 +73,14 @@ def standard_CodeBuildSynth_NodeJS(
     subproj_name :Union[str,pathlib.Path],
     cb_proj_name :str,
     source_artifact :codepipeline.Artifact,
-    cpu_arch :aws_lambda.Architecture = aws_lambda.Architecture.ARM_64,
-    use_CodeBuild_cache :bool = False,
-    whether_to_use_adv_caching :bool = True,
 ) -> tuple[codepipeline_actions.CodeBuildAction, codepipeline.Artifact]:
-    """
-        Simple CDK-Synth only.
-        Simple CDK-Synth only.
-        Simple CDK-Synth only.
-        -NO- Caching supported.  -NO- cdk-deploy included.
-        This variation is for NodeJS-based CDK-projects
-
-        1st param:  typical CDK scope (parent Construct/stack)
-        2nd param:  tier :str           => (dev|int|uat|tier)
-        3th param:  codebase_root_folder :str => SubFolder within which to find the various "subprojects".
-                        Example-Values: "devops/"  "Operations/"
-        4th param:  subproj_name :str     => typically the sub-folder's name
-                    /or/ can ALSO be the relative-folder-PATH (relative to above `codebase_root_folder` param).
-        5th param:  cb_proj_name :str  => When the Infrastructure project in `subfldr` is deployed, DEFINE what the CodeBuild-Project should be named.
-        6th param"  source_artifact :codepipeline.Artifact => It representing the SOURCE (usually configured via `cdk_utils/StandardCodePipeline.py`)
-        7th param:  (OPTIONAL) cpu_arch :aws_lambda.Architecture => OPTIONAL;  Default=aws_lambda.Architecture.ARM_64
-        8th param:  (OPTIONAL) use_CodeBuild_cache -- whether to cache `node_modules`
-        9th param:  (OPTIONAL) whether_to_use_adv_caching :bool -- since CodeBuild can --NOT-- cache "node_modules" and python's "venv", 'True' will turn on VERY ADVANCED HARD-to-FOLLOW caching, that could come to bit your ass later.
-        Returns on objects of types:-
-                    1. codepipeline_actions.CodeBuildAction
-                    3. codepipeline.Artifact (representing the BUILD-Artifact)
-    """
 
     HDR = " : standard_CodeBuildSynth_NodeJS(): "
-    stk = Stack.of(cdk_scope)
-
     print(f"subproj_name={subproj_name}"+ HDR )
     print(f"codebase_root_folder={codebase_root_folder}"+ HDR )
     print(f"cb_proj_name={cb_proj_name}"+ HDR )
-    print( f"CPU-ARCH (Enum) ='{cpu_arch}'" )
-    cpu_arch_str: str = get_cpu_arch_as_str( cpu_arch )
-    print( f"CPU_ARCH(str) = '{cpu_arch_str}'" )
-    cb_proj_name += f"-{cpu_arch_str}"
-    print( f"cb_proj_name='{cb_proj_name}'" )
+
+    stk = Stack.of(cdk_scope)
 
     git_repo_org_name = source_artifact.get_metadata( key="git_repo_org_name"  )
     git_repo_name = source_artifact.get_metadata( key="git_repo_name"  )
@@ -269,9 +88,8 @@ def standard_CodeBuildSynth_NodeJS(
     print( f"git_repo_url={git_repo_url} within "+ HDR )
 
     ### Synth only
-    ### automatically detect if Git-Repo-codebase is using Plain-Pip (and .venv) or whether the Git-Repo-Codebase is using Pipenv/Pifile
-    cdk_synth_command  =  " npx cdk synth  --quiet --all"
-    cdk_synth_command +=  " --concurrency 10 --asset-parallelism true --asset-prebuild"
+    cdk_synth_command  =  "npx cdk synth  --quiet --all"
+    cdk_synth_command +=  " --require-approval never --concurrency 10 --asset-parallelism true --asset-prebuild"
     cdk_synth_command += f" --context TIER=\"{tier}\""
     cdk_synth_command += f" --context tier=\"{tier}\""
     if git_repo_url:     cdk_synth_command += f" --context git_repo=\"{git_repo_url}\""
@@ -286,76 +104,43 @@ def standard_CodeBuildSynth_NodeJS(
     my_build_output  = codepipeline.Artifact("build_"+artif_name)
 
     cb_project = aws_codebuild.PipelineProject(
-        scope = cdk_scope,
-        id    = f'{subproj_name}-CodeBuild-{cpu_arch_str}',
+        scope=cdk_scope,
+        id=f'{subproj_name}-CodeBuild',
         project_name=cb_proj_name,
         ### project_name=f'{pipeline_id}-{subproj_name}',
         build_spec=aws_codebuild.BuildSpec.from_object({
             'version': '0.2',
-            'env': {        ### Ubuntu requires "bash" to be explicitly specified. AL2 does NOT. So .. ..
+            "env": {        ### Ubuntu requires "bash" to be explicitly specified. AL2 does NOT. So .. ..
                 "shell": "bash",
-                "variables": { ### If 'env' is defined, it --BETTER-- have a "variables" sub-section !!!
+                "variables": { ### If "env" is defined, it --BETTER-- have a "variables" sub-section !!!
                     "NoSuch": "Variable"
                 }
             },
             'phases': {
                 'install': {
                     'commands': [
-
-                        ### requests.exceptions.HTTPError: 409 Client Error: Conflict for url: http+docker://localhost/v1.44/containers/??????????v=False&link=False&force=False
-                        ### Give CodeBuild permissions to access Docker daemon
+                        # ### requests.exceptions.HTTPError: 409 Client Error: Conflict for url: http+docker://localhost/v1.44/containers/??????????v=False&link=False&force=False
+                        # ### Give CodeBuild permissions to access Docker daemon
                         # "nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2 & ",
                         # "timeout 15 sh -c 'until docker info; do echo .; sleep 1; done'", ### wait for Docker-daemon to finish RE-STARTING.
                         f'cd {sub_proj_fldrpath}',
                         "pwd",
-                        "env",
-
-                        ### Just for node_modules & python-venv, we have a WORKAROUND for caching  zip-up the folder (as appropriate) before/after doing anything else.
-                        _zip_cmds_re_cached_fldrs( _ArchiveCmds.UN_TAR, sub_proj_fldrpath, whether_to_use_adv_caching ),
-                        ### cache-cleanup before doing anything else
-                        ### FYI --- If cache is corrupted use AWS-CLI as: `aws codebuild invalidate-project-cache --project-name "${CBProjectName}"`
-                        _cache_chk_n_clean_cmd(),
-
                         'npm i --include-dev',
                         'npm --version; node --version; npx cdk --version',
                     ],
                 },
                 'build': {
                     'commands': [ cdk_synth_command ]
-                },
-                'post_build': {
-                    'commands': [
-                        ### Just for node_modules & python-venv, we have a WORKAROUND for caching  zip-up the folder (as appropriate) before/after doing anything else.
-                        _zip_cmds_re_cached_fldrs( _ArchiveCmds.CREATE_TARFILE, sub_proj_fldrpath, whether_to_use_adv_caching ), ### creates '.tar' files.
-                    ]
                 }
             },
             'artifacts': {
                 'base-directory': f'{sub_proj_fldrpath}/cdk.out',
                 'files': ['**/*']
-            },
-            "cache": _gen_NodeJSCodeBuild_cache_fldrs_list(use_CodeBuild_cache, sub_proj_fldrpath)
-                ### REF: https://docs.aws.amazon.com/codebuild/latest/userguide/build-caching.html#caching-local
-                ### In above URL, you'll note that "aws_codebuild.LocalCacheMode.CUSTOM" === "local caching"
-                ### In above URL, you'll note that .. Only directories can be specified for caching. You cannot specify individual files.
-                ### In above URL, you'll note that .. Local caching is --NOT-- supported when CodeBuild runs in --VPC-- !!!
-                ### NOTE: Avoid directory names that are the same in the source and in the cache.
-        }),
-        cache = aws_codebuild.Cache.local( aws_codebuild.LocalCacheMode.CUSTOM ),
-                ### This above line converts to following CloudFormation:
-                ###        "Cache": {
-                ###             "Type": "LOCAL",
-                ###             "Modes": [ "LOCAL_CUSTOM_CACHE" ]
-                ###        },
-
-        environment=aws_codebuild.BuildEnvironment(
-            privileged   = (cpu_arch.name == aws_lambda.Architecture.X86_64.name), ### Docker running on -ONLY- X86-based EC2s/CodeBuild-images.  Do NOT ask why!!!
-            build_image  = _get_codebuild_linux_image( tier, cpu_arch ),
-            compute_type = constants_cdk.CODEBUILD_EC2_SIZE,
-            environment_variables = {
-                "TIER":     aws_codebuild.BuildEnvironmentVariable( value=tier, type=aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT),
-                "CPU_ARCH": aws_codebuild.BuildEnvironmentVariable( value=cpu_arch_str, type=aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT),
             }
+        }),
+        environment=aws_codebuild.BuildEnvironment(
+            build_image  = CODEBUILD_BUILD_IMAGE,
+            compute_type = CODEBUILD_EC2_SIZE,
         ),
         logging = _get_logging_options( cdk_scope, tier, stk, subproj_name )
     )
@@ -370,6 +155,26 @@ def standard_CodeBuildSynth_NodeJS(
     return my_build_action, my_build_output
 
 ### ---------------------------------------------------------------------------------
+"""
+    Simple CDK-Synth only.
+    Simple CDK-Synth only.
+    Simple CDK-Synth only.
+    -NO- Caching supported.  -NO- cdk-deploy included.
+    This variation is for simple Python-based CDK-projects.
+
+    1st param:  typical CDK scope (parent Construct/stack)
+    2nd param:  tier :str           => (dev|int|uat|tier)
+    3th param:  codebase_root_folder :str => SubFolder within which to find the various "subprojects".
+                    Example-Values: "devops/"  "Operations/"
+    4th param:  subproj_name :str     => typically the sub-folder's name
+                 /or/ can ALSO be the relative-folder-PATH (relative to above `codebase_root_folder` param).
+    5th param:  cb_proj_name :str  => When the Infrastructure project in `subfldr` is deployed, DEFINE what the CodeBuild-Project should be named.
+    6th param:  source_artifact :codepipeline.Artifact => It representing the SOURCE (usually configured via `cdk_utils/StandardCodePipeline.py`)
+    7th param:  OPTIONAL: python_version # as a string
+    Returns on objects of types:-
+                1. codepipeline_actions.CodeBuildAction
+                3. codepipeline.Artifact (representing the BUILD-Artifact)
+"""
 def standard_CodeBuildSynth_Python(
     cdk_scope :Construct,
     tier :str,
@@ -377,59 +182,21 @@ def standard_CodeBuildSynth_Python(
     subproj_name :Union[str,pathlib.Path],
     cb_proj_name :str,
     source_artifact :codepipeline.Artifact,
-    cpu_arch :aws_lambda.Architecture = aws_lambda.Architecture.ARM_64,
     python_version :str = constants_cdk.CDK_APP_PYTHON_VERSION,
-    use_CodeBuild_cache :bool = False,
-    whether_to_use_adv_caching :bool = True,
 ) -> tuple[codepipeline_actions.CodeBuildAction, codepipeline.Artifact]:
-    """
-        Simple CDK-Synth only.
-        Simple CDK-Synth only.
-        Simple CDK-Synth only.
-        -NO- Caching supported.  -NO- cdk-deploy included.
-        This variation is for simple Python-based CDK-projects.
-
-        1st param:  typical CDK scope (parent Construct/stack)
-        2nd param:  tier :str           => (dev|int|uat|tier)
-        3th param:  codebase_root_folder :str => SubFolder within which to find the various "subprojects".
-                        Example-Values: "devops/"  "Operations/"
-        4th param:  subproj_name :str     => typically the sub-folder's name
-                    /or/ can ALSO be the relative-folder-PATH (relative to above `codebase_root_folder` param).
-        5th param:  cb_proj_name :str  => When the Infrastructure project in `subfldr` is deployed, DEFINE what the CodeBuild-Project should be named.
-        6th param:  source_artifact :codepipeline.Artifact => It representing the SOURCE (usually configured via `cdk_utils/StandardCodePipeline.py`)
-        7th param: (OPTIONAL) cpu_arch :aws_lambda.Architecture => OPTIONAL;  Default=aws_lambda.Architecture.ARM_64
-        8th param:  OPTIONAL: python_version # as a string
-        9th param:  OPTIONAL: use_CodeBuild_cache -- whether to cache PIP & PIPENV
-        10th param:  (OPTIONAL) whether_to_use_adv_caching :bool -- since CodeBuild can --NOT-- cache "node_modules" and python's "venv", 'True' will turn on VERY ADVANCED HARD-to-FOLLOW caching, that could come to bit your ass later.
-        Returns on objects of types:-
-                    1. codepipeline_actions.CodeBuildAction
-                    3. codepipeline.Artifact (representing the BUILD-Artifact)
-    """
 
     HDR = " : standard_CodeBuildSynth_Python(): "
-    stk = Stack.of(cdk_scope)
-
     print(f"subproj_name={subproj_name}"+ HDR )
     print(f"codebase_root_folder={codebase_root_folder}"+ HDR )
     print(f"cb_proj_name={cb_proj_name}"+ HDR )
-    print( f"CPU-ARCH (Enum) ='{cpu_arch}'" )
-    cpu_arch_str: str = get_cpu_arch_as_str( cpu_arch )
-    print( f"CPU_ARCH(str) = '{cpu_arch_str}'" )
-    cb_proj_name += f"-{cpu_arch_str}"
-    print( f"cb_proj_name='{cb_proj_name}'" )
-
-    git_repo_org_name = source_artifact.get_metadata( key="git_repo_org_name"  )
-    git_repo_name = source_artifact.get_metadata( key="git_repo_name"  )
-    git_repo_url  = f"{git_repo_org_name}/{git_repo_name}"
-    print( f"git_repo_url={git_repo_url} within "+ HDR )
 
     ### Synth only
-    ### automatically detect if Git-Repo-codebase is using Plain-Pip (and .venv) or whether the Git-Repo-Codebase is using Pipenv/Pifile
-    cdk_deploy_command  =  "if [ -f requirements.txt ]; then PRFX=\"\"; elif [ -f Pipfile.lock ]; then PRFX=\"pipenv run\"; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; "
-    cdk_deploy_command +=  "$PRFX npx cdk synth  --quiet --all"
-    cdk_synth_command +=  " --concurrency 10 --asset-parallelism true --asset-prebuild"
+    cdk_synth_command  =  "npx cdk synth  --quiet --all"
+    cdk_synth_command +=  " --require-approval never --concurrency 10 --asset-parallelism true --asset-prebuild"
     cdk_synth_command += f" --context tier=\"{tier}\""
     if git_repo_url:     cdk_synth_command += f" --context git_repo=\"{git_repo_url}\""
+
+    stk = Stack.of(cdk_scope)
 
     artif_name, subproj_name, sub_proj_fldrpath = gen_artifact_name(
         tier=tier,
@@ -438,97 +205,71 @@ def standard_CodeBuildSynth_Python(
         cb_proj_name=cb_proj_name
     )
 
+    git_repo_org_name = source_artifact.get_metadata( key="git_repo_org_name"  )
+    git_repo_name = source_artifact.get_metadata( key="git_repo_name"  )
+    git_repo_url  = f"{git_repo_org_name}/{git_repo_name}"
+    print( f"git_repo_url={git_repo_url} within "+ HDR )
+
     my_build_output  = codepipeline.Artifact("build_"+artif_name)
 
     cb_project = aws_codebuild.PipelineProject(
-        scope = cdk_scope,
-        id    = f'{subproj_name}-CodeBuild-{cpu_arch_str}',
+        scope=cdk_scope,
+        id=f'{subproj_name}-CodeBuild',
         project_name=cb_proj_name,
         ### project_name=f'{pipeline_id}-{subproj_name}',
 
         # cache=aws_codebuild.Cache.local(aws_codebuild.LocalCacheMode.CUSTOM),     ### match this with the `cache` json-element inside the BuildSpec below.
 
         build_spec = aws_codebuild.BuildSpec.from_object({
-            'version': 0.2,
-            'env': {        ### Ubuntu requires "bash" to be explicitly specified. AL2 does NOT. So .. ..
+            "version": 0.2,
+            "env": {        ### Ubuntu requires "bash" to be explicitly specified. AL2 does NOT. So .. ..
                 "shell": "bash",
-                "variables": { ### If 'env' is defined, it --BETTER-- have a "variables" sub-section !!!
-                    "NoSuch": "Variable",
-                    "PIPENV_CACHE_DIR": ".pipenv/pipcache", ## LOCAL-DIR location for Pipenv to store it’s package cache. Default is to use appdir’s user cache directory.
-                    "WORKON_HOME": ".pipenv/venvs" ### https://docs.pipenv.org/advanced/#custom-virtual-environment-location
+                "variables": { ### If "env" is defined, it --BETTER-- have a "variables" sub-section !!!
+                    "NoSuch": "Variable"
                 }
             },
             "phases": {
-                'install': {
-                    'runtime-versions': {
+                "install": {
+                    "runtime-versions": {
                         "python": python_version
                     },
-                    'commands': [
-
+                    "commands": [
                         ### requests.exceptions.HTTPError: 409 Client Error: Conflict for url: http+docker://localhost/v1.44/containers/??????????v=False&link=False&force=False
                         ### Give CodeBuild permissions to access Docker daemon
-                        # "nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2 & ",
-                        # "timeout 15 sh -c 'until docker info; do echo .; sleep 1; done'", ### wait for Docker-daemon to finish RE-STARTING.
+                        "nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2 & ",
+                        "timeout 15 sh -c 'until docker info; do echo .; sleep 1; done'", ### wait for Docker-daemon to finish RE-STARTING.
                         f"cd {sub_proj_fldrpath}",
                         "pwd",
-                        "env",
-
-                        ### Just for node_modules & python-venv, we have a WORKAROUND for caching  zip-up the folder (as appropriate) before/after doing anything else.
-                        _zip_cmds_re_cached_fldrs( _ArchiveCmds.UN_TAR, sub_proj_fldrpath, whether_to_use_adv_caching ),
-                        # cache-cleanup before doing anything else
-                        ### FYI --- If cache is corrupted use AWS-CLI as: `aws codebuild invalidate-project-cache --project-name "${CBProjectName}"`
-                        _cache_chk_n_clean_cmd(),
-
                         'npm i --include-dev',
 
+                        "python -m venv .venv",
+                        "  .   .venv/bin/activate",
                         "pip install --upgrade pip",
                         # "python -m pip install pip-tools",
                         # "python -m piptools compile --quiet --resolver=backtracking requirements.in",
-                        _pip_or_pipenv_install_cmd(),
-                        ### ERROR: Pip Can not perform a '--user' install. User site-packages are not visible in this virtualenv.
-                        ###     Courtesy Notice: Pipenv found itself running within a virtual environment,  so it will automatically use that environment, instead of  creating its own for any project.
-                        ###     You can set PIPENV_IGNORE_VIRTUALENVS=1 to force pipenv to ignore that environment and create  its own instead.
-                        ###     You can set PIPENV_VERBOSITY=-1 to suppress this warning.
-                        'npm --version; node --version; python --version; pip --version',
-                        "if [ -f requirements.txt ]; then npx cdk --version; elif [ -f Pipfile.lock ]; then pipenv run npx cdk --version; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; ",
+                        "python -m pip install -r requirements.txt",
+                        'npm --version; node --version; python --version; pip --version; npx cdk --version',
                     ],
                 },
-                'build': {
-                    'commands': [ cdk_synth_command ]
-                },
-                'post_build': {
-                    'commands': [
-                        ### Just for node_modules & python-venv, we have a WORKAROUND for caching  zip-up the folder (as appropriate) before/after doing anything else.
-                        _zip_cmds_re_cached_fldrs( _ArchiveCmds.CREATE_TARFILE, sub_proj_fldrpath, whether_to_use_adv_caching ), ### creates '.tar' files.
-                    ]
+                "build": {
+                    "commands": [ cdk_synth_command ]
                 },
             },
             'artifacts': {
                 'base-directory': f'{sub_proj_fldrpath}/cdk.out',
                 'files': ['**/*']
             },
-            "cache": _gen_PythonCodeBuild_cache_fldrs_list( use_CodeBuild_cache, sub_proj_fldrpath )
-                ### REF: https://docs.aws.amazon.com/codebuild/latest/userguide/build-caching.html#caching-local
-                ### In above URL, you'll note that "aws_codebuild.LocalCacheMode.CUSTOM" === "local caching"
-                ### In above URL, you'll note that .. Only directories can be specified for caching. You cannot specify individual files.
-                ### In above URL, you'll note that .. Local caching is --NOT-- supported when CodeBuild runs in --VPC-- !!!
-                ### NOTE: Avoid directory names that are the same in the source and in the cache.
-        }),
-        cache = aws_codebuild.Cache.local( aws_codebuild.LocalCacheMode.CUSTOM ),
-                ### This above line converts to following CloudFormation:
-                ###        "Cache": {
-                ###             "Type": "LOCAL",
-                ###             "Modes": [ "LOCAL_CUSTOM_CACHE" ]
-                ###        },
 
+            # "cache": {
+            #     "paths": [
+            #         ".venv/**/*",
+            #         "node_modules/**/*",
+            #     ]
+            # }
+        }),
         environment=aws_codebuild.BuildEnvironment(
-            privileged   = (cpu_arch.name == aws_lambda.Architecture.X86_64.name), ### Docker running on -ONLY- X86-based EC2s/CodeBuild-images.  Do NOT ask why!!!
-            build_image  = _get_codebuild_linux_image( tier, cpu_arch ),
-            compute_type = constants_cdk.CODEBUILD_EC2_SIZE,
-            environment_variables = {
-                "TIER":     aws_codebuild.BuildEnvironmentVariable( value=tier, type=aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT),
-                "CPU_ARCH": aws_codebuild.BuildEnvironmentVariable( value=cpu_arch_str, type=aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT),
-            }
+            build_image  = CODEBUILD_BUILD_IMAGE,
+            compute_type = CODEBUILD_EC2_SIZE,
         ),
         logging = _get_logging_options( cdk_scope, tier, stk, subproj_name )
     )
@@ -543,6 +284,25 @@ def standard_CodeBuildSynth_Python(
     return my_build_action, my_build_output
 
 ### ---------------------------------------------------------------------------------
+"""
+    Single "CodePipeline" Action, that will use `venv` to CACHE the pip-install, and then do BOTH cdk-synth + cdk-deploy.
+
+    1st param:  typical CDK scope (parent Construct/stack)
+    2nd param:  tier :str           => (dev|int|uat|tier)
+    3th param:  codebase_root_folder :str => SubFolder within which to find the various "subprojects".
+                    Example-Values: "devops/"  "Operations/"
+    4th param:  subproj_name :str     => typically the sub-folder's name
+                 /or/ can ALSO be the relative-folder-PATH (relative to above `codebase_root_folder` param).
+                 Can also be None!
+    5th param:  cb_proj_name :str  => When the Infrastructure project in `subfldr` is finally deployed, DEFINE what the CodeBuild-Project should be named (as viewed within CodeBuild-CONSOLE).
+    6th param:  source_artifact :codepipeline.Artifact => It representing the SOURCE (usually configured via `cdk_utils/StandardCodePipeline.py`)
+    7th param:  OPTIONAL: git_repo_url :str -- ghORG/gitRepoName.git
+    8th param:  OPTIONAL: cdk_app_pyfile :str -- Example: cdk_pipelines_app.py (this is located in root-folder of git-repo)
+    9th param:  OPTIONAL: python_version# as a string
+    Returns on objects of types:-
+                1. codepipeline_actions.CodeBuildAction
+                3. codepipeline.Artifact (representing the BUILD-Artifact)
+"""
 def adv_CodeBuildCachingSynthAndDeploy_Python(
     cdk_scope :Construct,
     tier :str,
@@ -550,64 +310,24 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
     subproj_name :Optional[Union[str,pathlib.Path]],
     cb_proj_name :str,
     source_artifact :codepipeline.Artifact,
-    cpu_arch :aws_lambda.Architecture = aws_lambda.Architecture.ARM_64,
     git_repo_url :Optional[str] = None,
     cdk_app_pyfile :Optional[str] = None,
     python_version :str = constants_cdk.CDK_APP_PYTHON_VERSION,
-    use_CodeBuild_cache :bool = False,
-    addl_cdk_context :dict[str,str] = {},
-    whether_to_use_adv_caching :bool = True,
 ) -> tuple[codepipeline_actions.CodeBuildAction, codepipeline.Artifact]:
-    """
-        Single "CodePipeline" Action, that will use `venv` to CACHE the pip-install, and then do BOTH cdk-synth + cdk-deploy.
-
-        1st param:  typical CDK scope (parent Construct/stack)
-        2nd param:  tier :str           => (dev|int|uat|tier)
-        3th param:  codebase_root_folder :str => SubFolder within which to find the various "subprojects".
-                        Example-Values: "devops/"  "Operations/"
-        4th param:  subproj_name :str     => typically the sub-folder's name
-                    /or/ can ALSO be the relative-folder-PATH (relative to above `codebase_root_folder` param).
-                    Can also be None!
-        5th param:  cb_proj_name :str  => When the Infrastructure project in `subfldr` is finally deployed, DEFINE what the CodeBuild-Project should be named (as viewed within CodeBuild-CONSOLE).
-        6th param:  source_artifact :codepipeline.Artifact => It representing the SOURCE (usually configured via `cdk_utils/StandardCodePipeline.py`)
-        7th param: (OPTIONAL) cpu_arch :aws_lambda.Architecture => OPTIONAL;  Default=aws_lambda.Architecture.ARM_64
-        8th param:  OPTIONAL: git_repo_url :str -- ghORG/gitRepoName.git
-        9th param:  OPTIONAL: cdk_app_pyfile :str -- Example: all_pipelines.py (this is located in root-folder of git-repo)
-        10th param:  OPTIONAL: python_version# as a string
-        11th param:  OPTIONAL: use_CodeBuild_cache -- whether to cache PIP & PIPENV
-        12th param:  OPTIONAL: addl_cdk_context -- equivalent of "-c CTX_KEY='..' "  CDK-CLI command args
-        13th param:  (OPTIONAL) whether_to_use_adv_caching :bool -- since CodeBuild can --NOT-- cache "node_modules" and python's "venv", 'True' will turn on VERY ADVANCED HARD-to-FOLLOW caching, that could come to bit your ass later.
-        Returns on objects of types:-
-                    1. codepipeline_actions.CodeBuildAction
-                    3. codepipeline.Artifact (representing the BUILD-Artifact)
-    """
 
     HDR = " : standard_CodeBuildSynthAndDeploy_Python(): "
     print(f"subproj_name={subproj_name}"+ HDR )
     print(f"codebase_root_folder={codebase_root_folder}"+ HDR )
     print(f"cb_proj_name={cb_proj_name}"+ HDR )
-    print( f"CPU-ARCH (Enum) ='{cpu_arch}'" )
-    cpu_arch_str: str = get_cpu_arch_as_str( cpu_arch )
-    print( f"CPU_ARCH(str) = '{cpu_arch_str}'" )
-    cb_proj_name += f"-{cpu_arch_str}"
-    print( f"cb_proj_name='{cb_proj_name}'" )
 
     stk = Stack.of(cdk_scope)
 
-    ### --------------------------
-    ### automatically detect if Git-Repo-codebase is using Plain-Pip (and .venv) or whether the Git-Repo-Codebase is using Pipenv/Pifile
-    cdk_deploy_command  =  " if [ -f requirements.txt ]; then PRFX=\"\"; elif [ -f Pipfile.lock ]; then PRFX=\"pipenv run\"; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; "
-    cdk_deploy_command +=  " $PRFX npx cdk deploy  --quiet --all"
+    cdk_deploy_command  =  "npx cdk deploy  --quiet --all"
     cdk_deploy_command +=  " --require-approval never --concurrency 10 --asset-parallelism true --asset-prebuild"
-
     cdk_deploy_command += f" --context tier=\"{tier}\""
-    if git_repo_url:     cdk_deploy_command += f" --context git_repo=\"{git_repo_url}\""
-    for key in addl_cdk_context.keys():
-        cdk_deploy_command += f" --context {key}=\"{addl_cdk_context.get(key)}\""
-
     if cdk_app_pyfile:   cdk_deploy_command += f" --app \"python3 {cdk_app_pyfile}\""
+    if git_repo_url:     cdk_deploy_command += f" --context git_repo=\"{git_repo_url}\""
 
-    ### --------------------------
     artif_name, subproj_name, sub_proj_fldrpath = gen_artifact_name(
         tier=tier,
         codebase_root_folder=codebase_root_folder,
@@ -619,69 +339,50 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
     my_build_output  = codepipeline.Artifact("build_"+artif_name)
 
     cb_project = aws_codebuild.PipelineProject(
-        scope = cdk_scope,
-        id    = f'{subproj_name}-CodeBuild-{cpu_arch_str}',
+        scope=cdk_scope,
+        id=f'{subproj_name}-CodeBuild',
         project_name=cb_proj_name,
 
         # cache=aws_codebuild.Cache.local(aws_codebuild.LocalCacheMode.CUSTOM),     ### match this with the `cache` json-element inside the BuildSpec below.
 
         build_spec = aws_codebuild.BuildSpec.from_object({
-            'version': 0.2,
-            'env': {        ### Ubuntu requires "bash" to be explicitly specified. AL2 does NOT. So .. ..
+            "version": 0.2,
+            "env": {        ### Ubuntu requires "bash" to be explicitly specified. AL2 does NOT. So .. ..
                 "shell": "bash",
-                "variables": { ### If 'env' is defined, it --BETTER-- have a "variables" sub-section !!!
-                    "NoSuch": "Variable",
-                    "PIPENV_CACHE_DIR": ".pipenv/pipcache", ## LOCAL-DIR location for Pipenv to store it’s package cache. Default is to use appdir’s user cache directory.
-                    "WORKON_HOME": ".pipenv/venvs" ### https://docs.pipenv.org/advanced/#custom-virtual-environment-location
+                "variables": { ### If "env" is defined, it --BETTER-- have a "variables" sub-section !!!
+                    "NoSuch": "Variable"
                 }
             },
             "phases": {
-                'install': {
-                    'runtime-versions': {
+                "install": {
+                    "runtime-versions": {
                         "python": python_version
                     },
-                    'commands': [
-
+                    "commands": [
                         ### requests.exceptions.HTTPError: 409 Client Error: Conflict for url: http+docker://localhost/v1.44/containers/??????????v=False&link=False&force=False
                         ### Give CodeBuild permissions to access Docker daemon
-                        # "nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2 & ",
-                        # "timeout 15 sh -c 'until docker info; do echo .; sleep 1; done'", ### wait for Docker-daemon to finish RE-STARTING.
+                        "nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2 & ",
+                        "timeout 15 sh -c 'until docker info; do echo .; sleep 1; done'", ### wait for Docker-daemon to finish RE-STARTING.
                         f"cd {sub_proj_fldrpath}",
                         "pwd",
                         "env",
-
-                        ### Just for node_modules & python-venv, we have a WORKAROUND for caching  zip-up the folder (as appropriate) before/after doing anything else.
-                        _zip_cmds_re_cached_fldrs( _ArchiveCmds.UN_TAR, sub_proj_fldrpath, whether_to_use_adv_caching ),
-                        # cache-cleanup before doing anything else
-                        ### FYI --- If cache is corrupted use AWS-CLI as: `aws codebuild invalidate-project-cache --project-name "${CBProjectName}"`
-                        _cache_chk_n_clean_cmd(),
-
                         "npm i --include-dev",
 
+                        "python -m venv .venv",
+                        "  .   .venv/bin/activate",
                         "pip install --upgrade pip",
                         # "python -m pip install pip-tools",
                         # "python -m piptools compile --quiet --resolver=backtracking requirements.in",
-                        _pip_or_pipenv_install_cmd(),
-                        ### ERROR: Pip Can not perform a '--user' install. User site-packages are not visible in this virtualenv.
-                        ###     Courtesy Notice: Pipenv found itself running within a virtual environment,  so it will automatically use that environment, instead of  creating its own for any project.
-                        ###     You can set PIPENV_IGNORE_VIRTUALENVS=1 to force pipenv to ignore that environment and create  its own instead.
-                        ###     You can set PIPENV_VERBOSITY=-1 to suppress this warning.
-                        'npm --version; node --version; python --version; pip --version',
-                        "if [ -f requirements.txt ]; then npx cdk --version; elif [ -f Pipfile.lock ]; then pipenv run npx cdk --version; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; ",
+                        "python -m pip install -r requirements.txt",
+                        'npm --version; node --version; python --version; pip --version; npx cdk --version',
                         f"jq '.context.[\"git-source\"].git_commit_hashes.{tier}' cdk.json --raw-output",
                         'git checkout --force', ### to address ---> error: Your local changes to the following files would be overwritten by checkout: package-lock.json
                         f"git checkout $(jq '.context.[\"git-source\"].git_commit_hashes.{tier}' cdk.json --raw-output)",
                     ],
                 },
-                'build': {
-                    'commands': [ cdk_deploy_command ]
+                "build": {
+                    "commands": [ cdk_deploy_command ]
                     ### NOTE !! cdk deploy is expected via function-parameter-inputs/
-                },
-                'post_build': {
-                    'commands': [
-                        ### Just for node_modules & python-venv, we have a WORKAROUND for caching  zip-up the folder (as appropriate) before/after doing anything else.
-                        _zip_cmds_re_cached_fldrs( _ArchiveCmds.CREATE_TARFILE, sub_proj_fldrpath, whether_to_use_adv_caching ), ### creates '.tar' files.
-                    ]
                 },
             },
             'artifacts': {
@@ -689,28 +390,17 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
                 'files': ['**/*']
             },
 
-            "cache": _gen_PythonCodeBuild_cache_fldrs_list( use_CodeBuild_cache, sub_proj_fldrpath )
-                ### REF: https://docs.aws.amazon.com/codebuild/latest/userguide/build-caching.html#caching-local
-                ### In above URL, you'll note that "aws_codebuild.LocalCacheMode.CUSTOM" === "local caching"
-                ### In above URL, you'll note that .. Only directories can be specified for caching. You cannot specify individual files.
-                ### In above URL, you'll note that .. Local caching is --NOT-- supported when CodeBuild runs in --VPC-- !!!
-                ### NOTE: Avoid directory names that are the same in the source and in the cache.
-        }),
-        cache = aws_codebuild.Cache.local( aws_codebuild.LocalCacheMode.CUSTOM ),
-                ### This above line converts to following CloudFormation:
-                ###        "Cache": {
-                ###             "Type": "LOCAL",
-                ###             "Modes": [ "LOCAL_CUSTOM_CACHE" ]
-                ###        },
+            # "cache": {
+            #     "paths": [
+            #         ".venv/**/*",
+            #         "node_modules/**/*",
+            #     ]
+            # }
 
+        }),
         environment=aws_codebuild.BuildEnvironment(
-            privileged   = (cpu_arch.name == aws_lambda.Architecture.X86_64.name), ### Docker running on -ONLY- X86-based EC2s/CodeBuild-images.  Do NOT ask why!!!
-            build_image  = _get_codebuild_linux_image( tier, cpu_arch ),
-            compute_type = constants_cdk.CODEBUILD_EC2_SIZE,
-            environment_variables = {
-                "TIER":     aws_codebuild.BuildEnvironmentVariable( value=tier, type=aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT),
-                "CPU_ARCH": aws_codebuild.BuildEnvironmentVariable( value=cpu_arch_str, type=aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT),
-            }
+            build_image  = CODEBUILD_BUILD_IMAGE,
+            compute_type = CODEBUILD_EC2_SIZE,
         ),
         logging = _get_logging_options( cdk_scope, tier, stk, subproj_name ),
         timeout=Duration.minutes(120),
@@ -723,11 +413,32 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
         project = cb_project,
     )
 
-    enhance_CodeBuild_role_for_cdkdeploy( cb_role=cb_project.role, cdk_scope=cb_project, stk=stk, tier=tier, )
+    enhance_CodeBuild_role_for_cdkdeploy( cb_role=cb_project.role, stk=stk )
 
     return my_build_action, my_build_output
 
 ### ---------------------------------------------------------------------------------
+"""
+    Simple CDK-Synth only. -NO- Caching supported.  -NO- cdk-deploy included.
+    This variation is for WIERD-combination of:
+        1. frontend is written in TypeScript (and so .. npm commands!)
+        2. cdk-synth/deploy is via Python-based CDK-codebase ( and so .. .. pip!)
+
+    1st param:  typical CDK scope (parent Construct/stack)
+    2nd param:  tier :str           => (dev|int|uat|tier)
+    3th param:  codebase_root_folder :str => SubFolder within which to find the various "subprojects".
+                    Example-Values: "devops/"  "Operations/"
+    4th param:  subproj_name :str     => typically the sub-folder's name
+                 /or/ can ALSO be the relative-folder-PATH (relative to above `codebase_root_folder` param).
+                 Can also be None!
+    5th param:  cb_proj_name :str  => When the Infrastructure project in `subfldr` is deployed, DEFINE what the CodeBuild-Project should be named.
+    6th param:  source_artifact :codepipeline.Artifact => It representing the SOURCE (usually configured via `cdk_utils/StandardCodePipeline.py`)
+    7th param:  OPTIONAL: python_version # as a string
+    8th param:  OPTIONAL: where is the JS/TS/VueJS/ReactJS code-base located in this git-repo;  Default = "frontend/ui"
+    Returns on objects of types:-
+                1. codepipeline_actions.CodeBuildAction
+                3. codepipeline.Artifact (representing the BUILD-Artifact)
+"""
 def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
     cdk_scope :Construct,
     tier :str,
@@ -735,60 +446,21 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
     subproj_name :Optional[Union[str,pathlib.Path]],
     cb_proj_name :str,
     source_artifact :codepipeline.Artifact,
-    cpu_arch :aws_lambda.Architecture = aws_lambda.Architecture.ARM_64,
     python_version :str = constants_cdk.CDK_APP_PYTHON_VERSION,
     frontend_vuejs_rootfolder :str = "frontend/ui",
-    use_CodeBuild_cache :bool = False,
-    whether_to_use_adv_caching :bool = True,
 ) -> tuple[codepipeline_actions.CodeBuildAction, codepipeline.Artifact]:
-    """
-        Simple CDK-Synth only. -NO- Caching supported.  -NO- cdk-deploy included.
-        This variation is for WIERD-combination of:
-            1. frontend is written in TypeScript (and so .. npm commands!)
-            2. cdk-synth/deploy is via Python-based CDK-codebase ( and so .. .. pip!)
-
-        1st param:  typical CDK scope (parent Construct/stack)
-        2nd param:  tier :str           => (dev|int|uat|tier)
-        3th param:  codebase_root_folder :str => SubFolder within which to find the various "subprojects".
-                        Example-Values: "devops/"  "Operations/"
-        4th param:  subproj_name :str     => typically the sub-folder's name
-                    /or/ can ALSO be the relative-folder-PATH (relative to above `codebase_root_folder` param).
-                    Can also be None!
-        5th param:  cb_proj_name :str  => When the Infrastructure project in `subfldr` is deployed, DEFINE what the CodeBuild-Project should be named.
-        6th param:  source_artifact :codepipeline.Artifact => It representing the SOURCE (usually configured via `cdk_utils/StandardCodePipeline.py`)
-        7th param: (OPTIONAL) cpu_arch :aws_lambda.Architecture => OPTIONAL;  Default=aws_lambda.Architecture.ARM_64
-        8th param:  OPTIONAL: python_version # as a string
-        9th param:  OPTIONAL: where is the JS/TS/VueJS/ReactJS code-base located in this git-repo;  Default = "frontend/ui"
-        10th param:  OPTIONAL: use_CodeBuild_cache -- whether to cache PIP & PIPENV
-        11th param:  (OPTIONAL) whether_to_use_adv_caching :bool -- since CodeBuild can --NOT-- cache "node_modules" and python's "venv", 'True' will turn on VERY ADVANCED HARD-to-FOLLOW caching, that could come to bit your ass later.
-        Returns on objects of types:-
-                    1. codepipeline_actions.CodeBuildAction
-                    3. codepipeline.Artifact (representing the BUILD-Artifact)
-    """
 
     HDR = " : standard_CodeBuildSynth_FrontendPythonCDK(): "
-    stk = Stack.of(cdk_scope)
-
     print(f"subproj_name={subproj_name}"+ HDR )
     print(f"codebase_root_folder={codebase_root_folder}"+ HDR )
     print(f"cb_proj_name={cb_proj_name}"+ HDR )
-    print( f"CPU-ARCH (Enum) ='{cpu_arch}'" )
-    cpu_arch_str: str = get_cpu_arch_as_str( cpu_arch )
-    print( f"CPU_ARCH(str) = '{cpu_arch_str}'" )
-    cb_proj_name += f"-{cpu_arch_str}"
-    print( f"cb_proj_name='{cb_proj_name}'" )
 
-    git_repo_org_name = source_artifact.get_metadata( key="git_repo_org_name"  )
-    git_repo_name = source_artifact.get_metadata( key="git_repo_name"  )
-    git_repo_url  = f"{git_repo_org_name}/{git_repo_name}"
-    print( f"git_repo_url={git_repo_url} within "+ HDR )
-
-    ### automatically detect if Git-Repo-codebase is using Plain-Pip (and .venv) or whether the Git-Repo-Codebase is using Pipenv/Pifile
-    cdk_deploy_command  =  "if [ -f requirements.txt ]; then PRFX=\"\"; elif [ -f Pipfile.lock ]; then PRFX=\"pipenv run\"; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; "
-    cdk_deploy_command +=  "$PRFX npx cdk deploy  --quiet --all"
+    cdk_deploy_command  =  "npx cdk deploy  --quiet --all"
     cdk_deploy_command +=  " --require-approval never --concurrency 10 --asset-parallelism true --asset-prebuild"
     cdk_deploy_command += f" --context tier=\"{tier}\""
     if git_repo_url:     cdk_deploy_command += f" --context git_repo=\"{git_repo_url}\""
+
+    stk = Stack.of(cdk_scope)
 
     artif_name, subproj_name, sub_proj_fldrpath = gen_artifact_name(
         tier=tier,
@@ -797,63 +469,54 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
         cb_proj_name=cb_proj_name
     )
 
+    git_repo_org_name = source_artifact.get_metadata( key="git_repo_org_name"  )
+    git_repo_name = source_artifact.get_metadata( key="git_repo_name"  )
+    git_repo_url  = f"{git_repo_org_name}/{git_repo_name}"
+    print( f"git_repo_url={git_repo_url} within "+ HDR )
+
     my_build_output  = codepipeline.Artifact("build_"+artif_name)
 
     cb_project = aws_codebuild.PipelineProject(
         scope=cdk_scope,
-        id=f'{subproj_name}-CodeBuild-{cpu_arch_str}',
+        id=f'{subproj_name}-CodeBuild',
         project_name=cb_proj_name,
         ### project_name=f'{pipeline_id}-{subproj_name}',
 
         # cache=aws_codebuild.Cache.local(aws_codebuild.LocalCacheMode.CUSTOM),     ### match this with the `cache` json-element inside the BuildSpec below.
 
         build_spec = aws_codebuild.BuildSpec.from_object({
-            'version': 0.2,
-            'env': {        ### Ubuntu requires "bash" to be explicitly specified. AL2 does NOT. So .. ..
+            "version": 0.2,
+            "env": {        ### Ubuntu requires "bash" to be explicitly specified. AL2 does NOT. So .. ..
                 "shell": "bash",
-                "variables": { ### If 'env' is defined, it --BETTER-- have a "variables" sub-section !!!
-                    "NoSuch": "Variable",
-                    "PIPENV_CACHE_DIR": ".pipenv/pipcache", ## LOCAL-DIR location for Pipenv to store it’s package cache. Default is to use appdir’s user cache directory.
-                    "WORKON_HOME": ".pipenv/venvs" ### https://docs.pipenv.org/advanced/#custom-virtual-environment-location
+                "variables": { ### If "env" is defined, it --BETTER-- have a "variables" sub-section !!!
+                    "NoSuch": "Variable"
                 }
             },
             "phases": {
-                'install': {
-                    'runtime-versions': {
+                "install": {
+                    "runtime-versions": {
                         "python": python_version
                     },
-                    'commands': [
-
+                    "commands": [
                         ### requests.exceptions.HTTPError: 409 Client Error: Conflict for url: http+docker://localhost/v1.44/containers/??????????v=False&link=False&force=False
                         ### Give CodeBuild permissions to access Docker daemon
-                        # "nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2 & ",
-                        # "timeout 15 sh -c 'until docker info; do echo .; sleep 1; done'", ### wait for Docker-daemon to finish RE-STARTING.
+                        "nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2 & ",
+                        "timeout 15 sh -c 'until docker info; do echo .; sleep 1; done'", ### wait for Docker-daemon to finish RE-STARTING.
                         f"cd {sub_proj_fldrpath}",
                         "pwd",
-                        "env",
-
-                        ### Just for node_modules & python-venv, we have a WORKAROUND for caching  zip-up the folder (as appropriate) before/after doing anything else.
-                        _zip_cmds_re_cached_fldrs( _ArchiveCmds.UN_TAR, sub_proj_fldrpath, whether_to_use_adv_caching ),
-                        # cache-cleanup before doing anything else
-                        ### FYI --- If cache is corrupted use AWS-CLI as: `aws codebuild invalidate-project-cache --project-name "${CBProjectName}"`
-                        _cache_chk_n_clean_cmd(),
-
                         'npm i --include-dev',
 
-                       "pip install --upgrade pip",
+                        "python -m venv .venv",
+                        "  .   .venv/bin/activate",
+                        "pip install --upgrade pip",
                         # "python -m pip install pip-tools",
                         # "python -m piptools compile --quiet --resolver=backtracking requirements.in",
-                        _pip_or_pipenv_install_cmd(),
-                        ### ERROR: Pip Can not perform a '--user' install. User site-packages are not visible in this virtualenv.
-                        ###     Courtesy Notice: Pipenv found itself running within a virtual environment,  so it will automatically use that environment, instead of  creating its own for any project.
-                        ###     You can set PIPENV_IGNORE_VIRTUALENVS=1 to force pipenv to ignore that environment and create  its own instead.
-                        ###     You can set PIPENV_VERBOSITY=-1 to suppress this warning.
-                        'npm --version; node --version; python --version; pip --version',
-                        "if [ -f requirements.txt ]; then npx cdk --version; elif [ -f Pipfile.lock ]; then pipenv run npx cdk --version; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; ",
+                        "python -m pip install -r requirements.txt",
+                        'npm --version; node --version; python --version; pip --version; npx cdk --version',
                     ],
                 },
-                'build': {
-                    'commands': [
+                "build": {
+                    "commands": [
                         ### 1st create frontend JS/TS/Vuejs/Reactjs deployable
 
                         f"cd {frontend_vuejs_rootfolder}",    ### go into a subfolder!
@@ -870,39 +533,22 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
                         cdk_deploy_command,
                     ]
                 },
-                'post_build': {
-                    'commands': [
-                        ### Just for node_modules & python-venv, we have a WORKAROUND for caching  zip-up the folder (as appropriate) before/after doing anything else.
-                        _zip_cmds_re_cached_fldrs( _ArchiveCmds.CREATE_TARFILE, sub_proj_fldrpath, whether_to_use_adv_caching ), ### creates '.tar' files.
-                    ]
-                },
             },
             'artifacts': {
                 'base-directory': f'{sub_proj_fldrpath}/cdk.out',
                 'files': ['**/*']
             },
-            "cache": _gen_PythonCodeBuild_cache_fldrs_list( use_CodeBuild_cache, sub_proj_fldrpath )
-                ### REF: https://docs.aws.amazon.com/codebuild/latest/userguide/build-caching.html#caching-local
-                ### In above URL, you'll note that "aws_codebuild.LocalCacheMode.CUSTOM" === "local caching"
-                ### In above URL, you'll note that .. Only directories can be specified for caching. You cannot specify individual files.
-                ### In above URL, you'll note that .. Local caching is --NOT-- supported when CodeBuild runs in --VPC-- !!!
-                ### NOTE: Avoid directory names that are the same in the source and in the cache.
-        }),
-        cache = aws_codebuild.Cache.local( aws_codebuild.LocalCacheMode.CUSTOM ),
-                ### This above line converts to following CloudFormation:
-                ###        "Cache": {
-                ###             "Type": "LOCAL",
-                ###             "Modes": [ "LOCAL_CUSTOM_CACHE" ]
-                ###        },
 
+            # "cache": {
+            #     "paths": [
+            #         ".venv/**/*",
+            #         "node_modules/**/*",
+            #     ]
+            # }
+        }),
         environment=aws_codebuild.BuildEnvironment(
-            privileged   = (cpu_arch.name == aws_lambda.Architecture.X86_64.name), ### Docker running on -ONLY- X86-based EC2s/CodeBuild-images.  Do NOT ask why!!!
-            build_image  = _get_codebuild_linux_image( tier, cpu_arch ),
-            compute_type = constants_cdk.CODEBUILD_EC2_SIZE,
-            environment_variables = {
-                "TIER":     aws_codebuild.BuildEnvironmentVariable( value=tier, type=aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT),
-                "CPU_ARCH": aws_codebuild.BuildEnvironmentVariable( value=cpu_arch_str, type=aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT),
-            }
+            build_image  = CODEBUILD_BUILD_IMAGE,
+            compute_type = CODEBUILD_EC2_SIZE,
         ),
         logging = _get_logging_options( cdk_scope, tier, stk, subproj_name ),
         timeout=Duration.minutes(120),
@@ -918,6 +564,27 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
     return my_build_action, my_build_output
 
 ### ---------------------------------------------------------------------------------
+"""
+    -NO- CDK !!
+    Just BDDs via Frontend / Chromium based JS/TS frameworks.
+
+    1st param:  typical CDK scope (parent Construct/stack)
+    2nd param:  tier :str           => (dev|int|uat|tier)
+    3th param:  codebase_root_folder :str => SubFolder within which to find the various "subprojects".
+                    Example-Values: "devops/"  "Operations/"
+    4th param:  subproj_name :str     => typically the sub-folder's name
+                 /or/ can ALSO be the relative-folder-PATH (relative to above `codebase_root_folder` param).
+    5th param:  cb_proj_name :str  => When the Infrastructure project in `subfldr` is deployed, DEFINE what the CodeBuild-Project should be named.
+    6th param:  source_artifact :codepipeline.Artifact => It representing the SOURCE (usually configured via `cdk_utils/StandardCodePipeline.py`)
+    7th param:  frontend_website_url :str => The URL of the frontend website being tested.
+    8th param:  test_user_sm_name :str -- Name of SM entry (containing creds to a SIMULATED END-USER for BDDs).
+                        Example: f"{constants.CDK_APP_NAME}/{tier}/testing/frontend/test_user"
+    9th param:  OPTIONAL: frontend_vuejs_rootfolder :str -- where is the JS/TS/VueJS/ReactJS code-base located in this git-repo;  Default = "frontend/ui"
+
+    Returns 2 objects of types:-
+                1. codepipeline_actions.CodeBuildAction
+                3. codepipeline.Artifact (representing the BUILD-Artifact)
+"""
 
 def standard_BDDs_JSTSVuejsReactjs(
     cdk_scope :Construct,
@@ -930,49 +597,15 @@ def standard_BDDs_JSTSVuejsReactjs(
     source_artifact :codepipeline.Artifact,
     frontend_website_url :str,
     test_user_sm_name :str,
-    cpu_arch :aws_lambda.Architecture = aws_lambda.Architecture.ARM_64,
     frontend_vuejs_rootfolder :str = "frontend/ui",
-    use_CodeBuild_cache :bool = False,
-    whether_to_use_adv_caching :bool = True,
 ) -> tuple[codepipeline_actions.CodeBuildAction, codepipeline.Artifact]:
-    """
-        -NO- CDK !!
-        Just BDDs via Frontend / Chromium based JS/TS frameworks.
-
-        1st param:  typical CDK scope (parent Construct/stack)
-        2nd param:  tier :str           => (dev|int|uat|tier)
-        3th param:  codebase_root_folder :str => SubFolder within which to find the various "subprojects".
-                        Example-Values: "devops/"  "Operations/"
-        4th param:  subproj_name :str     => typically the sub-folder's name
-                    /or/ can ALSO be the relative-folder-PATH (relative to above `codebase_root_folder` param).
-        5th param:  cb_proj_name :str  => When the Infrastructure project in `subfldr` is deployed, DEFINE what the CodeBuild-Project should be named.
-        6th param:  source_artifact :codepipeline.Artifact => It representing the SOURCE (usually configured via `cdk_utils/StandardCodePipeline.py`)
-        7th param:  frontend_website_url :str => The URL of the frontend website being tested.
-        8th param:  test_user_sm_name :str -- Name of SM entry (containing creds to a SIMULATED END-USER for BDDs).
-                            Example: f"{constants.CDK_APP_NAME}/{tier}/testing/frontend/test_user"
-        9th param: (OPTIONAL) cpu_arch :aws_lambda.Architecture => OPTIONAL;  Default=aws_lambda.Architecture.ARM_64
-        10th param:  OPTIONAL: frontend_vuejs_rootfolder :str -- where is the JS/TS/VueJS/ReactJS code-base located in this git-repo;  Default = "frontend/ui"
-        11th param:  OPTIONAL: use_CodeBuild_cache -- whether to cache PIP & PIPENV
-        12th param:  (OPTIONAL) whether_to_use_adv_caching :bool -- since CodeBuild can --NOT-- cache "node_modules" and python's "venv", 'True' will turn on VERY ADVANCED HARD-to-FOLLOW caching, that could come to bit your ass later.
-
-        Returns 2 objects of types:-
-                    1. codepipeline_actions.CodeBuildAction
-                    3. codepipeline.Artifact (representing the BUILD-Artifact)
-    """
 
     HDR = " : standard_BDDs_JSTSVuejsReactjs(): "
-    stk = Stack.of(cdk_scope)
-
     print(f"subproj_name={subproj_name}"+ HDR )
     print(f"codebase_root_folder={codebase_root_folder}"+ HDR )
     print(f"cb_proj_name={cb_proj_name}"+ HDR )
-    print( f"CPU-ARCH (Enum) ='{cpu_arch.name}'" )
-    cpu_arch_str: str = get_cpu_arch_as_str( cpu_arch )
-    print( f"CPU_ARCH(str) = '{cpu_arch_str}'" )
-    cb_proj_name += f"-{cpu_arch_str}";
-    print( f"cb_proj_name='{cb_proj_name}'" );
-    if not cpu_arch.name == aws_lambda.Architecture.X86_64.name:
-        raise Exception( f"param CPU-ARCH (Enum) = '{cpu_arch.name}' and should be X86 ONLY !!! within "+ HDR )
+
+    stk = Stack.of(cdk_scope)
 
     artif_name, subproj_name, sub_proj_fldrpath = gen_artifact_name(
         tier=tier,
@@ -984,22 +617,21 @@ def standard_BDDs_JSTSVuejsReactjs(
     my_build_output  = codepipeline.Artifact("BDDs_"+artif_name)
 
     cb_pipeline_project = aws_codebuild.PipelineProject(
-        scope = cdk_scope,
-        id    = f'{subproj_name}-BDDs-CodeBuild-{cpu_arch_str}',
+        scope=cdk_scope,
+        id=f'{subproj_name}-BDDs-CodeBuild',
         project_name=cb_proj_name,
         ### project_name=f'{pipeline_id}-{subproj_name}',
         build_spec=aws_codebuild.BuildSpec.from_object({
             'version': '0.2',
-            'env': {        ### Ubuntu requires "bash" to be explicitly specified. AL2 does NOT. So .. ..
+            "env": {        ### Ubuntu requires "bash" to be explicitly specified. AL2 does NOT. So .. ..
                 "shell": "bash",
                 "secrets-manager": {
                     "EMFACT_PASSWORD_CCDI": "$TEST_PROVIDER_SM:EMFACT_PASSWORD_CCDI",
                 },
-                "variables": { ### If 'env' is defined, it --BETTER-- have a "variables" sub-section !!!
-                    "NoSuch": "Variable",
+                "variables": { ### If "env" is defined, it --BETTER-- have a "variables" sub-section !!!
                     "ENDPOINT_URL": frontend_website_url,
-                    # "STAGE": tier, ### LEGACY !!! QE-team's standardized env-variable, is set inside `phases` below.
-                    # "tier": tier,  ### ! Warning ! QE-team prefers it hardcoded INSIDE `phases` below.
+                    # "STAGE": tier, ### LEGACY !!! QE-team has standardized all their script already on this env-variable.
+                    # "tier": tier,
                     # "aws_env": aws_env,
                     # "git_branch": git_branch,
                 },
@@ -1007,17 +639,8 @@ def standard_BDDs_JSTSVuejsReactjs(
             'phases': {
                 'install': {
                     'commands': [
-
                         f'cd {sub_proj_fldrpath}',
                         "pwd",
-                        "env",
-
-                        ### Just for node_modules & python-venv, we have a WORKAROUND for caching  zip-up the folder (as appropriate) before/after doing anything else.
-                        _zip_cmds_re_cached_fldrs( _ArchiveCmds.UN_TAR, sub_proj_fldrpath, whether_to_use_adv_caching ),
-                        # cache-cleanup before doing anything else
-                        ### FYI --- If cache is corrupted use AWS-CLI as: `aws codebuild invalidate-project-cache --project-name "${CBProjectName}"`
-                        _cache_chk_n_clean_cmd(),
-
                         'npm i --include-dev',
                         'npm --version; node --version; npx cdk --version',
                     ],
@@ -1062,12 +685,6 @@ def standard_BDDs_JSTSVuejsReactjs(
                         '/bin/bash -c "source scripts/run_test.sh && db_warmup" ',
                         '/bin/bash -c "source scripts/run_test.sh && run_ccdi_bdd_tests" ',
                     ]
-                },
-                'post_build': {
-                    'commands': [
-                        ### Just for node_modules & python-venv, we have a WORKAROUND for caching  zip-up the folder (as appropriate) before/after doing anything else.
-                        _zip_cmds_re_cached_fldrs( _ArchiveCmds.CREATE_TARFILE, sub_proj_fldrpath, whether_to_use_adv_caching ), ### creates '.tar' files.
-                    ]
                 }
             },
             "reports": {
@@ -1077,31 +694,10 @@ def standard_BDDs_JSTSVuejsReactjs(
                     "file-format": "CUCUMBERJSON",
                 }
             },
-            "cache": _gen_NodeJSCodeBuild_cache_fldrs_list( use_CodeBuild_cache, sub_proj_fldrpath ),
-                ### REF: https://docs.aws.amazon.com/codebuild/latest/userguide/build-caching.html#caching-local
-                ### In above URL, you'll note that "aws_codebuild.LocalCacheMode.CUSTOM" === "local caching"
-                ### In above URL, you'll note that .. Only directories can be specified for caching. You cannot specify individual files.
-                ### In above URL, you'll note that .. Local caching is --NOT-- supported when CodeBuild runs in --VPC-- !!!
-                ### NOTE: Avoid directory names that are the same in the source and in the cache.
         }),
-        cache = aws_codebuild.Cache.local( aws_codebuild.LocalCacheMode.CUSTOM ),
-                ### This above line converts to following CloudFormation:
-                ###        "Cache": {
-                ###             "Type": "LOCAL",
-                ###             "Modes": [ "LOCAL_CUSTOM_CACHE" ]
-                ###        },
-
         environment=aws_codebuild.BuildEnvironment( ### What kind of machine or O/S to use for CodeBuild
-            privileged   = (cpu_arch.name == aws_lambda.Architecture.X86_64.name), ### Docker running on -ONLY- X86-based EC2s/CodeBuild-images.  Do NOT ask why!!!
-            build_image  = constants_cdk.CODEBUILD_BUILD_IMAGE_UBUNTU, ### <--------- Chromium-headless REQUIRES Ubuntu. -NOT- AmznLinux !!!!!!!!!!!!!!!!!!
-            compute_type = constants_cdk.CODEBUILD_EC2_SIZE,
-            environment_variables = {
-                "TIER":     aws_codebuild.BuildEnvironmentVariable( value=tier, type=aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT),
-                # "CPU_ARCH": aws_codebuild.BuildEnvironmentVariable( value=cpu_arch_str, type=aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT),
-                "CPU_ARCH": aws_codebuild.BuildEnvironmentVariable(
-                    value = get_cpu_arch_as_str(aws_lambda.Architecture.X86_64), ### <----------- Warning: CPU id hardcoded !!!!!!!!!!
-                    type  = aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT),
-            }
+            build_image  = CODEBUILD_BUILD_IMAGE_UBUNTU, ### <--------- Chromium-headless REQUIRES Ubuntu. -NOT- AL.
+            compute_type = CODEBUILD_EC2_SIZE,
         ),
         environment_variables={
             "TEST_PROVIDER_SM": aws_codebuild.BuildEnvironmentVariable(
@@ -1140,14 +736,12 @@ def standard_BDDs_JSTSVuejsReactjs(
 ### =============================================================================================
 ### ---------------------------------------------------------------------------------------------
 
+""" To run `cdk deploy` from within CodeBuild, we need a LOT of permissions (to create & destroy)
+"""
 def enhance_CodeBuild_role_for_cdkdeploy(
     cb_role :aws_iam.Role,
     stk :Stack,
-    cdk_scope :Construct,
-    tier :str,
 ) -> aws_iam.Role:
-    """ To run `cdk deploy` from within CodeBuild, we need a LOT of permissions (to create & destroy)
-    """
 
     ### To fix the error: ❌  FACT-backend-dev-SNSStack failed: AccessDenied: User: arn:aws:sts::???:assumed-role/FACT-backend-pipeline-dev-emFACTbackendcdkCodeBuild-???/AWSCodeBuild-2da0a582-???
     ###         is not authorized to perform: iam:PassRole
@@ -1278,14 +872,7 @@ def enhance_CodeBuild_role_for_cdkdeploy(
             resources=[
                 f"arn:{stk.partition}:lambda:{stk.region}:{stk.account}:function/{constants.CDK_APP_NAME}*",
                 f"arn:{stk.partition}:lambda:{stk.region}:{stk.account}:layer/{constants.CDK_APP_NAME}*",
-            # resources=[ f"arn:{stk.partition}:lambda:{stk.region}:{stk.account}:layer:{aws_names.gen_awsresource_name_prefix(tier)}*", ],
-            # actions=[ "lambda:GetLayerVersion", "lambda:GetLayerVersionPolicy", "lambda:DeleteLayerVersion", ],
     ]))
-    cb_role.add_to_principal_policy(
-        aws_iam.PolicyStatement(
-            actions=[ "lambda:ListLayers", "lambda:ListLayerVersions", "lambda:ListFunctions",  ],
-            resources=["*"], ### Attention: This must be '*' unlike the previous policy above !!!
-    ))
     cb_role.add_to_principal_policy(
         aws_iam.PolicyStatement(
             actions=["execute-api:*"],
@@ -1353,22 +940,6 @@ def enhance_CodeBuild_role_for_cdkdeploy(
     ]))
     cb_role.add_to_principal_policy(
         aws_iam.PolicyStatement(
-            actions=[
-                "ec2:DescribeSecurityGroups",
-                "ec2:DescribeSecurityGroupRules",
-                "ec2:DescribeSubnets",
-                "ec2:DescribeTags",
-                "ec2:DescribeVpcs",
-                "ec2:DescribeVpcEndpoints",
-                "ec2:DescribeVpcEndpointServices",
-                "ec2:DescribeVpcEndpointServiceConfigurations",
-                "ec2:DescribeVpcEndpointConnectionNotifications",
-                "ec2:DescribeVpcBlockPublicAccessOptions"
-            ],
-            resources=[ '*' ]
-    ))
-    cb_role.add_to_principal_policy(
-        aws_iam.PolicyStatement(
             actions=["cloudfront:*"],
             resources=[
                 f"arn:{stk.partition}:cloudfront::{stk.account}:distribution/*",
@@ -1423,24 +994,24 @@ def enhance_CodeBuild_role_for_cdkdeploy(
 
 ### ---------------------------------------------------------------------------------
 
+""" common-code reused in multiple CodeBuild constructs in this file.
+
+    param #1: codebase_root_folder :str -- must be valid and must be provided!
+    param #2: subproj_name :str -- can be None.
+    param #3: cb_proj_name :str -- must be valid and must be provided
+
+    If subproj_name (param #2) is null, it will be set to proper-globally-unique-value.
+    Returns 3 strings (that is, a 3-tuple):
+        1. a globally-unique ARTIFACT-NAME.
+        1. either returns the original NON-None subproj_name or the proper-value (if its is None)
+        1. The (derived) actual path to the subproject
+"""
 def gen_artifact_name(
     tier :str,
     codebase_root_folder :str,
     subproj_name :str,
     cb_proj_name :str
 ) -> tuple[str,str, str]:
-    """ common-code reused in multiple CodeBuild constructs in this file.
-
-        param #1: codebase_root_folder :str -- must be valid and must be provided!
-        param #2: subproj_name :str -- can be None.
-        param #3: cb_proj_name :str -- must be valid and must be provided
-
-        If subproj_name (param #2) is null, it will be set to proper-globally-unique-value.
-        Returns 3 strings (that is, a 3-tuple):
-            1. a globally-unique ARTIFACT-NAME.
-            1. either returns the original NON-None subproj_name or the proper-value (if its is None)
-            1. The (derived) actual path to the subproject
-    """
 
     if subproj_name:
         if isinstance(subproj_name, pathlib.Path):

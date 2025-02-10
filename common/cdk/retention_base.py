@@ -29,7 +29,7 @@ class DATA_CLASSIFICATION_TYPES(Enum):
     USER_REQUESTS = (auto(),)  ### User data requests-5 years min
     CLOUD_AUDITTRAILS = (auto(),)  ### AWS Logs that must be retained, typically for Security-reasons.
     CLOUD_TEMPORARY = (auto(),)  ### AWS Logs like CloudFront Bucket logs
-    SCRATCH = (auto(),)  ### AWS Logs like CloudFront Bucket logs
+    ATHENA_SCRATCH = (auto(),)  ### AWS Logs like CloudFront Bucket logs
 
 
 @unique
@@ -39,7 +39,7 @@ class S3_LIFECYCLE_RULES(Enum):
     INTELLIGENT_TIERING = (auto(),)  ### Production AWS Logs
     LOW_COST = (auto(),)  ### All User-Data in GLACIER_INSTANT_RETRIEVAL
     COLD_STORAGE = (auto(),)  ### All User-Data in DEEP_ARCHIVE
-    SCRATCH = (auto(),)
+    ATHENAWKGRP_SCRATCH = (auto(),)
     ### This exists ONLY for the requirement that -> All Query-Results (S3-objects) must expire after 1 day (Retention-period of 1-day).
 
 
@@ -75,7 +75,7 @@ class DataClassification:
             return 2
         elif data_type == DATA_CLASSIFICATION_TYPES.CLOUD_TEMPORARY:
             return 2
-        elif data_type == DATA_CLASSIFICATION_TYPES.SCRATCH:
+        elif data_type == DATA_CLASSIFICATION_TYPES.ATHENA_SCRATCH:
             return 2
         else:
             raise DataClassificationException(
@@ -86,7 +86,7 @@ class DataClassification:
         #     case DATA_CLASSIFICATION_TYPES.USER_REQUESTS:     return 1
         #     case DATA_CLASSIFICATION_TYPES.CLOUD_AUDITTRAILS: return 1
         #     case DATA_CLASSIFICATION_TYPES.CLOUD_TEMPORARY:   return 1
-        #     case DATA_CLASSIFICATION_TYPES.SCRATCH:    return 1
+        #     case DATA_CLASSIFICATION_TYPES.ATHENA_SCRATCH:    return 1
         #     case _:
         #         raise DataClassificationException( f"!!! INTERNAL-ERROR !!! code is NOT ready to handle data-classification-type '{data_type}'. Valid values are: {list(DATA_CLASSIFICATION_TYPES)}")
 
@@ -105,7 +105,7 @@ class DataClassification:
             return 91
         elif data_type == DATA_CLASSIFICATION_TYPES.CLOUD_TEMPORARY:
             return 91
-        elif data_type == DATA_CLASSIFICATION_TYPES.SCRATCH:
+        elif data_type == DATA_CLASSIFICATION_TYPES.ATHENA_SCRATCH:
             return 91
         else:
             raise DataClassificationException(
@@ -116,7 +116,7 @@ class DataClassification:
         # case DATA_CLASSIFICATION_TYPES.USER_REQUESTS:     return -1 ### that is, never.
         # case DATA_CLASSIFICATION_TYPES.CLOUD_AUDITTRAILS: return 91
         # case DATA_CLASSIFICATION_TYPES.CLOUD_TEMPORARY:   return 91
-        # case DATA_CLASSIFICATION_TYPES.SCRATCH:    return 91
+        # case DATA_CLASSIFICATION_TYPES.ATHENA_SCRATCH:    return 91
         # case _:
         #     raise DataClassificationException( f"!!! INTERNAL-ERROR !!! code is NOT ready to handle data-classification-type '{data_type}'. Valid values are: {list(DATA_CLASSIFICATION_TYPES)}")
 
@@ -135,7 +135,7 @@ class DataClassification:
             return 1 * 365
         elif data_type == DATA_CLASSIFICATION_TYPES.CLOUD_TEMPORARY:
             return 1 * 365
-        elif data_type == DATA_CLASSIFICATION_TYPES.SCRATCH:
+        elif data_type == DATA_CLASSIFICATION_TYPES.ATHENA_SCRATCH:
             return 1  ### Just 1 day!!!
         else:
             raise DataClassificationException(
@@ -146,7 +146,7 @@ class DataClassification:
         #     case DATA_CLASSIFICATION_TYPES.USER_REQUESTS:     return 5 * 365
         #     case DATA_CLASSIFICATION_TYPES.CLOUD_AUDITTRAILS: return 1 * 365
         #     case DATA_CLASSIFICATION_TYPES.CLOUD_TEMPORARY:   return 1 * 365
-        #     case DATA_CLASSIFICATION_TYPES.SCRATCH:    return 1 ### Just 1 day!
+        #     case DATA_CLASSIFICATION_TYPES.ATHENA_SCRATCH:    return 1 ### Just 1 day!
         #     case _:
         #         raise DataClassificationException( f"!!! INTERNAL-ERROR !!! code is NOT ready to handle data-classification-type '{data_type}'. Valid values are: {list(DATA_CLASSIFICATION_TYPES)}")
 
@@ -170,7 +170,7 @@ class DataClassification:
 
         elif data_type == DATA_CLASSIFICATION_TYPES.CLOUD_TEMPORARY:
             return RemovalPolicy.DESTROY  ### <--- irrespective of tier!!!
-        elif data_type == DATA_CLASSIFICATION_TYPES.SCRATCH:
+        elif data_type == DATA_CLASSIFICATION_TYPES.ATHENA_SCRATCH:
             return RemovalPolicy.DESTROY  ### <--- irrespective of tier!!!
         else:
             raise DataClassificationException(
@@ -181,7 +181,7 @@ class DataClassification:
         #     case DATA_CLASSIFICATION_TYPES.USER_REQUESTS:     return RemovalPolicy.RETAIN if tier in UPPER_TIER_NAMES else RemovalPolicy.DESTROY
         #     case DATA_CLASSIFICATION_TYPES.CLOUD_AUDITTRAILS: return RemovalPolicy.RETAIN if tier in PROD_TIER_NAMES  else RemovalPolicy.DESTROY
         #     case DATA_CLASSIFICATION_TYPES.CLOUD_TEMPORARY:   return RemovalPolicy.DESTROY ### <--- irrespective of tier!!!
-        #     case DATA_CLASSIFICATION_TYPES.SCRATCH:    return RemovalPolicy.DESTROY ### <--- irrespective of tier!!!
+        #     case DATA_CLASSIFICATION_TYPES.ATHENA_SCRATCH:    return RemovalPolicy.DESTROY ### <--- irrespective of tier!!!
         #     case _:
         #         raise DataClassificationException( f"!!! INTERNAL-ERROR !!! code is NOT ready to handle data-classification-type '{data_type}'. Valid values are: {list(DATA_CLASSIFICATION_TYPES)}")
 
@@ -204,7 +204,7 @@ class DataClassification:
 
         elif data_type == DATA_CLASSIFICATION_TYPES.CLOUD_TEMPORARY:
             return False  ### <--- irrespective of tier!!!
-        elif data_type == DATA_CLASSIFICATION_TYPES.SCRATCH:
+        elif data_type == DATA_CLASSIFICATION_TYPES.ATHENA_SCRATCH:
             return False  ### <--- irrespective of tier!!!
 
         else:
@@ -216,7 +216,7 @@ class DataClassification:
         #     case DATA_CLASSIFICATION_TYPES.USER_REQUESTS:     return True if tier in PROD_TIER_NAMES else False
         #     case DATA_CLASSIFICATION_TYPES.CLOUD_AUDITTRAILS: return False ### <--- irrespective of tier!!!
         #     case DATA_CLASSIFICATION_TYPES.CLOUD_TEMPORARY:   return False ### <--- irrespective of tier!!!
-        #     case DATA_CLASSIFICATION_TYPES.SCRATCH:   return False ### <--- irrespective of tier!!!
+        #     case DATA_CLASSIFICATION_TYPES.ATHENA_SCRATCH:   return False ### <--- irrespective of tier!!!
         #     case _:
         #         raise DataClassificationException( f"!!! INTERNAL-ERROR !!! code is NOT ready to handle data-classification-type '{data_type}'. Valid values are: {list(DATA_CLASSIFICATION_TYPES)}")
 

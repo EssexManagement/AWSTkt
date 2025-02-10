@@ -8,8 +8,6 @@ from aws_cdk import (
 )
 from constructs import Construct
 
-import constants
-
 ### ========================================================================================================
 
 lock = threading.Lock()
@@ -121,8 +119,7 @@ class Mappings:
     def get_datadog_arn_for_stack( self, tier :str, aws_env :str, stk :Stack ) -> str:
         try:
             DataDogDestinations = createCftMapping( scope=self.ref2scope, tier=tier, aws_env=aws_env ).DataDogDestinations
-            effective_tier = tier if tier in constants.STD_TIERS else "dev"
-            ddname = DataDogDestinations.find_in_map( effective_tier.lower(), "csms" )
+            ddname = DataDogDestinations.find_in_map( tier.lower(), "csms" )
             if ddname is None:
                 return None
             s :str = f"arn:{stk.partition}:kinesis:{stk.region}:{stk.account}:{ddname}"

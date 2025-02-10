@@ -355,8 +355,8 @@ def gen_bucket_lifecycle(
         intelligent_tiering_rule.append(newrule)
 
     ### -------------------------------------------------------------------
-    if prefixes_for_s3_tiers and S3_LIFECYCLE_RULES.SCRATCH in prefixes_for_s3_tiers:
-        prefixes=prefixes_for_s3_tiers[S3_LIFECYCLE_RULES.SCRATCH]
+    if prefixes_for_s3_tiers and S3_LIFECYCLE_RULES.ATHENAWKGRP_SCRATCH in prefixes_for_s3_tiers:
+        prefixes=prefixes_for_s3_tiers[S3_LIFECYCLE_RULES.ATHENAWKGRP_SCRATCH]
     else:
         prefixes=[common_rule.prefix]
     ### Athena Workgroup's Query-Results objects must expire after 1 day
@@ -464,7 +464,7 @@ def gen_bucket_lifecycle(
         S3_LIFECYCLE_RULES.INTELLIGENT_TIERING.name: intelligent_tiering_rule,
         S3_LIFECYCLE_RULES.LOW_COST.name: instantretrieval_rule,
         S3_LIFECYCLE_RULES.COLD_STORAGE.name: deeparchive_rule,
-        S3_LIFECYCLE_RULES.SCRATCH.name: athena_queryres_tiering_rule,
+        S3_LIFECYCLE_RULES.ATHENAWKGRP_SCRATCH.name: athena_queryres_tiering_rule,
     }
 
 

@@ -29,6 +29,8 @@ import constants
 import common.cdk.constants_cdk as constants_cdk
 import common.cdk.aws_names as aws_names
 
+from app_pipeline.pipeline import add_tags ### This file is PROJECT_ROOT/pipeline.py
+
 ### ---------------------------------------------------------------------------------
 """
     1st param:  typical CDK scope (parent Construct/stack)
@@ -138,12 +140,12 @@ def createStandardPipeline(
     #     )]
 
     ### -----------------------------------
-    data_classification_type = DATA_CLASSIFICATION_TYPES.SCRATCH
+    data_classification_type = DATA_CLASSIFICATION_TYPES.ATHENA_SCRATCH
 
     all_lifecycle_rules: dict[str, Sequence[aws_s3.LifecycleRule]] = gen_bucket_lifecycle(
         tier = tier,
         data_classification_type = data_classification_type,
-        prefixes_for_s3_tiers={ S3_LIFECYCLE_RULES.SCRATCH.name: [''], },
+        prefixes_for_s3_tiers={ S3_LIFECYCLE_RULES.ATHENAWKGRP_SCRATCH.name: [''], },
     )
 
     my_pipeline_artifact_bkt = create_std_bucket(
@@ -153,7 +155,7 @@ def createStandardPipeline(
         bucket_name = aws_names.gen_bucket_name( tier, "CodePipeline-artifacts-"+ aws_names.extract_simple_resource_name(tier, pipeline_name) ),
         # bucket_name = f"{constants.CDK_APP_NAME}-{constants.CDK_COMPONENT_NAME}-{tier}-CodePipeline-artifacts".lower(),
         data_classification_type = data_classification_type,
-        lifecycle_rules = all_lifecycle_rules[S3_LIFECYCLE_RULES.SCRATCH.name],
+        lifecycle_rules = all_lifecycle_rules[S3_LIFECYCLE_RULES.ATHENAWKGRP_SCRATCH.name],
         removal_policy = RemovalPolicy.DESTROY,
     )
 
