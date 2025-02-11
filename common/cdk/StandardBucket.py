@@ -9,6 +9,7 @@ This file has the following for public use across the project.
 from typing import Mapping, Optional, Sequence
 from constructs import Construct
 from aws_cdk import (
+    Stack,
     Duration,
     RemovalPolicy,
     aws_s3,
@@ -45,7 +46,7 @@ def _int_to_duration(i: int) -> Optional[Duration]:
 """
 
 
-def lookup_access_logs_bucket(scope: Construct, tier: str) -> Optional[aws_s3.Bucket]:
+def lookup_access_logs_bucket(scope: Construct, id :str, tier: str) -> Optional[aws_s3.Bucket]:
 
     s3logging_config :dict = scope.node.try_get_context("s3_access_logging_bucket")
 
@@ -63,7 +64,7 @@ def lookup_access_logs_bucket(scope: Construct, tier: str) -> Optional[aws_s3.Bu
 
     if server_access_logs_bucket_name:
         server_access_logs_bucket = aws_s3.Bucket.from_bucket_name(
-            scope=scope, id="s3-access-logs",
+            scope=scope, id="s3-access-logs-"+id,
             bucket_name=server_access_logs_bucket_name
         )
     else:
@@ -126,7 +127,7 @@ def create_std_bucket(
     HDR = " create_std_bucket() within " + __file__
 
     print(f"tier='{tier}' :" + HDR )
-    server_access_logs_bucket = lookup_access_logs_bucket(scope=scope, tier=tier)
+    server_access_logs_bucket = lookup_access_logs_bucket(scope=scope, id=id, tier=tier)
     versioned2, removal_policy2, auto_delete_objects2 = __calculate_s3_props(
         tier, data_classification_type, versioned, removal_policy
     )
@@ -355,8 +356,8 @@ def gen_bucket_lifecycle(
         intelligent_tiering_rule.append(newrule)
 
     ### -------------------------------------------------------------------
-    if prefixes_for_s3_tiers and S3_LIFECYCLE_RULES.ATHENAWKGRP_SCRATCH in prefixes_for_s3_tiers:
-        prefixes=prefixes_for_s3_tiers[S3_LIFECYCLE_RULES.ATHENAWKGRP_SCRATCH]
+    if prefixes_for_s3_tiers and S3_LIFECYCLE_RULES.SCRATCH in prefixes_for_s3_tiers:
+        prefixes=prefixes_for_s3_tiers[S3_LIFECYCLE_RULES.SCRATCH]
     else:
         prefixes=[common_rule.prefix]
     ### Athena Workgroup's Query-Results objects must expire after 1 day
@@ -464,7 +465,7 @@ def gen_bucket_lifecycle(
         S3_LIFECYCLE_RULES.INTELLIGENT_TIERING.name: intelligent_tiering_rule,
         S3_LIFECYCLE_RULES.LOW_COST.name: instantretrieval_rule,
         S3_LIFECYCLE_RULES.COLD_STORAGE.name: deeparchive_rule,
-        S3_LIFECYCLE_RULES.ATHENAWKGRP_SCRATCH.name: athena_queryres_tiering_rule,
+        S3_LIFECYCLE_RULES.SCRATCH.name: athena_queryres_tiering_rule,
     }
 
 

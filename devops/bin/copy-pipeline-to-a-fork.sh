@@ -3,10 +3,20 @@
 ### Use  this script to keep the various FORKS (like em-fact, FACTrial and nci-fact) in sync.. ..
 ###         .. .. specifically RE: the PIPELINE related-files only.
 
-SRC_FLDR=~/LocalDevelopment/EssexMgmt/FACTrial-BACKEND/         ### FACTrial on CRRI-Cloud's source-code
-DEST_FLDR=~/LocalDevelopment/EssexMgmt/EssexCloud-emfact-backend-cdk/ ### em-fact on Essex-Cloud's source-code
-
-pushd ${SRC_FLDR}
+# ensure CLI has 2 arguments, and set them to SRC_FLDR & DEST_FLDR respectively
+if [ $# -ne 2 ]; then
+    echo "Usage: $0   SRC_FLDR    DEST_FLDR"
+    echo "Example:   SRC = ~/LocalDevelopment/EssexMgmt/FACTrial-BACKEND/         ### FACTrial on CRRI-Cloud's source-code"
+    echo "Example:   DEST = ~/LocalDevelopment/EssexMgmt/EssexCloud-emfact-backend-cdk/ ### em-fact on Essex-Cloud's source-code"
+    exit 1
+fi
+SRC_FLDR=$1
+DEST_FLDR=$2
+echo "SRC_FLDR = '${SRC_FLDR}'"
+echo "DEST_FLDR = '${DEST_FLDR}'"
+### linux? (Confirmed on MacOS):
+while read -r -t 1; do read -r -t 1; done ### "read -r -t0" will return true if stdin-stream is NOT empty
+read -p "Press <ENTER> .. .. to continue >> "
 
 # set noglob
 set +o noglob
@@ -15,7 +25,14 @@ set +o noglob
 ### ..............................................................................................
 ### ==============================================================================================
 
-PipelineFiles=(
+### SECTION: Constants
+
+set -e      ### for this initial part of script, any failures are bad!
+
+### We must 'cd' so that '*' will work below!
+cd ${SRC_FLDR} > /dev/null
+
+Files2bCompared=(
     ./README*.md
     ./.gitignore
 
@@ -54,9 +71,13 @@ PipelineFiles=(
     ./backend/lambda_layer/bin/
     ./backend/database/vpc_rds/
     ./backend/database/vpc_rds/lambda/
+    ./backend/database/rds_init/__init__.py
+    ./backend/database/rds_init/README.md
+    ./backend/database/rds_init/infrastructure.py
+
     ./backend/etl/__init__.py
     ./backend/etl/infrastructure.py
-    ./backend/etl/runtime/
+    # ./backend/etl/runtime/
     # ./backend/etl/runtime/connectors/
     # ./backend/etl/runtime/database
     # ./backend/etl/runtime/utils/
@@ -64,24 +85,13 @@ PipelineFiles=(
     # ./backend/etl/runtime/common/
     # ./backend/etl/runtime/model/
     # ./backend/etl/runtime/rest_api/
-    ./backend/etl/tests/
+    # ./backend/etl/tests/
     # ./backend/etl/tests/conftest.py
     # ./backend/etl/tests/unittests/
     # ./backend/etl/tests/unittests/test_utils/
-    ./backend/etl/scripts/
+    # ./backend/etl/scripts/
     ./backend/common_aws_resources_stack.py
-    ./backend/database/rds_init/
-    # ./backend/database/rds_init/infrastructure.py
-    # ./backend/database/rds_init/runtime/
-    # ./backend/database/rds_init/runtime/model/
-    # ./backend/database/rds_init/runtime/common/
-    # ./backend/database/rds_init/runtime/rds_init_root_pkg/connectors/
-    # ./backend/database/rds_init/runtime/rds_init_root_pkg/utils/
-    # ./backend/database/rds_init/runtime/rds_init_root_pkg/csv_reader/
-    # ./backend/database/rds_init/runtime_scripts/test_sql_install_handler.py
-    # ./backend/database/rds_init/runtime/utils.py
 
-    ./api/config.py
     ./api/config.py
     ./api/infrastructure*.py
     ./api/*.sh
@@ -89,8 +99,8 @@ PipelineFiles=(
     ./scripts/common-settings.sh
 
     ./app_pipeline/__init__.py
-    ./app_pipeline/deployment.py
     ./app_pipeline/pipeline.py
+    ./app_pipeline/AllStacks.py
 
     ./devops/pipeline.py
     ./devops/bin/
@@ -132,7 +142,7 @@ PipelineFiles=(
 )
 
 ### Uncomment this line below, for debugging purposes.
-# tar -C ${SRC_FLDR} -c  ${PipelineFiles[@]} | tar -tv
+# tar -C ${SRC_FLDR} -c  ${Files2bCompared[@]} | tar -tv
 
 ### ==============================================================================================
 ### ..............................................................................................
@@ -156,160 +166,82 @@ touch ${TMPDIR}/junk ### To ensure rm commands (under noglob; see many lines bel
 
 TMPFILE11=${TMPDIR}/tmp1.txt
 TMPFILE22=${TMPDIR}/tmp22.txt
-TMPDiffFILE=${TMPDIR}/tmp333.txt
+TMPDIFFOUTP=${TMPDIR}/tmp333.txt
 
-rm -rf "${TMPFILE11}" "${TMPFILE22}" "${TMPDiffFILE}"
+rm -rf "${TMPFILE11}" "${TMPFILE22}" "${TMPDIFFOUTP}"
 
 ### ==============================================================================================
 ### ..............................................................................................
 ### ==============================================================================================
+
+### SECTION: Derived Variables
+
+### Do -NOT- put any derived expressions before these lines.
+SCRIPT_FOLDER="$(dirname ${BASH_SOURCE[0]})"
+SCRIPT_NAME="$(basename ${BASH_SOURCE[0]})"
+CWD="$(pwd)"
+
+### .........................
+
+   .     ${SCRIPT_FOLDER}/common/sync-folder-utility-functions.sh
+
+    ### This above line re: `sync-folder-utility-functions.sh` .. requires BOTH `TMPFILE??` as well as `SCRIPT_FOLDER` variables to be defined!!
+
+### .........................
+
+# Convert the string-value of variable "SRC_FLDR" by replacing all '/' and '~' and ' ' characters with '_'
+DEST_FLDR_DIFF_CACHE="${SRC_FLDR}"
+DEST_FLDR_DIFF_CACHE=$( echo "${SRC_FLDR}" | sed -e "s|~|${HOME}|" )
+DEST_FLDR_DIFF_CACHE=$( echo "${SRC_FLDR}" | tr ' ' '_' )
+DEST_FLDR_DIFF_CACHE="$( removeUserHomeFldrFromPath "${DEST_FLDR_DIFF_CACHE}" )"
+echo "DEST_FLDR_DIFF_CACHE = '${DEST_FLDR_DIFF_CACHE}'"
+DEST_FLDR_DIFF_CACHE="${DEST_FLDR}/.diff"
+# DEST_FLDR_DIFF_CACHE="${DEST_FLDR}/.diff/${DEST_FLDR_DIFF_CACHE}"
+echo "DEST_FLDR_DIFF_CACHE = '${DEST_FLDR_DIFF_CACHE}'"
+### Attention: The path -UNDER- '.diff/' is actually the SRC/SOURCE-path !!!!!
+
+### ==============================================================================================
+### ..............................................................................................
+### ==============================================================================================
+
+set +e  ### failures in `diff` and other commands is expected!!!
 
 ### wipe out all cdk.out/ node_modules/ __pycache__/
 ./devops/bin/clean.sh
 
-compareFilesInSubFolder_2() {
-    SubFldrPath="$1"
-    SimpleFilename="$2"
-
-    compareFilesAt "${SubFldrPath}/${SimpleFilename}"
-    return $?
-}
-
-### ..............................................................................................
-
-whetherToSaveFileDiffAsNormal() {
-    FilePath="$1"
-    TMPDiffFILE="$2"
-
-    while read -r -t 1; do read -r -t 1; done ### "read -r -t0" will return true if stdin-stream is NOT empty
-    read -p "Files differ! "c" to Copy // 'y' to reset this to NEW-NORMAL diff-output >>" ANS
-    if [ "${ANS}" == "c" ] || [ "${ANS}" == "C" ]; then
-        cp -ip "${SRC_FLDR}/${FilePath}" "${DEST_FLDR}/${FilePath}"
-    fi
-    if [ "${ANS}" == "y" ] || [ "${ANS}" == "Y" ]; then
-        mkdir -p  $( dirname -- "${DEST_FLDR}/.diff/${FilePath}" )
-        echo ''; echo \
-        mv -i "${TMPDiffFILE}" "${DEST_FLDR}/.diff/${FilePath}"
-        sleep 2;
-        mv -i "${TMPDiffFILE}" "${DEST_FLDR}/.diff/${FilePath}"
-    fi
-    return 0
-}
-
-### ..............................................................................................
-
-compareFilesAt() {
-    FilePath="$1"
-
-    if [ ! -f "${SRC_FLDR}/${FilePath}" ] && [ ! -f "${DEST_FLDR}/${FilePath}" ]; then
-        echo "comparing: '${SRC_FLDR}/${FilePath}' '<-->' '${DEST_FLDR}/${FilePath}'"
-        echo "Oh!oh! compareFilesInSubFolder() invoked with 2 params that are -NOT- simple filenames"
-        return 1
-    fi
-
-    diff "${SRC_FLDR}/${FilePath}" "${DEST_FLDR}/${FilePath}" > "${TMPDiffFILE}"
-    if [ $? -ne 0 ]; then
-        # YesFileDidChange=1
-        if [ ! -f "${DEST_FLDR}/.diff/${FilePath}" ]; then
-            echo "comparing: '${SRC_FLDR}/${FilePath}' '<-->' '${DEST_FLDR}/${FilePath}'"
-            whetherToSaveFileDiffAsNormal "${FilePath}" "${TMPDiffFILE}"
-            return $?
-        fi
-        echo \
-        diff -wq "${DEST_FLDR}/.diff/${FilePath}" "${TMPDiffFILE}"
-        diff -wq "${DEST_FLDR}/.diff/${FilePath}" "${TMPDiffFILE}"
-        if [ $? -ne 0 ]; then
-            echo "comparing: '${SRC_FLDR}/${FilePath}' '<-->' '${DEST_FLDR}/${FilePath}'"
-            read -p "Files differ! enter 'y' to reset this to NEW-NORMAL diff-output >>" ANS
-            if [ "${ANS}" == "y" ] || [ "${ANS}" == "Y" ]; then
-                whetherToSaveFileDiffAsNormal "${FilePath}" "${TMPDiffFILE}"
-            else
-                echo ''; echo "🛑  ${FilePath}"; echo '';
-                return 1
-            fi
-        else
-            echo '>'
-        fi
-    else
-        echo -n '_'
-    fi
-    return 0
-}
-
-
-
-compareFolders() {
-    aFilePath="$1"
-
-    #__ echo "SUBFOLDER =  \"${SRC_PATH}/${aFilePath}\" .."
-    # for anotherFile in $( \ls "${SRC_PATH}/${aFilePath}"/* ) ; do
-    #    ${anotherFile} isa  FULL path !! Unlike the `for` stmt below
-    for anotherFile in "${SRC_FLDR}/${aFilePath}"/* ; do
-        if [ "${anotherFile}" == "__pycache__" ]; then continue; fi
-        # diff -rwq  "${anotherFile}" "${SRC_FLDR}/${aFilePath}" >& /dev/null ### Reverse the comparison -- UNFORTUNATELY.
-        # subSrcFile="${SRC_FLDR}/${aFilePath}/$( basename ${anotherFile} )"
-        if [ -d  "${SRC_FLDR}/${aFilePath}/${anotherFile}" ]; then
-            ### recursion
-            echo ''; echo " ⁉️ recursion ⁉️ at ${aFilePath}/${anotherFile} .. "
-            compareFolders "${aFilePath}/${anotherFile}"
-        else
-            compareFilesAt "${aFilePath}/${anotherFile}"
-        fi
-    done
-
-}
-
-### ==============================================================================================
-### ..............................................................................................
-### ==============================================================================================
+###------------------
 
 
 YesAtleastOneFileChanged=0
 
-for aFilePath in ${PipelineFiles[@]} ; do
+for aPath in ${Files2bCompared[@]} ; do
     # sleep 1
-    if [ ! -e "${SRC_FLDR}/${aFilePath}" ]; then
-        echo "🛑  ${aFilePath} does not exist in ${SRC_FLDR} !!"
-        exit 88
-    fi
-    if [ ! -e "${DEST_FLDR}/${aFilePath}" ]; then
-        mkdir -p $( dirname "${DEST_FLDR}/${aFilePath}" )
-        cp -ipr  "${SRC_FLDR}/${aFilePath}"  "${DEST_FLDR}/${aFilePath}"
+    ### if it is a Directory, recurse.  Else, do `diff`
+    if [ -d  "${SRC_FLDR}/${aPath}" ]; then
+        # compareFolders "${aPath}"
+        myDirDiff  "${aPath}"   "${SRC_FLDR}"  "${DEST_FLDR}"
     else
-        ### if it is a Directory, recurse.  Else, do `diff`
-
-        if [ -d  "${SRC_FLDR}/${aFilePath}" ]; then
-            compareFolders "${aFilePath}"
-            exit 99
-        else
-            ### Just a plain file.
-            # compareFilesInSubFolder "${SRC_FLDR}/${aFilePath}"  "${DEST_FLDR}/${aFilePath}"
-            compareFilesAt "${aFilePath}"
-            if [ $? -ne 0 ]; then
-                YesAtleastOneFileChanged=1
-                # echo "🛑  ${aFilePath}"
-            fi
-        fi
+        ### Just a plain file.
+        myFileDiff   "${SRC_FLDR}"   "${DEST_FLDR}" "${aPath}"
     fi
 done
 
-if [ ${YesFilesDidChange} -eq 0 ]; then
+if [ ${YesAtleastOneFileChanged} -eq 0 ]; then
     echo "No differences found.✅"
-else
-    while read -r -t 1; do read -r -t 1; done
-    read -p "⚠️⚠️⚠️ -- Ok to Copy files from ${SRC_FLDR} -to-> ${DEST_FLDR}? (y/n) >>" ANS
-    while read -r -t 1; do read -r -t 1; done
-    read -p "⚠️⚠️⚠️ -- (AGAIN a 2nd-time) Ok to Copy files from ${SRC_FLDR} -to-> ${DEST_FLDR}? (y/n) >>" ANS
-    echo ''; echo ''
-    if [ "${ANS}" == "y" ]; then
-        echo \
-        "tar -C ${SRC_FLDR} -c  ${PipelineFiles[@]} | tar -C ${DEST_FLDR} -xv"
-    else
-        echo "No files copied !!!"
-    fi
-    echo ''; echo ''
+# else
+#     while read -r -t 1; do read -r -t 1; done
+#     read -p "⚠️⚠️⚠️ -- Ok to Copy files from ${SRC_FLDR} -to-> ${DEST_FLDR}? (y/n) >>" ANS
+#     while read -r -t 1; do read -r -t 1; done
+#     read -p "⚠️⚠️⚠️ -- (AGAIN a 2nd-time) Ok to Copy files from ${SRC_FLDR} -to-> ${DEST_FLDR}? (y/n) >>" ANS
+#     echo ''; echo ''
+#     if [ "${ANS}" == "y" ]; then
+#         echo \
+#         "tar -C ${SRC_FLDR} -c  ${Files2bCompared[@]} | tar -C ${DEST_FLDR} -xv"
+#     else
+#         echo "No files copied !!!"
+#     fi
+#     echo ''; echo ''
 fi
 
-popd
 
 # EoInfo

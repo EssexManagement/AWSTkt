@@ -63,15 +63,15 @@ for subfolder in "${RootDir_devopsPipelineCode}"/*; do
 
     # echo "Pipfile path for subfolder = '${subfolder}/Pipfile'"
     # ls -la "${subfolder}/Pipfile"
-    if [ ! -f "${subfolder}/package.json" ] && [ ! -f "${subfolder}/Pipfile" ]; then
-        echo -n "skipping '$( basename ${subfolder} )' as it does --NOT-- have package.json NOT Pipfile.lock ..  "
+    if [ ! -f "${subfolder}/package.json" ] && [ ! -f "${subfolder}/Pipfile" ] && [ ! -f "${subfolder}/template.yaml" ]; then
+        echo -n "skipping '$( basename ${subfolder} )' as it does --NOT-- have package.json NOR Pipfile.lock NOR AWS-SAM  ..  "
         continue
     fi
 
     echo ''; echo "👉🏾👉🏾👉🏾👉🏾👉🏾👉🏾👉🏾 ${subfolder} contains a devops-utility !"
     cd "${subfolder}"
 
-    \rm -rf .venv/ .cache/  .local/  __pycache__/  cdk.out/  dist/ build/   node_modules/  cdk.out/
+    \rm -rf ./.venv/ ./.cache/  ./.local/  ./.aws-sam/  ./__pycache__/  ./cdk.out/  ./dist/ ./build/   ./node_modules/  ./src/node_modules/  ./cdk.out/
     \rm -rf *.egg-info *.dist-info .pytest_cache .mypy_cache .tox .coverage .coverage.* .hypothesis
 
     while read -r -t 1; do read -r -t 1; done ### "read -r -t0" will return true if stdin-stream is NOT empty

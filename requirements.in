@@ -1,14 +1,23 @@
-# python -m pip install --upgrade pip
-# python -m pip install pip-tools
-# python -m piptools compile  --quiet requirements.in
-# python -m piptools sync
+# python3 -m pip install --upgrade pip
+# python3 -m pip install pip-tools
+# python3 -m piptools compile --quiet requirements.in
+# python3 -m piptools sync
 
-aws-cdk-lib
+# -c api/runtime/requirements.txt
+aws_cdk_lib
 constructs
-pytz
+aws_solutions_constructs.aws_eventbridge_lambda
+aws_solutions_constructs.aws_eventbridge_stepfunctions
+aws_solutions_constructs.aws_cloudfront_apigateway_lambda
 aws_cdk.aws_lambda_python_alpha
 cdk-ecr-deployment
 importlib-metadata
 pytz
 docker
-jsonschema
+jsonschema ## needed within config.py
+
+boto3 ### needed by `backend/lambda_layer/bin/get_lambda_layer_hashes.py`, which is invoked by `cdk_lambda_layers_app.py`
+regex ### needed by `backend/lambda_layer/bin/get_lambda_layer_hashes.py`, which is invoked by `cdk_lambda_layers_app.py`
+cdk-nag
+
+### EoF

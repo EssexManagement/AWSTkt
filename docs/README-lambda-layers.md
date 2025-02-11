@@ -8,7 +8,7 @@ PYTHON_VERSION="3.12"
 
 npm i --include-dev
 
-pip install pipenv
+pip install pipenv --user
 pipenv lock --dev --python ${PYTHON_VERSION} --clear
 pipenv sync --dev
 # pipenv install --deploy --ignore-pipfile
@@ -18,12 +18,10 @@ pipenv sync --dev
 ### source .venv/bin/activate
 ### pip install -r requirements.txt
 
-(
-  TIER="AWSTkt";
-  GITHUB_REPOSITORY=$(git ls-remote --get-url | sed -e 's/..*github.com\/\(.*\)/\1/');
-  RunFile="cdk_pipeline_app.py";
-  unset BUILDPLATFORM; unset DOCKER_DEFAULT_PLATFORM; unset TARGETPLATFORM;
-  pipenv run npx cdk synth --quiet --all --app "python3 ${RunFile}"  -c tier=${TIER} -c git_repo=${GITHUB_REPOSITORY} --profile ${AWSPROFILE} --region ${AWSREGION}
+GITHUB_REPOSITORY=$(git ls-remote --get-url | sed -e 's/..*github.com\/\(.*\)/\1/');
+
+( unset BUILDPLATFORM; unset DOCKER_DEFAULT_PLATFORM; unset TARGETPLATFORM;
+  pipenv run npx cdk synth --quiet --all --app "python3 cdk_pipeline_app.py"  -c tier=${TIER} -c git_repo=${GITHUB_REPOSITORY} --profile ${AWSPROFILE} --region ${AWSREGION}
 )
 ```
 
@@ -93,29 +91,11 @@ The above `synth` command only sanity-checks the Pipeline-stack.<BR/>
 The pipeline will deploy mnultiple Application-stacks!<BR/>
 The following will sanity-check that the pipeline will not fail during cdk-synth.
 
-## Application's stacks
-
 ```bash
-(
-  TIER="AWSTkt";
-  GITHUB_REPOSITORY=$(git ls-remote --get-url | sed -e 's/..*github.com\/\(.*\)/\1/');
-  RunFile="cdk_app.py";
-  unset BUILDPLATFORM; unset DOCKER_DEFAULT_PLATFORM; unset TARGETPLATFORM;
-  pipenv run npx cdk synth --quiet --all --app "python3 ${RunFile}"  -c tier=${TIER} -c AWSPROFILE=${AWSPROFILE} -c git_repo=${GITHUB_REPOSITORY} --profile ${AWSPROFILE} --region ${AWSREGION}
-)
-```
-
-## 𝜆-Layer Pipeline & 𝜆-Lyer Stacks
-
-```bash
-(
-  TIER="AWSTkt";
+( unset BUILDPLATFORM; unset DOCKER_DEFAULT_PLATFORM; unset TARGETPLATFORM;
   CPU_ARCH="$(uname -m)";  ### PICK ONE !!!
-  CPU_ARCH="amd64";       ### PICK ONE !!!
-  GITHUB_REPOSITORY=$(git ls-remote --get-url | sed -e 's/..*github.com\/\(.*\)/\1/');
-  RunFile="cdk_lambda_layers_app.py";
-  unset BUILDPLATFORM; unset DOCKER_DEFAULT_PLATFORM; unset TARGETPLATFORM;
-  pipenv run npx cdk synth --quiet --all --app "python3 ${RunFile}"  -c tier=${TIER} -c CPU_ARCH=${CPU_ARCH} -c AWSPROFILE=${AWSPROFILE} -c git_repo=${GITHUB_REPOSITORY} --profile ${AWSPROFILE} --region ${AWSREGION}
+  CPU_ARCH="x86_64";       ### PICK ONE !!!
+  pipenv run npx cdk synth --quiet --all --app "python3 layers_app.py"  -c tier=${TIER} -c CPU_ARCH=${CPU_ARCH} -c git_repo=${GITHUB_REPOSITORY} -c  AWSPROFILE=${AWSPROFILE} --profile ${AWSPROFILE} --region ${AWSREGION}
 )
 ```
 

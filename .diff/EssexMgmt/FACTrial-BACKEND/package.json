@@ -1,0 +1,26 @@
+2,8c2,17
+<     "devDependencies": {
+<         "aws-cdk": "*"
+<     },
+<     "scripts": {
+<         "cdk": "cdk"
+<     }
+< }
+\ No newline at end of file
+---
+>   "name": "src",
+>   "version": "1.0.0",
+>   "description": "AWSTicket",
+>   "main": "index.js",
+>   "scripts": {
+>     "test": "echo \"Error: no test specified\" && exit 1"
+>   },
+>   "author": "",
+>   "license": "ISC",
+>   "dependencies": {
+>     "cdk": "*"
+>   },
+>   "devDependencies": {
+>     "aws-cdk": "*"
+>   }
+> }

@@ -1,0 +1,26 @@
+{
+    "deleteInSequence": [
+        {
+            "deleteInParallel": [
+                "{app}-backend-{tier}-StatelessETL"
+            ]
+        },
+        {
+            "deleteInParallel": [
+                "{app}-backend-{tier}-Lambdas-0",
+                "{app}-backend-{tier}-Lambdas-1",
+                "{app}-backend-{tier}-Lambdas-2",
+                "{app}-backend-{tier}-Lambdas-3"
+            ]
+        },
+        {
+            "deleteInParallel": [
+                "{app}-backend-{tier}-import",
+                "{app}-backend-{tier}-CommonAWSRrcs",
+                "{app}-backend-{tier}-CommonRsrc-arm64",
+                "{app}-backend-{tier}-CommonRsrc-amd64"
+              ]
+        }
+    ],
+    "SNSTopicName": "{SNSTopicName}"
+}

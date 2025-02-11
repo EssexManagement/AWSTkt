@@ -1,0 +1,57 @@
+{
+    "deleteInSequence": [
+        {
+            "deleteInParallel": [
+                "{app}-backend-{tier}-StatelessETL",
+                "{app}-frontend-{tier}",
+                "{app}-frontend-{tier}-observe"
+            ]
+        },
+        {
+            "deleteInParallel": [
+                "{app}-backend-{tier}-Lambdas-0",
+                "{app}-backend-{tier}-Lambdas-1",
+                "{app}-backend-{tier}-Lambdas-2",
+                "{app}-backend-{tier}-Lambdas-3"
+            ]
+        },
+        {
+            "deleteInParallel": [
+                "{app}-backend-{tier}-CommonAWSRrcs",
+                "{app}-backend-{tier}-CommonRsrc-arm64",
+                "{app}-backend-{tier}-CommonRsrc-amd64",
+                "{app}-backend-{tier}-SqsStack",
+                "{app}-backend-{tier}-SNSStack",
+                "{app}-backend-{tier}-StatelessAPIGW"
+            ]
+        },
+        {
+            "deleteInParallel": [
+                "{app}-backend-{tier}-import",
+                "{app}-backend-{tier}-DynamoDB",
+                "{app}-backend-{tier}-Stateful",
+                "{app}-backend-{tier}-Buckets",
+                "{app}-backend-{tier}-Cognito----------------"
+            ]
+        },
+        {
+            "deleteInParallel": [
+                "{app}-backend-{tier}-AWSLandingZone"
+            ]
+        },
+        {
+            "deleteInParallel": [
+                "{app}-devops-{tier}-PostDeployment",
+                "{app}-devops-{tier}-CleanupStacks",
+                "{app}-devops-{tier}-1ClickEnd2End",
+
+                "{app}-meta-pipeline-{tier}",
+                "{app}-devops-pipeline-{tier}",
+                "{app}-operations-pipeline-{tier}",
+                "{app}-backend-pipeline-{tier}",
+                "{app}-frontend-pipeline-{tier}"
+            ]
+        }
+    ],
+    "SNSTopicName": "{SNSTopicName}"
+}

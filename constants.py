@@ -3,7 +3,7 @@ import traceback
 
 ENTERPRISE_NAME = "EssexMgmt"
 HUMAN_FRIENDLY_APP_NAME = "AWS-Ticket"
-HUMAN_FRIENDLY_APP_NAME = "FACTrial"
+# -- HUMAN_FRIENDLY_APP_VERSION  .. do NOT define here. Do it in cdk.json instead.
 CDK_APP_NAME = "AWSTkt"
 CDK_COMPONENT_NAME = "backend"
 
@@ -40,6 +40,20 @@ TIER_TO_AWSENV_MAPPING = {
     "prod": "PROD",
 }
 
+### ----------------------------------------------------------------
+CLINICALTRIALSAPI_KEY_UNPUBLISHEDNAME = f"{CDK_APP_NAME}/prod/clinicaltrialsapi.cancer.gov"
+
+# API_KEY_UNPUBLISHED_NAME = f"{CDK_APP_NAME}/{CDK_COMPONENT_NAME}/api"
+API_KEY_UNPUBLISHED_NAME = "emfact@essexmanagement" ###  -- ORIGINAL !!!
+
+### ----------------------------------------------------------------
+### CDK related.  Breaking up a large stack of Lambdas into smaller stacks.
+NUM_OF_CHUNKS = 4
+
+### -------------------------------------------------------------------------
+
+COGNITO_USER_GROUP = 'CCDI'
+
 ### ----------------------------------------------------------------------------------------------------------------------------
 ### %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 ### ----------------------------------------------------------------------------------------------------------------------------
@@ -47,14 +61,6 @@ TIER_TO_AWSENV_MAPPING = {
 ### ====================
 ### derived "constants"
 ### ====================
-
-### The `dev` environment's VPC is shared by DEVELOPER-environments also.
-# SHARED_VPC_NAME = f"{CDK_APP_NAME}-{CDK_COMPONENT_NAME}-pipeline-dev/{CDK_APP_NAME}-{CDK_COMPONENT_NAME}-dev/Stateful/vpc_db/VPC"
-def get_vpc_name( tier :str ) -> str:
-    if tier not in STD_TIERS:
-        tier = "dev"
-    return f"{CDK_APP_NAME}-{CDK_COMPONENT_NAME}-{tier}/Stateful/vpc-only/VPC"
-    # return f"{CDK_APP_NAME}-{CDK_COMPONENT_NAME}-{tier}/{CDK_APP_NAME}-{CDK_COMPONENT_NAME}-{tier}/Stateful/vpc_db/VPC"
 
 PROJ_ROOT_FLDR_PATH = pathlib.Path(__file__).parent.resolve().absolute()
 

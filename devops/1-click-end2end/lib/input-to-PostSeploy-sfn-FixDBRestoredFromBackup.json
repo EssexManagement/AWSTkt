@@ -1,0 +1,6 @@
+{
+    "run-rds-init": true,
+    "runRdsInit": true,
+    "skip-SchemaTableInitialization": true,
+	"body": "{ \"force_update\": \"1\", \"DISABLED-ncit_version\":\"24.09e\", \"OLD_ncit_version_s__OLD\":\"24.06d or 24.07e\" }"
+}

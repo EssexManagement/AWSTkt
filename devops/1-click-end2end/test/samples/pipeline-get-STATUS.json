@@ -1,0 +1,318 @@
+{
+    "AWS-CLI-command": "aws codepipeline get-pipeline-state --name 'FACT-backend-pipeline-${ENV}'",
+
+    "pipelineName": "FACT-backend-pipeline-dev",
+    "pipelineVersion": 30,
+    "stageStates": [
+        {
+            "stageName": "Source",
+            "inboundExecutions": [],
+            "inboundTransitionState": {
+                "enabled": true
+            },
+            "actionStates": [
+                {
+                    "actionName": "BIAD_emFACT-backend-cdk.git",
+                    "currentRevision": {
+                        "revisionId": "fdb0b7ed67349df2fdcb18413fdf647c1ac86919"
+                    },
+                    "latestExecution": {
+                        "actionExecutionId": "138724c3-419f-4201-92cf-7fe8358d9ee7",
+                        "status": "Succeeded",
+                        "summary": "CHORE: fix comment",
+                        "lastStatusChange": "2024-07-25T18:05:13.314000-04:00",
+                        "externalExecutionId": "fdb0b7ed67349df2fdcb18413fdf647c1ac86919"
+                    },
+                    "entityUrl": "https://github.com/BIAD/emFACT-backend-cdk/tree/dev",
+                    "revisionUrl": "https://github.com/BIAD/emFACT-backend-cdk/commit/fdb0b7ed67349df2fdcb18413fdf647c1ac86919"
+                }
+            ],
+            "latestExecution": {
+                "pipelineExecutionId": "f3121407-d757-434e-b5e0-17abc2603361",
+                "status": "Succeeded"
+            }
+        },
+        {
+            "stageName": "Build",
+            "inboundExecutions": [],
+            "inboundTransitionState": {
+                "enabled": true
+            },
+            "actionStates": [
+                {
+                    "actionName": "Synth",
+                    "latestExecution": {
+                        "actionExecutionId": "754134fa-9a20-497c-80e6-f66c61aaa795",
+                        "status": "Succeeded",
+                        "lastStatusChange": "2024-07-25T18:10:05.690000-04:00",
+                        "externalExecutionId": "FACTbackendpipelinedevPipel-fPxB5Rl4ygMx:c3e5dc73-f37e-4e88-bf2d-d33eb78528e3",
+                        "externalExecutionUrl": "https://console.aws.amazon.com/codebuild/home?region=us-east-1#/builds/FACTbackendpipelinedevPipel-fPxB5Rl4ygMx:c3e5dc73-f37e-4e88-bf2d-d33eb78528e3/view/new"
+                    },
+                    "entityUrl": "https://console.aws.amazon.com/codebuild/home?region=us-east-1#/projects/FACTbackendpipelinedevPipel-fPxB5Rl4ygMx/view"
+                }
+            ],
+            "latestExecution": {
+                "pipelineExecutionId": "f3121407-d757-434e-b5e0-17abc2603361",
+                "status": "Succeeded"
+            }
+        },
+        {
+            "stageName": "UpdatePipeline",
+            "inboundExecutions": [],
+            "inboundTransitionState": {
+                "enabled": true
+            },
+            "actionStates": [
+                {
+                    "actionName": "SelfMutate",
+                    "latestExecution": {
+                        "actionExecutionId": "e2aa3535-8404-440c-bf3a-a68ba383d8c3",
+                        "status": "Succeeded",
+                        "lastStatusChange": "2024-07-25T18:11:10.072000-04:00",
+                        "externalExecutionId": "FACT-backend-pipeline-dev-selfupdate:e3865025-41a3-416a-9c3d-5cf55c74eb50",
+                        "externalExecutionUrl": "https://console.aws.amazon.com/codebuild/home?region=us-east-1#/builds/FACT-backend-pipeline-dev-selfupdate:e3865025-41a3-416a-9c3d-5cf55c74eb50/view/new"
+                    },
+                    "entityUrl": "https://console.aws.amazon.com/codebuild/home?region=us-east-1#/projects/FACT-backend-pipeline-dev-selfupdate/view"
+                }
+            ],
+            "latestExecution": {
+                "pipelineExecutionId": "f3121407-d757-434e-b5e0-17abc2603361",
+                "status": "Succeeded"
+            }
+        },
+        {
+            "stageName": "Assets",
+            "inboundExecutions": [],
+            "inboundTransitionState": {
+                "enabled": true
+            },
+            "actionStates": [
+                {
+                    "actionName": "DockerAsset1",
+                    "latestExecution": {
+                        "actionExecutionId": "f4b1ca7b-ae39-4e5e-8e54-39939b7e62c7",
+                        "status": "Succeeded",
+                        "lastStatusChange": "2024-07-25T18:12:15.501000-04:00",
+                        "externalExecutionId": "FACTbackendpipelinedevAsset-X7YxXZaDjIai:a7edd1fd-0c3a-489d-8c6f-e65af3968209",
+                        "externalExecutionUrl": "https://console.aws.amazon.com/codebuild/home?region=us-east-1#/builds/FACTbackendpipelinedevAsset-X7YxXZaDjIai:a7edd1fd-0c3a-489d-8c6f-e65af3968209/view/new"
+                    },
+                    "entityUrl": "https://console.aws.amazon.com/codebuild/home?region=us-east-1#/projects/FACTbackendpipelinedevAsset-X7YxXZaDjIai/view"
+                },
+                {
+                    "actionName": "DockerAsset2",
+                    "latestExecution": {
+                        "actionExecutionId": "dd82fa60-b8c7-408c-83e5-2b50352b429d",
+                        "status": "Succeeded",
+                        "lastStatusChange": "2024-07-25T18:12:17.213000-04:00",
+                        "externalExecutionId": "FACTbackendpipelinedevAsset-YqbT7nVRRArp:1055cd86-e51c-496e-918f-0298b52c9e56",
+                        "externalExecutionUrl": "https://console.aws.amazon.com/codebuild/home?region=us-east-1#/builds/FACTbackendpipelinedevAsset-YqbT7nVRRArp:1055cd86-e51c-496e-918f-0298b52c9e56/view/new"
+                    },
+                    "entityUrl": "https://console.aws.amazon.com/codebuild/home?region=us-east-1#/projects/FACTbackendpipelinedevAsset-YqbT7nVRRArp/view"
+                },
+                {
+                    "actionName": "FileAsset1",
+                    "latestExecution": {
+                        "actionExecutionId": "6f8e1437-4d88-4002-94ef-0d2c69420bb9",
+                        "status": "Succeeded",
+                        "lastStatusChange": "2024-07-25T18:12:25.126000-04:00",
+                        "externalExecutionId": "FACTbackendpipelinedevAsset-yF5rKBSeBaeF:5bfee05e-22a4-413d-a85b-a058cffff203",
+                        "externalExecutionUrl": "https://console.aws.amazon.com/codebuild/home?region=us-east-1#/builds/FACTbackendpipelinedevAsset-yF5rKBSeBaeF:5bfee05e-22a4-413d-a85b-a058cffff203/view/new"
+                    },
+                    "entityUrl": "https://console.aws.amazon.com/codebuild/home?region=us-east-1#/projects/FACTbackendpipelinedevAsset-yF5rKBSeBaeF/view"
+                },
+                {
+                    "actionName": "FileAsset2",
+                    "latestExecution": {
+                        "actionExecutionId": "795bbed2-8a6b-4461-be2d-f1da4ff5947e",
+                        "status": "Succeeded",
+                        "lastStatusChange": "2024-07-25T18:12:17.553000-04:00",
+                        "externalExecutionId": "FACTbackendpipelinedevAsset-5s5c2ufI2V9Y:a222c5b0-5d88-4ff8-b539-04a9b24e624d",
+                        "externalExecutionUrl": "https://console.aws.amazon.com/codebuild/home?region=us-east-1#/builds/FACTbackendpipelinedevAsset-5s5c2ufI2V9Y:a222c5b0-5d88-4ff8-b539-04a9b24e624d/view/new"
+                    },
+                    "entityUrl": "https://console.aws.amazon.com/codebuild/home?region=us-east-1#/projects/FACTbackendpipelinedevAsset-5s5c2ufI2V9Y/view"
+                },
+                {
+                    "actionName": "FileAsset3",
+                    "latestExecution": {
+                        "actionExecutionId": "c76e7c50-d93c-4680-9b61-e7b216525bcb",
+                        "status": "Succeeded",
+                        "lastStatusChange": "2024-07-25T18:12:17.445000-04:00",
+                        "externalExecutionId": "FACTbackendpipelinedevAsset-0IihIoDxiHfs:4ecafa68-486d-47ad-b4a0-8e92da2aa54e",
+                        "externalExecutionUrl": "https://console.aws.amazon.com/codebuild/home?region=us-east-1#/builds/FACTbackendpipelinedevAsset-0IihIoDxiHfs:4ecafa68-486d-47ad-b4a0-8e92da2aa54e/view/new"
+                    },
+                    "entityUrl": "https://console.aws.amazon.com/codebuild/home?region=us-east-1#/projects/FACTbackendpipelinedevAsset-0IihIoDxiHfs/view"
+                },
+                {
+                    "actionName": "FileAsset4",
+                    "latestExecution": {
+                        "actionExecutionId": "988db3df-5256-47d6-9756-d25dee7cd1ec",
+                        "status": "Succeeded",
+                        "lastStatusChange": "2024-07-25T18:12:18.540000-04:00",
+                        "externalExecutionId": "FACTbackendpipelinedevAsset-fKQYNG9p05W8:b3e2286b-6be5-4233-a95e-e98df4c1172b",
+                        "externalExecutionUrl": "https://console.aws.amazon.com/codebuild/home?region=us-east-1#/builds/FACTbackendpipelinedevAsset-fKQYNG9p05W8:b3e2286b-6be5-4233-a95e-e98df4c1172b/view/new"
+                    },
+                    "entityUrl": "https://console.aws.amazon.com/codebuild/home?region=us-east-1#/projects/FACTbackendpipelinedevAsset-fKQYNG9p05W8/view"
+                },
+                {
+                    "actionName": "FileAsset5",
+                    "latestExecution": {
+                        "actionExecutionId": "f8cfb95a-9c73-45cb-94a1-43f6e09fabf7",
+                        "status": "Succeeded",
+                        "lastStatusChange": "2024-07-25T18:12:16.281000-04:00",
+                        "externalExecutionId": "FACTbackendpipelinedevAsset-QsggtewXzKx4:d5de46a4-fc75-4c79-b402-3dc5bba2c565",
+                        "externalExecutionUrl": "https://console.aws.amazon.com/codebuild/home?region=us-east-1#/builds/FACTbackendpipelinedevAsset-QsggtewXzKx4:d5de46a4-fc75-4c79-b402-3dc5bba2c565/view/new"
+                    },
+                    "entityUrl": "https://console.aws.amazon.com/codebuild/home?region=us-east-1#/projects/FACTbackendpipelinedevAsset-QsggtewXzKx4/view"
+                },
+                {
+                    "actionName": "FileAsset6",
+                    "latestExecution": {
+                        "actionExecutionId": "7cca0d27-7c64-417d-8a97-1cec43b674aa",
+                        "status": "Succeeded",
+                        "lastStatusChange": "2024-07-25T18:12:17.779000-04:00",
+                        "externalExecutionId": "FACTbackendpipelinedevAsset-Fp0SV46zGfMr:cf8990d5-42a3-4be4-b37a-7278092c6b99",
+                        "externalExecutionUrl": "https://console.aws.amazon.com/codebuild/home?region=us-east-1#/builds/FACTbackendpipelinedevAsset-Fp0SV46zGfMr:cf8990d5-42a3-4be4-b37a-7278092c6b99/view/new"
+                    },
+                    "entityUrl": "https://console.aws.amazon.com/codebuild/home?region=us-east-1#/projects/FACTbackendpipelinedevAsset-Fp0SV46zGfMr/view"
+                },
+                {
+                    "actionName": "FileAsset7",
+                    "latestExecution": {
+                        "actionExecutionId": "87182386-d50d-4110-bb2e-2d451bfb539a",
+                        "status": "Succeeded",
+                        "lastStatusChange": "2024-07-25T18:12:17.956000-04:00",
+                        "externalExecutionId": "FACTbackendpipelinedevAsset-ZNhdrsiNMH0m:c8371a6a-e9b6-4366-a8a6-199c555dc84a",
+                        "externalExecutionUrl": "https://console.aws.amazon.com/codebuild/home?region=us-east-1#/builds/FACTbackendpipelinedevAsset-ZNhdrsiNMH0m:c8371a6a-e9b6-4366-a8a6-199c555dc84a/view/new"
+                    },
+                    "entityUrl": "https://console.aws.amazon.com/codebuild/home?region=us-east-1#/projects/FACTbackendpipelinedevAsset-ZNhdrsiNMH0m/view"
+                },
+                {
+                    "actionName": "FileAsset8",
+                    "latestExecution": {
+                        "actionExecutionId": "38c02675-8705-4e13-953f-e5895250170e",
+                        "status": "Succeeded",
+                        "lastStatusChange": "2024-07-25T18:12:20.350000-04:00",
+                        "externalExecutionId": "FACTbackendpipelinedevAsset-skI5eD2hcKkw:28a454d1-d557-4038-995d-2cff5c37bc3a",
+                        "externalExecutionUrl": "https://console.aws.amazon.com/codebuild/home?region=us-east-1#/builds/FACTbackendpipelinedevAsset-skI5eD2hcKkw:28a454d1-d557-4038-995d-2cff5c37bc3a/view/new"
+                    },
+                    "entityUrl": "https://console.aws.amazon.com/codebuild/home?region=us-east-1#/projects/FACTbackendpipelinedevAsset-skI5eD2hcKkw/view"
+                }
+            ],
+            "latestExecution": {
+                "pipelineExecutionId": "f3121407-d757-434e-b5e0-17abc2603361",
+                "status": "Succeeded"
+            }
+        },
+        {
+            "stageName": "FACT-backend-dev",
+            "inboundExecutions": [],
+            "inboundTransitionState": {
+                "enabled": true
+            },
+            "actionStates": [
+                {
+                    "actionName": "Cognito.Prepare",
+                    "latestExecution": {
+                        "actionExecutionId": "a5b51330-f270-4c79-a75a-1b7ad0548969",
+                        "status": "Succeeded",
+                        "summary": "Change set PipelineChange was created.",
+                        "lastStatusChange": "2024-07-25T18:13:31.874000-04:00",
+                        "externalExecutionId": "changeset/detail?changeSetId=arn:aws:cloudformation:us-east-1:127516845550:changeSet/PipelineChange/d2e71558-7546-450c-a5f0-53649264379a&stackId=arn:aws:cloudformation:us-east-1:127516845550:stack/FACT-backend-dev-Cognito/a8700f60-dd81-11ee-83fd-0e0fa161dd99",
+                        "externalExecutionUrl": "https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/changeset/detail?changeSetId=arn:aws:cloudformation:us-east-1:127516845550:changeSet/PipelineChange/d2e71558-7546-450c-a5f0-53649264379a&stackId=arn:aws:cloudformation:us-east-1:127516845550:stack/FACT-backend-dev-Cognito/a8700f60-dd81-11ee-83fd-0e0fa161dd99"
+                    },
+                    "entityUrl": "https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/"
+                },
+                {
+                    "actionName": "Stateful.Prepare",
+                    "latestExecution": {
+                        "actionExecutionId": "7c770947-6d11-411c-95ff-09393a1158a5",
+                        "status": "Succeeded",
+                        "summary": "Change set PipelineChange was created.",
+                        "lastStatusChange": "2024-07-25T18:13:01.782000-04:00",
+                        "externalExecutionId": "changeset/detail?changeSetId=arn:aws:cloudformation:us-east-1:127516845550:changeSet/PipelineChange/c5c27f1e-1fe7-4d86-8128-856340c516e0&stackId=arn:aws:cloudformation:us-east-1:127516845550:stack/FACT-backend-dev-Stateful/fb9c3240-4ad2-11ef-8455-120f278810d5",
+                        "externalExecutionUrl": "https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/changeset/detail?changeSetId=arn:aws:cloudformation:us-east-1:127516845550:changeSet/PipelineChange/c5c27f1e-1fe7-4d86-8128-856340c516e0&stackId=arn:aws:cloudformation:us-east-1:127516845550:stack/FACT-backend-dev-Stateful/fb9c3240-4ad2-11ef-8455-120f278810d5"
+                    },
+                    "entityUrl": "https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/"
+                },
+                {
+                    "actionName": "Cognito.Deploy",
+                    "latestExecution": {
+                        "actionExecutionId": "943ce3df-9fe6-45c0-b29a-e4703046bc5b",
+                        "status": "Succeeded",
+                        "summary": "Stack FACT-backend-dev-Cognito was updated.",
+                        "lastStatusChange": "2024-07-25T18:14:05.067000-04:00",
+                        "externalExecutionId": "stack/detail?stackId=arn:aws:cloudformation:us-east-1:127516845550:stack/FACT-backend-dev-Cognito/a8700f60-dd81-11ee-83fd-0e0fa161dd99",
+                        "externalExecutionUrl": "https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stack/detail?stackId=arn:aws:cloudformation:us-east-1:127516845550:stack/FACT-backend-dev-Cognito/a8700f60-dd81-11ee-83fd-0e0fa161dd99"
+                    },
+                    "entityUrl": "https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/"
+                },
+                {
+                    "actionName": "Stateful.Deploy",
+                    "latestExecution": {
+                        "actionExecutionId": "51888a8e-38ba-47ff-a5db-93c498b30e91",
+                        "status": "InProgress",
+                        "summary": "Waiting for current stack operation",
+                        "lastStatusChange": "2024-07-25T18:13:32.409000-04:00",
+                        "externalExecutionId": "stack/detail?stackId=arn:aws:cloudformation:us-east-1:127516845550:stack/FACT-backend-dev-Stateful/fb9c3240-4ad2-11ef-8455-120f278810d5",
+                        "externalExecutionUrl": "https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stack/detail?stackId=arn:aws:cloudformation:us-east-1:127516845550:stack/FACT-backend-dev-Stateful/fb9c3240-4ad2-11ef-8455-120f278810d5"
+                    },
+                    "entityUrl": "https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/"
+                },
+                {
+                    "actionName": "Lambdas-0.Prepare",
+                    "entityUrl": "https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/"
+                },
+                {
+                    "actionName": "Lambdas-1.Prepare",
+                    "entityUrl": "https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/"
+                },
+                {
+                    "actionName": "Lambdas-2.Prepare",
+                    "entityUrl": "https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/"
+                },
+                {
+                    "actionName": "Lambdas-3.Prepare",
+                    "entityUrl": "https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/"
+                },
+                {
+                    "actionName": "StatelessETL.Prepare",
+                    "entityUrl": "https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/"
+                },
+                {
+                    "actionName": "Lambdas-0.Deploy",
+                    "entityUrl": "https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/"
+                },
+                {
+                    "actionName": "Lambdas-1.Deploy",
+                    "entityUrl": "https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/"
+                },
+                {
+                    "actionName": "Lambdas-2.Deploy",
+                    "entityUrl": "https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/"
+                },
+                {
+                    "actionName": "Lambdas-3.Deploy",
+                    "entityUrl": "https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/"
+                },
+                {
+                    "actionName": "StatelessETL.Deploy",
+                    "entityUrl": "https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/"
+                },
+                {
+                    "actionName": "StatelessAPIGW.Prepare",
+                    "entityUrl": "https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/"
+                },
+                {
+                    "actionName": "StatelessAPIGW.Deploy",
+                    "entityUrl": "https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/"
+                }
+            ],
+            "latestExecution": {
+                "pipelineExecutionId": "f3121407-d757-434e-b5e0-17abc2603361",
+                "status": "InProgress"
+            }
+        }
+    ],
+    "created": "2024-02-14T12:52:33.165000-05:00",
+    "updated": "2024-07-25T18:04:26.192000-04:00"
+}

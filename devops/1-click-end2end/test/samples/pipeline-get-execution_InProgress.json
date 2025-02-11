@@ -1,0 +1,23 @@
+{
+    "AWS-CLI-command": "aws codepipeline get-pipeline-execution --pipeline-name 'FACT-backend-pipeline-${ENV}' --pipeline-execution-id 'f3121407-d757-434e-b5e0-17abc2603361'",
+
+    "pipelineExecution": {
+        "pipelineName": "FACT-backend-pipeline-dev",
+        "pipelineVersion": 30,
+        "pipelineExecutionId": "f3121407-d757-434e-b5e0-17abc2603361",
+        "status": "InProgress",
+        "artifactRevisions": [
+            {
+                "name": "BIAD_emFACT_backend_cdk_git_Source",
+                "revisionId": "fdb0b7ed67349df2fdcb18413fdf647c1ac86919",
+                "revisionSummary": "CHORE: fix comment",
+                "revisionUrl": "https://github.com/BIAD/emFACT-backend-cdk/commit/fdb0b7ed67349df2fdcb18413fdf647c1ac86919"
+            }
+        ],
+        "trigger": {
+            "triggerType": "StartPipelineExecution",
+            "triggerDetail": "arn:aws:sts::127516845550:assumed-role/FACT-devops-dev-1ClickEn2-FACTdevopsdevsfn1ClickEnd-w4BAxKQUewSa/wCXwXpuuBGQDCErTQuGLvJtuZlbkhXdV"
+        },
+        "executionMode": "SUPERSEDED"
+    }
+}

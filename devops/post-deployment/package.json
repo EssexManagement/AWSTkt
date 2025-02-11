@@ -1,0 +1,28 @@
+{
+  "name": "post-deployment",
+  "version": "1.1.0",
+  "bin": {
+    "post-deployment": "bin/post-deployment.js"
+  },
+  "scripts": {
+    "build": "npx tsc",
+    "watch": "npx tsc -w",
+    "test": "jest",
+    "cdk": "cdk"
+  },
+  "devDependencies": {
+    "@types/jest": "*",
+    "@types/node": "*",
+    "aws-cdk": "*",
+    "jest": "*",
+    "ts-jest": "*",
+    "ts-node": "*",
+    "typescript": "*",
+    "micromatch": ">=4.0.8"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "*",
+    "constructs": "*",
+    "source-map-support": "*"
+  }
+}

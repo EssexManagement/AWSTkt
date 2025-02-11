@@ -1,8 +1,11 @@
 import os
 import hashlib
 import time
-from pathlib import Path
+from pathlib import Path, PurePath
+from typing import Union, TypeVar
 import traceback
+
+PathLike = TypeVar('PathLike', str, PurePath)
 
 import docker
 import shutil
@@ -21,6 +24,7 @@ from aws_cdk import (
     DockerVolume,
 )
 
+import common.FSUtils as FSUtils
 import common.cdk.constants_cdk as constants_cdk
 from common.cdk.standard_lambda import LambdaLayerOption
 from cdk_utils.CloudFormation_util import (
@@ -37,6 +41,7 @@ from cdk_utils.CloudFormation_util import (
 
 _STD_BUILD_POST_CMDS = (
     " && rm -rf python/botocore"
+  + " && rm -rf python/docs"
   + " && find . -name '*.txt' -type f -delete"
   + " && find . -name '*.md'  -type f -delete"
   + " && ( find . -name \"datasets\"    -type d | xargs rm -rf )"
@@ -49,6 +54,8 @@ _STD_BUILD_POST_CMDS_SQUEEZE_MORE = (
   + " && find . -name '*.pyc' -type f -delete"
   # + " && ( find . -name \"docs\"        -type d | xargs rm -rf )"  ### <------- rds_init lambda had error: No module named 'botocore.docs' !!!
 )
+
+### ==========================================================================================================
 
 def _get_STD_BUILD_POST_CMDS(layer_opt : LambdaLayerOption) -> list:
     match layer_opt:
@@ -68,7 +75,58 @@ def _shrink_layer_zipfile(
         + _get_STD_BUILD_POST_CMDS(layer_opt)  ### <-------- this helps to shrink Lambda-Layer zip-file-SIZE.     See more above
     )
 
-### ==========================================================================================================
+
+### =================================================================================
+### ---------------------------------------------------------------------------------
+### =================================================================================
+
+class LambdaLayerProps():
+    """ Structured way to EASILY creating new Lambda-layers, avoiding typos, while also ensuring future-enhancements can be caught at "compile-time".
+        Has 3 properties:
+        lambda_layer_id :str,
+        lambda_layer_fldr :Path,
+        lambda_layer_sizing_option :LambdaLayerOption,
+    """
+
+    @property
+    def lambda_layer_id(self) -> str:
+        return self._lambda_layer_id
+
+    @property
+    def lambda_layer_fldr(self) -> Path:
+        return self._lambda_layer_fldr
+
+    @property
+    def lambda_layer_sizing_option(self) -> LambdaLayerOption:
+        return self._lambda_layer_sizing_option
+
+    def __init__(self,
+        lambda_layer_id :str,
+        lambda_layer_fldr :Path,
+        lambda_layer_sizing_option :LambdaLayerOption,
+    ):
+        """ Examples of parameter-values:
+                lambda_layer_id = "psycopg3-pandas"
+                lambda_layer_fldr = constants.PROJ_ROOT_FLDR_PATH / 'api/lambda_layer/psycopg'
+                lambda_layer_sizing_option LambdaLayerOption.LARGER_ZIP_FILE_FASTER_COLDSTART
+        """
+        self._lambda_layer_id = lambda_layer_id
+        self._lambda_layer_fldr = lambda_layer_fldr
+        self._lambda_layer_sizing_option = lambda_layer_sizing_option
+
+        ### private constants.
+        # _LAMBDA_LAYER_BUILDER_SCRIPT = constants.PROJ_ROOT_FLDR_PATH / 'api/lambda_layer/bin/etl-lambdalayer-builder-venv.sh'
+        ### x86_764: pip3 install --platform manylinux2014_x86_64  --target . --python-version 3.12 --only-binary=:all: psycopg2-binary
+        ### arm64:   pip3 install --platform manylinux2014_aarch64 --target . --python-version 3.12 --only-binary=:all: psycopg2-binary
+                ### REF: https://medium.com/@bloggeraj392/creating-a-psycopg2-layer-for-aws-lambda-a-step-by-step-guide-a2498c97c11e
+
+        # _ZIP_FILE_SIMPLENAME = "psycopg-layer-{}.zip"
+        ### Assuming it will be created into the folder specified via the `layer_fldr_path` param below.
+        ### For accuracy, check the `Dockerfile` within `lambda_layer/psycopg` subfolder.
+
+### =================================================================================
+### ---------------------------------------------------------------------------------
+### =================================================================================
 
 """ HOW-TO USE: Take a look at class `LambdaLayersAssetBuilder()` within `backend/common_aws_resources_stack.py`
     Step 1: Create all your layer-related files into a new sub-folder.
@@ -79,6 +137,30 @@ def _shrink_layer_zipfile(
     param # 2 : lambda_layer_builder_script :Path -- pathlib.Path to the folder containing the Lambda-layer source code.
 """
 class LambdaLayerUtility():
+
+    ### =================================================================================
+
+    @staticmethod
+    def gen_sha256_hash_for_layer( layer_fldr_path :PathLike) -> str:
+        """
+            param # 1: layer_fldr_path :Path -- pathlib.Path to the folder containing the Lambda-layer source code.
+            RETURNS: The SHA256 hash (of `Pipfile.lock`) which is then encoded as hex.  See the algorithm inside `FSUtils.get_sha256_hex_hash_for_file()`
+        """
+        ### Now calculate the SHA-256 hash and then convert it into HEX
+        pipfile_lock = "Pipfile.lock"
+        requirements_txt = "requirements.txt"
+        if FSUtils.is_valid_file(FSUtils.join_path(layer_fldr_path, pipfile_lock)):
+            asset_hash = FSUtils.get_sha256_hex_hash_for_file( layer_fldr_path, pipfile_lock )
+        elif FSUtils.is_valid_file(FSUtils.join_path(layer_fldr_path, requirements_txt)):
+            asset_hash = FSUtils.get_sha256_hex_hash_for_file( layer_fldr_path, requirements_txt )
+        else:
+            raise FileNotFoundError(f"Neither {pipfile_lock} nor {requirements_txt} found in {layer_fldr_path}")
+        print( f"asset_hash = '{asset_hash}'" )
+
+        return asset_hash
+
+    ### =================================================================================
+
     def __init__(self,
         lambda_layer_id :str,
         lambda_layer_builder_script :Path,
@@ -88,7 +170,7 @@ class LambdaLayerUtility():
         ### Assuming it will be created into the folder specified via the `layer_fldr_path` param below.
         ### For accuracy, check the `Dockerfile` within `lambda_layer/psycopg` subfolder.
 
-    ### -----------------------------------------------------------------------------------
+    ### -----------------------------------------------
 
     """ Build a CPU-architecture specific Lambda-layer -- using Docker (AWS-official Python-Container-Image)
         Once you have initialized this class via constructor, this method makes it very easy to create MULTIPLE chip-arch specific layers.
@@ -96,9 +178,9 @@ class LambdaLayerUtility():
         param # 1 : tier :str -- dev|test|int|uat|stage|prod
         param # 2 : cpu_arch_str :str -- 'arm64'|'x86_64'
         param # 3 : layer_fldr_path :Path -- pathlib.Path to the folder containing the Lambda-layer source code.
-        param # 4 : layer_opt : LambdaLayerOption -- See `lambda_layer_util.py` for ENUM's details.
+        param # 4 : layer_opt : LambdaLayerOption -- See `common.cdk.StandardLambdaLayer.py` for ENUM's details.
 
-        Returns the pathlib.Path to the ZIP-file.
+        Returns: pathlib.Path to the ZIP-file.
     """
         # param # 4 : reuse_if_exists :bool -- do NOT recreate the LambdaLayer if it already exists.  Default: do NOT reuse
     def build_lambda_layer_using_docker(self,
@@ -109,7 +191,7 @@ class LambdaLayerUtility():
         layer_opt : LambdaLayerOption,
         # zipfile_simplename :str,
         # reuse_if_exists :bool = False,  ### re-use does NOT work with `CodeAsset`.  So, unfortunately, we have to rebuild everytime!
-    ) -> aws_lambda.AssetCode:
+    ) -> tuple[aws_lambda.AssetCode, str]:
         HDR = f" -- build_lambda_layer(tier={tier},cpu={cpu_arch_str}): within {__file__}"
 
         print( f"\nlayer_fldr_path(as-is) = '{layer_fldr_path}' in "+HDR )
@@ -142,17 +224,30 @@ class LambdaLayerUtility():
         #     # shutil.rmtree( str(host_path) )
         # host_output_path.mkdir( parents=True, exist_ok=True )
 
-        docker_env = None
-        # ### We are --FORCED-- to pass in ENV-VARs to Docker, for a very-wierd-reason!
-        # ### This `aws_lambda.Code.from_asset()` is -NOT- actually doing anything -- until this Asset is used in the `aws_lambda.LayerVersion()` construct.
-        # ### By which time, all the values of "platform" within BuildOptions are OVERWRITTEN each time this is invoked!!!
-        # ### >> Bundling asset FACT-backend-dev/CommonAWSRrcs/layer-psycopg2-arm64/Code/Stage...
-        # ### >> Unable to find image 'public.ecr.aws/lambda/python:3.12-arm64' locally
-        # ### >> 3.12-arm64: Pulling from lambda/python
-        # ### >> Digest: sha256:04f633717595035419032727f8f28ac29cdd0400e6b3ca9a4cac23bea4bb0bb6
-        # ### >> Status: Image is up to date for public.ecr.aws/lambda/python:3.12-arm64
-        # ### >> docker: image with reference public.ecr.aws/lambda/python:3.12-arm64 was found but does not match the specified platform: wanted linux/amd64, actual: linux/arm64/v8.
-        # docker_env={} ### Passed onto Docker-Container when running
+        # ### We are --FORCED-- to pass in ENV-VARs to Docker, for 2 very-wierd USE-CASES!
+        # ### USE-CASE #1 is still valid -- only-installing BINARIES and NOT-the-source-code (when installing PyPi-modules, either with `pip` or `pipenv`)
+        # ### USE-CASE #2 -- not working -- is to enable Docker-in-Docker (which --FAILS-- inside AWS-CodeBuild)
+        # ### FYI: `aws_lambda.Code.from_asset()` is -NOT- actually doing anything -- until this Asset is used in the `aws_lambda.LayerVersion()` construct.
+        # ###       By which time, all the values of "platform" within BuildOptions are OVERWRITTEN each time this is invoked!!!
+        # ###       >> Bundling asset FACT-backend-dev/CommonAWSRrcs/layer-psycopg2-arm64/Code/Stage...
+        # ###       >> Unable to find image 'public.ecr.aws/lambda/python:3.12-arm64' locally
+        # ###       >> 3.12-arm64: Pulling from lambda/python
+        # ###       >> Digest: sha256:04f633717595035419032727f8f28ac29cdd0400e6b3ca9a4cac23bea4bb0bb6
+        # ###       >> Status: Image is up to date for public.ecr.aws/lambda/python:3.12-arm64
+        # ###       >> docker: image with reference public.ecr.aws/lambda/python:3.12-arm64 was found but does not match the specified platform: wanted linux/amd64, actual: linux/arm64/v8.
+        docker_env={} ### Passed onto Docker-Container when running
+        docker_env['PIP_ONLY_BINARY'] = ':all:'  ### use-case #1 mentioned above in comments
+                ### REF: https://pip.pypa.io/en/stable/cli/pip_install/
+        docker_env['PIP_TARGET'] = f"{inside_docker_output_path}/python"  ### use-case #1 mentioned above in comments
+                ### Attention: `pipenv` does -NOT- support `-t` a.k.a. `--target` CLI-arg, like plain `pip` cmd does.  Hence this env-var!!!
+        docker_env['PIPENV_VENV_IN_PROJECT'] = "1"   ### Keep virtualenv in project directory.  This is REQUIRED, since we are using `PIP_TARGET` (a.k.a. --target cli-arg for `pip` command)
+        docker_env['HOME']                   = f"{inside_docker_src_path}"
+        docker_env['PIPENV_HOME']            = "/tmp/pipenv"
+        ### Disable generating a new Pipenv's Pipfile.lock .. via environment variables
+        docker_env['PIPENV_NOSPIN']          = '1'
+        docker_env['PIPENV_SKIP_LOCK']       = '1'  # Prevents updating Pipfile.lock
+
+        ### Following is re: use-case #2 mentioned above in comments (FYI: following does NOT work in AWS-CodeBuild)
         # docker_env['TARGETPLATFORM'] = get_docker_platform(cpu_arch_str)
         # # 'DOCKER_DEFAULT_PLATFORM': os.environ['DOCKER_DEFAULT_PLATFORM'],
         #     ### ^^^^^^ ☝🏾☝🏾☝🏾 ! NOTE ! This is the critical-value, that ensures the cpu-arch for the Lambda-Layer is correct!!!
@@ -176,8 +271,16 @@ class LambdaLayerUtility():
 
         ### ---------------------------------------------
         ### Following Docker-based approach will create a zipfile automatically, with the MUCH-simpler `/python/**` folder-heirarchy.
-        asset_hash = LambdaLayerUtility.get_hash_for_file( layer_fldr_path, "requirements.txt" )
-        print( f"asset_hash = '{asset_hash}'" )
+        ### !! Attention !! pip's ERROR: Can not combine '--user' and '--target' (which is an ENV-VAR `PIP_TARGET` to this Docker)
+        cmd =  f"""
+            pip install pipenv &&
+            PYTHONPATH={inside_docker_output_path}/python PATH={inside_docker_output_path}/python/bin:$PATH pipenv sync --dev
+        """
+                ### !! Attention !! pip's ERROR: Can not combine '--user' and '--target' (which is an ENV-VAR `PIP_TARGET` to this Docker)
+                ### !! WARNING !! avoid use of pip3's cli-args "--platform {pip_platform}" !!! See switch/match above.
+                ### Note: Avoid `pipenv install`.  switch to `pipenv sync` which is More deterministic than `pipenv install`
+        cmd = ' '.join( cmd.split() ) ### split() and join() will replace \s+ with a single-whitespace-char!
+
         my_asset :aws_lambda.AssetCode = aws_lambda.Code.from_asset(
             ### https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_lambda/Code.html#aws_cdk.aws_lambda.Code.from_asset
             path = str(layer_fldr_path),
@@ -188,21 +291,22 @@ class LambdaLayerUtility():
                 ### Bottomline: For Lambda-Layers, always set `deploy_time` to `False`
             follow_symlinks = SymlinkFollowMode.NEVER, ### ALWAYS|EXTERNAL|BLOCK_EXTERNAL,
             # ignore_mode=IgnoreMode.GLOB ### Default!  FYI: to use for exclude patterns
-            asset_hash_type=AssetHashType.CUSTOM, ## |OUTPUT|SOURCE  If assetHash is configured, this option must be undefined or AssetHashType.CUSTOM
-            asset_hash = asset_hash,
+            # asset_hash_type=AssetHashType.CUSTOM, ## |OUTPUT|SOURCE  If assetHash is configured, this option must be undefined or AssetHashType.CUSTOM
+            # asset_hash = asset_hash,
 
             bundling = BundlingOptions(
                 ### https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk/BundlingOptions.html#aws_cdk.BundlingOptions
                 platform = get_docker_platform(cpu_arch_str),
                 image = DockerImage.from_registry( docker_img_uri ),
+                environment=docker_env, ### Passed onto Docker-Container when running
                 entrypoint = [ "bash", "-c" ],
                     ### Attention: Since this-construct was meant for Lambdas-Funcs and -NOT- Layers, we are overriding the Lambda-launcher.
                 command = [
                     # "bash",
                     # "-c",
                     _shrink_layer_zipfile(
-                        cmd = f"pip install  --upgrade -r requirements.txt -t {inside_docker_output_path}/python --only-binary=:all:",
-                                ### !! WARNING !! avoid use of pip3's cli-args "--platform {pip_platform}" !!! See switch/match above.
+                        # cmd = f"pip install  --upgrade -r requirements.txt -t {inside_docker_output_path}/python --only-binary=:all:",
+                        cmd = cmd,
                         install_dir = inside_docker_output_path,
                         layer_opt = layer_opt
                     )
@@ -228,7 +332,6 @@ class LambdaLayerUtility():
                     #     # consistency = Only applicable for --macOS--    Default: DockerConsistency.DELEGATED
                     # ),
                 ],
-                environment=docker_env, ### Passed onto Docker-Container when running
                 output_type = BundlingOutput.NOT_ARCHIVED,
                 ### https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.BundlingOutput.html
                         ### ARCHIVED: The bundling output-directory includes a single .zip or .jar file -- which will be used as the final bundle.
@@ -254,6 +357,7 @@ class LambdaLayerUtility():
                 ## ),
             ),
         )
+
         return my_asset
 
         ### ---------------------------------------------
@@ -308,7 +412,7 @@ class LambdaLayerUtility():
 #         param # 1 : tier :str -- dev|test|int|uat|stage|prod
 #         param # 2 : cpu_arch_str :str -- 'arm64'|'x86_64'
 #         param # 3 : layer_fldr_path :Path -- pathlib.Path to the folder containing the Lambda-layer source code.
-#         param # 4 : layer_opt : LambdaLayerOption -- See `lambda_layer_util.py` for ENUM's details.
+#         param # 4 : layer_opt : LambdaLayerOption -- See `common.cdk.StandardLambdaLayer.py` for ENUM's details.
 
 #         Returns the pathlib.Path to the ZIP-file.
 #     """
@@ -366,7 +470,7 @@ class LambdaLayerUtility():
 #             case _: raise RuntimeError(f"!! INTERNAL ERROR !! Unknown CPU architecture: '{cpu_arch_str}'")
 
 #         ### ---------------------------------------------
-#         asset_hash = LambdaLayerUtility.get_hash_for_file( layer_fldr_path, "requirements.txt" )
+#         asset_hash = FSUtils.get_sha256_hex_hash_for_file( layer_fldr_path, "requirements.txt" )
 #         print( f"asset_hash = '{asset_hash}'" )
 #         # cmd = f"pip install  --upgrade -r requirements.txt -t {inside_docker_output_path}/python --only-binary=:all:",
 #                 ### !! WARNING !! avoid use of pip3's cli-args "--platform {pip_platform}" !!! See switch/match above.
@@ -409,77 +513,6 @@ class LambdaLayerUtility():
     ### ---------------------------------------------------------------------------------
     ### =================================================================================
 
-    @staticmethod
-    def get_hash_for_file(
-        layer_fldr_path :Path,
-        simple_filename :str
-    ):
-        """ Per CDK's aws_lambda.Code.from_asset(..)
-            this custom hash will be SHA256 hashed and encoded as hex.
-        """
-        req_file_path = layer_fldr_path / simple_filename
-
-        # Check if requirements.txt exists
-        if not req_file_path.exists():
-            raise FileNotFoundError(f"!! ERROR !! file '{simple_filename}' not found inside Folder: '{req_file_path}'.")
-
-        # Read the contents of requirements.txt and create a hash
-        with open( req_file_path, 'rb' ) as f:
-            content = f.read()
-            # Create SHA256 hash of the contents
-            hash_object = hashlib.sha256(content)
-            hash_object = hash_object.hexdigest()
-            return hash_object
-        raise RuntimeError("!! ERROR !! Unable to read file contents of file '{simple_filename}' under folder '{req_file_path}'.")
-
-
-### =================================================================================
-### ---------------------------------------------------------------------------------
-### =================================================================================
-
-class LambdaLayerProps():
-    """ Structured way to EASILY creating new Lambda-layers, avoiding typos, while also ensuring future-enhancements can be caught at "compile-time".
-        Has 3 properties:
-        lambda_layer_id :str,
-        lambda_layer_fldr :Path,
-        lambda_layer_sizing_option :LambdaLayerOption,
-    """
-
-    @property
-    def lambda_layer_id(self) -> str:
-        return self._lambda_layer_id
-
-    @property
-    def lambda_layer_fldr(self) -> Path:
-        return self._lambda_layer_fldr
-
-    @property
-    def lambda_layer_sizing_option(self) -> LambdaLayerOption:
-        return self._lambda_layer_sizing_option
-
-    def __init__(self,
-        lambda_layer_id :str,
-        lambda_layer_fldr :Path,
-        lambda_layer_sizing_option :LambdaLayerOption,
-    ):
-        """ Examples of parameter-values:
-                lambda_layer_id = "psycopg3-pandas"
-                lambda_layer_fldr = constants.PROJ_ROOT_FLDR_PATH / 'api/lambda_layer/psycopg'
-                lambda_layer_sizing_option LambdaLayerOption.LARGER_ZIP_FILE_FASTER_COLDSTART
-        """
-        self._lambda_layer_id = lambda_layer_id
-        self._lambda_layer_fldr = lambda_layer_fldr
-        self._lambda_layer_sizing_option = lambda_layer_sizing_option
-
-        ### private constants.
-        # _LAMBDA_LAYER_BUILDER_SCRIPT = constants.PROJ_ROOT_FLDR_PATH / 'api/lambda_layer/bin/etl-lambdalayer-builder-venv.sh'
-        ### x86_764: pip3 install --platform manylinux2014_x86_64  --target . --python-version 3.12 --only-binary=:all: psycopg2-binary
-        ### arm64:   pip3 install --platform manylinux2014_aarch64 --target . --python-version 3.12 --only-binary=:all: psycopg2-binary
-                ### REF: https://medium.com/@bloggeraj392/creating-a-psycopg2-layer-for-aws-lambda-a-step-by-step-guide-a2498c97c11e
-
-        # _ZIP_FILE_SIMPLENAME = "psycopg-layer-{}.zip"
-        ### Assuming it will be created into the folder specified via the `layer_fldr_path` param below.
-        ### For accuracy, check the `Dockerfile` within `lambda_layer/psycopg` subfolder.
 
 ### =================================================================================
 ### ---------------------------------------------------------------------------------

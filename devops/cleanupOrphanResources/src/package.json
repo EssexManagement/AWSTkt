@@ -1,0 +1,41 @@
+{
+  "name": "nih-nci-ccdi-factrial-devops-cleanup-orphan-resources",
+  "version": "1.0.0",
+  "description": "NodeJS utility to use for NOH-NCI's FACTrial-application's DevOps pipeline to clean up Orphan-AWS-Resources",
+  "main": "app.ts",
+  "repository": "https://github.com/BIAD/emFACT-backend-cdk.git",
+  "author": "sarma.seetamraju@nih.gov",
+  "license": "MIT",
+  "scripts": {
+    "unit": "jest",
+    "lint": "eslint '*.ts' --quiet --fix",
+    "compile": "tsc",
+    "DISABLED-build": "npx tsc",
+    "DISABLED-watch": "npx tsc -w",
+    "test": "npm run compile && npm run unit"
+  },
+  "devDependencies": {
+    "typescript": "*",
+    "eslint": "*",
+    "eslint-config-prettier": "*",
+    "eslint-plugin-prettier": "*",
+    "@types/aws-lambda": "*",
+    "@types/jest": "*",
+    "@types/node": "*",
+    "@typescript-eslint/eslint-plugin": "*",
+    "@typescript-eslint/parser": "*",
+    "ts-node": "*",
+    "jest": "*",
+    "@jest/globals": "*",
+    "ts-jest": "*",
+    "prettier": "*",
+    "micromatch": ">=4.0.8",
+    "@aws-sdk/core": "*"
+  },
+  "dependencies": {
+    "esbuild": "*",
+    "@aws-sdk/client-cloudfront": "*",
+    "@aws-lambda-powertools/logger": "*",
+    "source-map-support": "*"
+  }
+}

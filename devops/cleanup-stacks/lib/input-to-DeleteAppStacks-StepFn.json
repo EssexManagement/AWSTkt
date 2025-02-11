@@ -1,0 +1,30 @@
+{
+    "deleteInSequence": [
+        {
+            "deleteInParallel": [
+                "{app}-backend-{tier}-StatelessETL",
+                "{app}-frontend-{tier}",
+                "{app}-frontend-{tier}-observe"
+            ]
+        },
+        {
+            "deleteInParallel": [
+                "{app}-backend-{tier}-Lambdas-0",
+                "{app}-backend-{tier}-Lambdas-1",
+                "{app}-backend-{tier}-Lambdas-2",
+                "{app}-backend-{tier}-Lambdas-3"
+            ]
+        },
+        {
+            "deleteInParallel": [
+                "{app}-backend-{tier}-CommonAWSRrcs",
+                "{app}-backend-{tier}-CommonRsrc-arm64",
+                "{app}-backend-{tier}-CommonRsrc-amd64",
+                "{app}-backend-{tier}-SqsStack",
+                "{app}-backend-{tier}-SNSStack",
+                "{app}-backend-{tier}-StatelessAPIGW"
+            ]
+        }
+    ],
+    "SNSTopicName": "{SNSTopicName}"
+}

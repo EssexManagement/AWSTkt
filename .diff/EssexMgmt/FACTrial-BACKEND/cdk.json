@@ -1,0 +1,162 @@
+2c2
+<   "app": "python3 cdk_app.py",
+---
+>   "app": "python3 app.py",
+27,38d26
+<           },
+<           "int": {
+<             "name": "FACTrial-GitHub-V2",
+<             "arn": "arn:aws:codeconnections:us-east-1:127516845550:connection/2135aa52-7ca9-49d5-b338-9a5db089d963"
+<           },
+<           "uat": {
+<             "name": "FACTrial-GitHub-V2",
+<             "arn": "arn:aws:codeconnections:us-east-1:668282225937:connection/b480d6af-21a1-48c2-9a28-a09e6b1c6b4b"
+<           },
+<           "prod": {
+<             "name": "FACTrial-GitHub-V2",
+<             "arn": "arn:aws:codeconnections:us-east-1:564062160093:connection/737e3dc5-e50b-4e95-8d75-dd9175d8a2f0"
+42,46c30,31
+<         "sarma" : "sarma",
+<         "dev" : "dev",
+<         "int" : "main",
+<         "uat" : "v2.0.5",
+<         "prod" : "prod-v1.9.8"
+---
+>         "dev" : "main",
+>         "AWSTkt" : "main"
+50,53c35
+<       "dev" : "10.101.0.0/16",
+<       "int" : "10.110.0.0/16",
+<       "uat" : "11.110.0.0/16",
+<       "prod" : "12.110.0.0/16"
+---
+>       "dev" : "10.121.0.0/16"
+63,66c45
+<           "dev": "arn:aws:wafv2:us-east-1:127516845550:regional/webacl/DEFAULT-WAF-WebACL-REGIONAL-USOnly/e66483e6-3898-4e74-8b3c-2f13793c0af6",
+<           "int": "arn:aws:wafv2:us-east-1:127516845550:regional/webacl/DEFAULT-WAF-WebACL-REGIONAL-USOnly/e66483e6-3898-4e74-8b3c-2f13793c0af6",
+<           "uat": "arn:aws:wafv2:us-east-1:668282225937:regional/webacl/ctrp-WAF-WebACL-REGIONAL-USOnly/3b75c86d-902f-4cda-817e-fe5602ee3c91",
+<           "prod": "arn:aws:wafv2:us-east-1:564062160093:regional/webacl/DEFAULT-WAF-WebACL-REGIONAL-USOnly/a82133f5-c864-43ea-afe3-88d2e072f761"
+---
+>           "dev": "arn:aws:wafv2:us-east-1:127516845550:regional/webacl/DEFAULT-WAF-WebACL-REGIONAL-USOnly/e66483e6-3898-4e74-8b3c-2f13793c0af6"
+73,75d51
+<       "int": "16",
+<       "uat": "16",
+<       "prod": "16",
+80,83c56
+<         "dev" : 1,
+<         "int": 3,
+<         "uat": 35,
+<         "prod": 35
+---
+>         "dev" : 1
+87,90c60
+<         "dev" : "ONE_YEAR",
+<         "int": "ONE_YEAR",
+<         "uat": "ONE_YEAR",
+<         "prod": "ONE_YEAR"
+---
+>         "dev" : "ONE_YEAR"
+94,97c64
+<       "dev": "s3logs-devint",
+<       "int": "s3logs-devint",
+<       "uat": "s3logs-uat",
+<       "prod": "s3logs-prod"
+---
+>       "dev": "s3logs-devint"
+100,105c67
+<       "matt" : {"hour" : "13", "minute" : "0"},
+<       "sarma" : {"hour" : "13", "minute" : "0"},
+<       "dev" : {"hour" : "13", "minute" : "0"},
+<       "int" : {"hour" : "13", "minute" : "15"},
+<       "uat" : {"hour" : "13", "minute" : "30"},
+<       "prod" : {"hour" : "13", "minute" : "45"}
+---
+>       "dev" : {"hour" : "13", "minute" : "0"}
+108,116c70,71
+<       "factrial.com": {
+<         "matt" : "matt.dev.factrial.com",
+<         "sarma" : "sarma.dev.factrial.com",
+<         "main" : "no.such.fqdn.com",
+<         "dev" :  "{}.dev.factrial.com",
+<         "int" :  "{}.int.factrial.com",
+<         "uat" :  "{}.uat.factrial.com",
+<         "prod" : "{}.factrial.com",
+<         "CloudOne": "{}.factrial.ccdi.cancer.gov REF https://clinicalbiomed.slack.com/archives/C06HAA8FJV9/p1728328333024379"
+---
+>       "MyCompany.com": {
+>         "dev" :  "{}.dev.MyCompany.com"
+119c74
+<     "root_domain": "factrial.com",
+---
+>     "root_domain": "MyCompany.com",
+122,126d76
+<     "ctsapi-v1-prod-url": "https://clinicaltrialsapi.cancer.gov/v1/clinical-trials",
+<     "ctsapi-v2-prod-url": "https://clinicaltrialsapi.cancer.gov/api/v2/trials",
+<     "ctsapi-v2-prod-unpublished-name": "FACT/prod/clinicaltrialsapi.cancer.gov",
+<     "bing-maps-key-unpublished-name": "FACT/prod/bing_maps_key",
+<     "ctsapi-version": "2",
+128,129c78,138
+<         "sarma.seetamraju@nih.gov"
+<     ]
+---
+>         "USeetamraju@Emmes.com"
+>     ],
+>     "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
+>     "@aws-cdk/core:checkSecretUsage": true,
+>     "@aws-cdk/core:target-partitions": [
+>       "aws",
+>       "aws-cn"
+>     ],
+>     "@aws-cdk-containers/ecs-service-extensions:enableDefaultLogDriver": true,
+>     "@aws-cdk/aws-ec2:uniqueImdsv2TemplateName": true,
+>     "@aws-cdk/aws-ecs:arnFormatIncludesClusterName": true,
+>     "@aws-cdk/aws-iam:minimizePolicies": true,
+>     "@aws-cdk/core:validateSnapshotRemovalPolicy": true,
+>     "@aws-cdk/aws-codepipeline:crossAccountKeyAliasStackSafeResourceName": true,
+>     "@aws-cdk/aws-s3:createDefaultLoggingPolicy": true,
+>     "@aws-cdk/aws-sns-subscriptions:restrictSqsDescryption": true,
+>     "@aws-cdk/aws-apigateway:disableCloudWatchRole": true,
+>     "@aws-cdk/core:enablePartitionLiterals": true,
+>     "@aws-cdk/aws-events:eventsTargetQueueSameAccount": true,
+>     "@aws-cdk/aws-ecs:disableExplicitDeploymentControllerForCircuitBreaker": true,
+>     "@aws-cdk/aws-iam:importedRoleStackSafeDefaultPolicyName": true,
+>     "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": true,
+>     "@aws-cdk/aws-route53-patters:useCertificate": true,
+>     "@aws-cdk/customresources:installLatestAwsSdkDefault": false,
+>     "@aws-cdk/aws-rds:databaseProxyUniqueResourceName": true,
+>     "@aws-cdk/aws-codedeploy:removeAlarmsFromDeploymentGroup": true,
+>     "@aws-cdk/aws-apigateway:authorizerChangeDeploymentLogicalId": true,
+>     "@aws-cdk/aws-ec2:launchTemplateDefaultUserData": true,
+>     "@aws-cdk/aws-secretsmanager:useAttachedSecretResourcePolicyForSecretTargetAttachments": true,
+>     "@aws-cdk/aws-redshift:columnId": true,
+>     "@aws-cdk/aws-stepfunctions-tasks:enableEmrServicePolicyV2": true,
+>     "@aws-cdk/aws-ec2:restrictDefaultSecurityGroup": true,
+>     "@aws-cdk/aws-apigateway:requestValidatorUniqueId": true,
+>     "@aws-cdk/aws-kms:aliasNameRef": true,
+>     "@aws-cdk/aws-autoscaling:generateLaunchTemplateInsteadOfLaunchConfig": true,
+>     "@aws-cdk/core:includePrefixInUniqueNameGeneration": true,
+>     "@aws-cdk/aws-efs:denyAnonymousAccess": true,
+>     "@aws-cdk/aws-opensearchservice:enableOpensearchMultiAzWithStandby": true,
+>     "@aws-cdk/aws-lambda-nodejs:useLatestRuntimeVersion": true,
+>     "@aws-cdk/aws-efs:mountTargetOrderInsensitiveLogicalId": true,
+>     "@aws-cdk/aws-rds:auroraClusterChangeScopeOfInstanceParameterGroupWithEachParameters": true,
+>     "@aws-cdk/aws-appsync:useArnForSourceApiAssociationIdentifier": true,
+>     "@aws-cdk/aws-rds:preventRenderingDeprecatedCredentials": true,
+>     "@aws-cdk/aws-codepipeline-actions:useNewDefaultBranchForCodeCommitSource": true,
+>     "@aws-cdk/aws-cloudwatch-actions:changeLambdaPermissionLogicalIdForLambdaAction": true,
+>     "@aws-cdk/aws-codepipeline:crossAccountKeysDefaultValueToFalse": true,
+>     "@aws-cdk/aws-codepipeline:defaultPipelineTypeToV2": true,
+>     "@aws-cdk/aws-kms:reduceCrossAccountRegionPolicyScope": true,
+>     "@aws-cdk/aws-eks:nodegroupNameAttribute": true,
+>     "@aws-cdk/aws-ec2:ebsDefaultGp3Volume": true,
+>     "@aws-cdk/aws-ecs:removeDefaultDeploymentAlarm": true,
+>     "@aws-cdk/custom-resources:logApiResponseDataPropertyTrueDefault": false,
+>     "@aws-cdk/aws-s3:keepNotificationInImportedBucket": false,
+>     "@aws-cdk/aws-ecs:reduceEc2FargateCloudWatchPermissions": true,
+>     "@aws-cdk/aws-dynamodb:resourcePolicyPerReplica": true,
+>     "@aws-cdk/aws-ec2:ec2SumTImeoutEnabled": true,
+>     "@aws-cdk/aws-appsync:appSyncGraphQLAPIScopeLambdaPermission": true,
+>     "@aws-cdk/aws-rds:setCorrectValueForDatabaseInstanceReadReplicaInstanceResourceId": true,
+>     "@aws-cdk/core:cfnIncludeRejectComplexResourceUpdateCreatePolicyIntrinsics": true,
+>     "@aws-cdk/aws-lambda-nodejs:sdkV3ExcludeSmithyPackages": true,
+>     "@aws-cdk/aws-stepfunctions-tasks:fixRunEcsTaskPolicy": true

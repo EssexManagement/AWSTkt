@@ -1,0 +1,153 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: >-
+  Cleanup Orphan resources like:
+  (1) CloudFront Origin-Request-Policy Cleanup
+  (2) CloudFront Response Headers Cleanup
+  (3) CloudFront Cache Policies Cleanup
+
+
+Parameters:
+  Tier:
+    Type: String
+    Description: dev | int | uat | prod | some-developer-branch
+
+  EnterpriseName:
+    Type: String
+    Description: >-
+        See FACTrial project's git-repo's constants.py file for further details
+    Default: "nih-nci"  ### Used in bucket-name.  So, must be 100% lower-case!!!
+
+  AppName:
+    Type: String
+    Description: >-
+        See FACTrial project's git-repo's constants.py file for further details
+    Default: "FACT"
+
+  ComponentName:
+    Type: String
+    Description: >-
+        See FACTrial project's git-repo's constants.py file for further details
+    Default: "backend"
+
+  ApplnGroupName:
+    Type: String
+    Description: >-
+        This is mandatory for organizing multiple 𝜆s into one App (under Application-section of 𝜆-console)
+    Default: "FACTrial"
+
+  DateTimeStamp:
+    Description: Date & Time
+    Type: String
+    # AllowedPattern: >-
+    #   [0-9]-[0-9][0-9]-[0-9][0-9]
+    #   [0-9]:[0-9][0-9]:[0-9][0-9]
+    AllowedPattern: >-
+      ^\d{4}(-\d{2}){2}T(\d{2}:){2}\d{2}$
+    ConstraintDescription: "Date and time of STACK-creation"
+
+
+
+Globals: # https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+  Function:
+    Timeout: 5
+    MemorySize: 128
+
+    Tracing: Active
+    # You can add LoggingConfig parameters such as the Logformat, Log Group, and SystemLogLevel or ApplicationLogLevel. Learn more here https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html#sam-function-loggingconfig.
+    LoggingConfig:
+      LogFormat: JSON
+  Api:
+    TracingEnabled: true
+
+
+
+Conditions:
+  IsValidTier: !Or
+    - !Equals [!Ref Tier, "dev"]
+    - !Equals [!Ref Tier, "int"]
+    - !Equals [!Ref Tier, "uat"]
+    - !Equals [!Ref Tier, "prod"]
+
+
+
+Resources:
+
+  MyLambdaFunc:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}"
+      CodeUri: src/
+      Handler: app.lambdaHandler
+      Runtime: nodejs20.x
+      Architectures:
+        - arm64
+      Environment:
+        Variables:
+          POWERTOOLS_SERVICE_NAME: PowertoolsRDSInstanceSetup
+          POWERTOOLS_METRICS_NAMESPACE: Powertools
+          LOG_LEVEL: INFO
+      Tags:
+        ApplicationName: !Ref ApplnGroupName  ### This is mandatory for organizing multiple 𝜆s into one App (under Application-section of 𝜆-console)
+        PRODUCT: 'factrial' ### CRRI rules.  Must be all lowercase.
+        VERSION: 'v2.0.0'   ### CRRI rules.  Must be all lowercase.
+        ENVIRONMENT: !If [IsValidTier, !Ref Tier, 'dev']
+        # Environment: !Sub '${Tier}-${ApplnGroupName}'  ### This is mandatory for organizing multiple 𝜆s into one App (under Application-section of 𝜆-console)
+        application: !Ref AppName
+        component: 'devops'
+        env: !Ref Tier
+        branch: 'main'
+        BUILD: !Ref DateTimeStamp
+        SOURCE: "https://github.com/BIAD/cloud_eng.git/AWS-SAM/lambdas/wipeout-bucket/"
+
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - cloudfront:ListOriginRequestPolicies
+                - cloudfront:ListResponseHeadersPolicies
+                - cloudfront:GetOriginRequestPolicy
+                - cloudfront:GetResponseHeadersPolicy
+                - cloudfront:DeleteOriginRequestPolicy
+                - cloudfront:DeleteResponseHeadersPolicy
+              Resource: '*'
+
+      # Events:
+      #   MyOwnApi:
+      #     Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+      #     Properties:
+      #       Path: /myOwnApi
+      #       Method: get
+
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: es2020
+        Sourcemap: true
+        EntryPoints:
+        - app.ts
+
+  ApplicationResourceGroup:
+    Type: AWS::ResourceGroups::Group
+    Properties:
+      Name:
+        Fn::Sub: ApplicationInsights-SAM-${AWS::StackName}
+      ResourceQuery:
+        Type: CLOUDFORMATION_STACK_1_0
+  ApplicationInsightsMonitoring:
+    Type: AWS::ApplicationInsights::Application
+    Properties:
+      ResourceGroupName:
+        Ref: ApplicationResourceGroup
+      AutoConfigurationEnabled: 'true'
+
+Outputs:
+
+  MyLambdaFunc:
+    Description: Orphan AWS-Resources Cleanup Lambda-Fn ARN
+    Value: !GetAtt MyLambdaFunc.Arn
+
+### EoF
