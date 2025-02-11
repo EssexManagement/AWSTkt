@@ -29,6 +29,8 @@ lambda_layer_hashes :dict[str, dict[str, any]] = {
         "AWSTkt-backend-dev_psycopg-pandas_amd64" : { "arn" : "arn:aws:lambda:us-east-1:127516845550:layer:AWSTkt-backend-dev_psycopg-pandas_amd64:5", "sha256_hex" : "14be7a5a950089d9b4af44e326106dd0848246bec0bbf4c808f60ce05cdbf7b0" },
         "AWSTkt-backend-dev_psycopg3_amd64" : { "arn" : "arn:aws:lambda:us-east-1:127516845550:layer:AWSTkt-backend-dev_psycopg3_amd64:3", "sha256_hex" : "a9919dc9339b309429e4e68654f3717267d06306d0d6aac08f2da7a452aa1daa" },
         "AWSTkt-backend-dev_psycopg3-pandas_amd64" : { "arn" : "arn:aws:lambda:us-east-1:127516845550:layer:AWSTkt-backend-dev_psycopg3-pandas_amd64:5", "sha256_hex" : "bee0f0557991c26bd7cbce31b66840a78504b7e35b65558cfe132f4ab4bcc266" },
+        "AWSTkt-backend-dev_numpy_etc_arm64" : { "arn" : "arn:aws:lambda:us-east-1:127516845550:layer:AWSTkt-backend-AWSTkt_psycopg3_amd64:3", "sha256_hex" : "a9919dc9339b309429e4e68654f3717267d06306d0d6aac08f2da7a452aa1daa" },
+        "AWSTkt-backend-dev_numpy_etc_amd64" : { "arn" : "arn:aws:lambda:us-east-1:127516845550:layer:AWSTkt-backend-AWSTkt_psycopg3-pandas_amd64:5", "sha256_hex" : "bee0f0557991c26bd7cbce31b66840a78504b7e35b65558cfe132f4ab4bcc266" },
     },
     'XYZtier' : {
         "NoSuchProject-NoSuchTier_psycopg_arm64" : { "arn" : "arn:aws:lambda:ap-northeast-2:123456789012:layer:NoSuchProject-NoSuchTier_psycopg-pandas_amd64:1", "sha256_hex" : "06dd0848250089d9b4af44e326106dd0848246bec0bbf4c808f60ce05cdbf7b0" },
