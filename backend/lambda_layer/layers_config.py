@@ -11,7 +11,7 @@ LAYER_MODULES = [
     lambda_layer_psycopg_pandas,
     lambda_layer_psycopg3,
     lambda_layer_psycopg3_pandas,
-    # lambda_layer_numpy_etc,
+    lambda_layer_numpy_etc,
 ]
 
 ### EoF

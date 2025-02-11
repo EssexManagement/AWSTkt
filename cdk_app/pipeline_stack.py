@@ -123,7 +123,9 @@ class AwsTktPipelineStack(Stack):
                 cpu_arch = cpu_arch,
                 git_repo_url = f"{git_repo_org_name}/{git_repo_name}",
                 cdk_app_pyfile="cdk_lambda_layers_app.py",
-                use_CodeBuild_cache = constants_cdk.USE_CODEBUILD_CACHE,
+                whether_to_use_adv_caching = constants_cdk.USE_ADVANCED_CODEBUILD_CACHE,
+                my_pipeline_artifact_bkt = my_pipeline_v2.my_pipeline_artifact_bkt,
+                my_pipeline_artifact_bkt_name = my_pipeline_v2.my_pipeline_artifact_bkt_name,
                 addl_cdk_context = {
                     "CPU_ARCH": cpu_arch_str
                 }
@@ -152,7 +154,9 @@ class AwsTktPipelineStack(Stack):
             cpu_arch = constants_cdk.DEFAULT_CPU_ARCH,
             git_repo_url = f"{git_repo_org_name}/{git_repo_name}",
             cdk_app_pyfile="cdk_app.py",
-            use_CodeBuild_cache = constants_cdk.USE_CODEBUILD_CACHE,
+            whether_to_use_adv_caching = constants_cdk.USE_ADVANCED_CODEBUILD_CACHE,
+            my_pipeline_artifact_bkt = my_pipeline_v2.my_pipeline_artifact_bkt,
+            my_pipeline_artifact_bkt_name = my_pipeline_v2.my_pipeline_artifact_bkt_name,
             addl_cdk_context = {
                 "CPU_ARCH": constants_cdk.DEFAULT_CPU_ARCH_NAMESTR
             }
