@@ -29,33 +29,7 @@ import constants
 import common.cdk.constants_cdk as constants_cdk
 import common.cdk.aws_names as aws_names
 
-from app_pipeline.pipeline import add_tags ### This file is PROJECT_ROOT/pipeline.py
-
 ### ---------------------------------------------------------------------------------
-"""
-    1st param:  typical CDK scope (parent Construct/stack)
-    2nd param:  pipeline_name :str  => Usually, pass in the stack_id as
-    3rd param:  stack_id :str       => NOT in use. Pass in None for now.
-    4th param:  tier :str           => (dev|int|uat|tier)
-    5th param:  aws_env :str        => typically the AWS_ACCOUNT AWSPROFILE; Example: DEVINT_SHARED|UAT|PROD
-    6th param:  git_repo_name :str  => (simple name only. NOT the URL)
-    7th param:  git_repo_org_name :str
-    8th param:  codestar_connection_arn :str => (ideally lookup it up from cdk.json and pass it in here)
-    9th param:  pipeline_source_gitbranch :str => (Typically, `dev|main|git-tag1|...` as provided in cdk.json's `git_commit_hashes` element)
-    10th param: codebase_root_folder :str => SubFolder within which to find the code-base .. or .. it contains all the folders representing various "subprojects".
-                    Example-Values:     "devops/"  "Operations/"
-                    Example-Value:      "." <-- implying root-folder of git-repo
-    11th param: source_artifact :codepipeline.Artifact => Can NOT be None!
-
-    12th param: OPTIONAL: codebase_folders_that_trigger_pipeline :list[str] => a list of folder-paths to trigger the pipeline.
-                    NOTE: Only useful for Pipelines like Meta-Pipeline and devops-pipeline.
-    13th param: OPTIONAL: codebase_ignore_paths :list[str] => a list of folder-paths to IGNORE (for pipeline-triggers)
-                    REF: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitfilepathfiltercriteria.html
-                    Use this to prevent unnecessary pipeline-triggers.
-
-    Returns a valid instance of "aws_codepipeline.Pipeline" construct.
-        This returned-pipeline will AUTOMATICALLY include a CodeStarConnectionsSourceAction
-"""
 def createStandardPipeline(
     cdk_scope: Construct,
     pipeline_name: str,
@@ -73,6 +47,30 @@ def createStandardPipeline(
                             ### REF: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitfilepathfiltercriteria.html
     **kwargs
 ) -> codepipeline.Pipeline:
+    """
+        1st param:  typical CDK scope (parent Construct/stack)
+        2nd param:  pipeline_name :str  => Usually, pass in the stack_id as
+        3rd param:  stack_id :str       => NOT in use. Pass in None for now.
+        4th param:  tier :str           => (dev|int|uat|tier)
+        5th param:  aws_env :str        => typically the AWS_ACCOUNT AWSPROFILE; Example: DEVINT_SHARED|UAT|PROD
+        6th param:  git_repo_name :str  => (simple name only. NOT the URL)
+        7th param:  git_repo_org_name :str
+        8th param:  codestar_connection_arn :str => (ideally lookup it up from cdk.json and pass it in here)
+        9th param:  pipeline_source_gitbranch :str => (Typically, `dev|main|git-tag1|...` as provided in cdk.json's `git_commit_hashes` element)
+        10th param: codebase_root_folder :str => SubFolder within which to find the code-base .. or .. it contains all the folders representing various "subprojects".
+                        Example-Values:     "devops/"  "Operations/"
+                        Example-Value:      "." <-- implying root-folder of git-repo
+        11th param: source_artifact :codepipeline.Artifact => Can NOT be None!
+
+        12th param: OPTIONAL: codebase_folders_that_trigger_pipeline :list[str] => a list of folder-paths to trigger the pipeline.
+                        NOTE: Only useful for Pipelines like Meta-Pipeline and devops-pipeline.
+        13th param: OPTIONAL: codebase_ignore_paths :list[str] => a list of folder-paths to IGNORE (for pipeline-triggers)
+                        REF: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitfilepathfiltercriteria.html
+                        Use this to prevent unnecessary pipeline-triggers.
+
+        Returns a valid instance of "aws_codepipeline.Pipeline" construct.
+            This returned-pipeline will AUTOMATICALLY include a CodeStarConnectionsSourceAction
+    """
 
     ### ATTENTION: We are -NOT- using GitHubSourceAction, since Triggers-for-GitHub are -NOT- supported via CloudFormation.
     ###             See more details near codepipeline.TriggerProps(..) and add_property_override(..)
@@ -140,22 +138,23 @@ def createStandardPipeline(
     #     )]
 
     ### -----------------------------------
-    data_classification_type = DATA_CLASSIFICATION_TYPES.ATHENA_SCRATCH
+    data_classification_type = DATA_CLASSIFICATION_TYPES.SCRATCH
 
     all_lifecycle_rules: dict[str, Sequence[aws_s3.LifecycleRule]] = gen_bucket_lifecycle(
         tier = tier,
         data_classification_type = data_classification_type,
-        prefixes_for_s3_tiers={ S3_LIFECYCLE_RULES.ATHENAWKGRP_SCRATCH.name: [''], },
+        prefixes_for_s3_tiers={ S3_LIFECYCLE_RULES.SCRATCH.name: [''], },
     )
 
+    my_pipeline_artifact_bkt_name = aws_names.gen_bucket_name( tier, "CodePipeline-artifacts-"+ aws_names.extract_simple_resource_name(tier, pipeline_name) )
+    # bucket_name = f"{constants.CDK_APP_NAME}-{constants.CDK_COMPONENT_NAME}-{tier}-CodePipeline-artifacts".lower()
     my_pipeline_artifact_bkt = create_std_bucket(
         scope = cdk_scope,
         id    = "artif-bkt",
         tier  = tier,
-        bucket_name = aws_names.gen_bucket_name( tier, "CodePipeline-artifacts-"+ aws_names.extract_simple_resource_name(tier, pipeline_name) ),
-        # bucket_name = f"{constants.CDK_APP_NAME}-{constants.CDK_COMPONENT_NAME}-{tier}-CodePipeline-artifacts".lower(),
+        bucket_name = my_pipeline_artifact_bkt_name,
         data_classification_type = data_classification_type,
-        lifecycle_rules = all_lifecycle_rules[S3_LIFECYCLE_RULES.ATHENAWKGRP_SCRATCH.name],
+        lifecycle_rules = all_lifecycle_rules[S3_LIFECYCLE_RULES.SCRATCH.name],
         removal_policy = RemovalPolicy.DESTROY,
     )
 
@@ -172,10 +171,13 @@ def createStandardPipeline(
         cross_account_keys = False,
         artifact_bucket = my_pipeline_artifact_bkt,
     )
-    # Convert the my_pipeline variable to another variable of raw CloudFormation Resource-Type of "AWS::CodePipeline::Pipeline"
-    myPipelineRawCfn :codepipeline.CfnPipeline = my_pipeline.node.default_child
+    my_pipeline.my_pipeline_artifact_bkt      = my_pipeline_artifact_bkt
+    my_pipeline.my_pipeline_artifact_bkt_name = my_pipeline_artifact_bkt_name
 
     if tier == constants.DEV_TIER or tier == constants.INT_TIER:
+        # Convert the my_pipeline variable to another variable of raw CloudFormation Resource-Type of "AWS::CodePipeline::Pipeline"
+        myPipelineRawCfn :codepipeline.CfnPipeline = my_pipeline.node.default_child
+
         ### We need to MANUALLY ovveride mytriggers=[codepipeline.TriggerProps( ..)
         ### since (see above) .. .. .. WARNING: Git tags is the only supported event type!!!
         myPipelineRawCfn.add_property_override("Triggers", [{

@@ -41,6 +41,7 @@ from cdk_utils.CloudFormation_util import (
 
 _STD_BUILD_POST_CMDS = (
     " && rm -rf python/botocore"
+  + " && rm -rf python/docs"
   + " && find . -name '*.txt' -type f -delete"
   + " && find . -name '*.md'  -type f -delete"
   + " && ( find . -name \"datasets\"    -type d | xargs rm -rf )"
