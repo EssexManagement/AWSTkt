@@ -1,0 +1,23 @@
+{
+  "availability-zones:account=127516845550:region=us-east-1": [
+    "us-east-1a",
+    "us-east-1b",
+    "us-east-1c",
+    "us-east-1d",
+    "us-east-1e",
+    "us-east-1f"
+  ],
+  "endpoint-service-availability-zones:account=127516845550:region=us-east-1:serviceName=com.amazonaws.us-east-1.ssm-contacts": [
+    "us-east-1b",
+    "us-east-1c",
+    "us-east-1d"
+  ],
+  "endpoint-service-availability-zones:account=127516845550:region=us-east-1:serviceName=com.amazonaws.us-east-1.ssm-incidents": [
+    "us-east-1a",
+    "us-east-1b",
+    "us-east-1c",
+    "us-east-1d",
+    "us-east-1e",
+    "us-east-1f"
+  ]
+}
