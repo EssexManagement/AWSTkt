@@ -82,6 +82,7 @@ function myFileDiff {
             echo \
             cp  -ip   ${SrcFldr}/${SimpleFileName}   ${DestFldr}/${SimpleFileName}
             echo ''
+            read -p ".. .. press enter to continue .. >>" ANS
             return 41
         fi
         return 0
@@ -109,7 +110,7 @@ myDirDiff() {
         else
             if [ -d "${SrcFolderPath}/${srcSubFldr}/${aFileName}" ]; then
                 # diff -rwq   ${SrcFolderPath}/${aFileName}   ${DestFolderPath}/${aFileName}
-                subSubSubDirList+=( "${aFileName}" )
+                subSubSubDirList+=( "${srcSubFldr}/${aFileName}" )
                 ExitCode=0
             else
                 echo "do -NOT- know what to do w/ '${SrcFolderPath}/${srcSubFldr}/${aFileName}'   '${DestFolderPath}/${srcSubFldr}/${aFileName}'"
@@ -130,8 +131,8 @@ myDirDiff() {
         fi
         ### recursion alert!
         echo \
-        myDirDiff    "${srcSubFldr}/${subF}"  ' .. under .. '   "${SrcFolderPath}"   "${DestFolderPath}"
-        myDirDiff    "${srcSubFldr}/${subF}" "${SrcFolderPath}"   "${DestFolderPath}"
+        myDirDiff    "${subF}"  ' .. under .. '   "${SrcFolderPath}"   "${DestFolderPath}"
+        myDirDiff    "${subF}" "${SrcFolderPath}"   "${DestFolderPath}"
     done
 }
 
