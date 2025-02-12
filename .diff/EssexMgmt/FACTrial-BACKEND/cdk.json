@@ -19,8 +19,8 @@
 <         "sarma" : "sarma",
 <         "dev" : "dev",
 <         "int" : "main",
-<         "uat" : "v2.0.5",
-<         "prod" : "prod-v1.9.8"
+<         "uat" : "v2.0.5.1",
+<         "prod" : "v2.0.5.1"
 ---
 >         "dev" : "main",
 >         "AWSTkt" : "main"

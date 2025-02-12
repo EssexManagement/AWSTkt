@@ -6,32 +6,13 @@
 <     scope   = app,
 ---
 >     app   = app,
-110,113c110
-< ### ==============================================================================================
-< ### ..............................................................................................
-< ### ==============================================================================================
-< 
----
+125a126
 > ### -------------------------------
-126,135c123
-< # ### Suppress: [Error at /FACT-backend-pipeline-sarma/FACT-backend-sarma_Appln_CDKSynthDeploy-arm64-CodeBuild-arm64/Role/DefaultPolicy/Resource] AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:ec2:us-east-1:127516845550:network-interface/*]: The IAM entity contains wildcard permissions and does not have a cdk-nag rule suppression with evidence for those permission.
-< # NagSuppressions.add_resource_suppressions(
-< #     construct = app.stateless_stack.api_construct,
-< #     suppressions = [{
-< #         'id': 'AwsSolutions-IAM5',
-< #         'reason': 'CodeBuild requires network interface permissions to run in VPC. This is AWS managed policy permission.',
-< #         'appliesTo': ['Resource::arn:<AWS::Partition>:ec2:us-east-1:127516845550:network-interface/*']
-< #     }],
-< #     apply_to_children = True,
-< # )
----
-> ### -------------------------------
-137,140d124
-< 
+138,140d138
 < 
 < ### ..............................................................................................
 < 
-149,150c133,134
+149,150c147,148
 < from backend.infra.cdk_tests.test_cdk_backend_stk import test_backend_cdk_synth
 < test_backend_cdk_synth(app)
 ---

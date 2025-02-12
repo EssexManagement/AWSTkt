@@ -41,58 +41,10 @@
 < add_tags( a_construct=stk, tier=tier, aws_env=aws_env, git_branch=pipeline_source_gitbranch )
 ---
 > ### ..............................................................................................
-78,80c66
-< ### -----------------------------------
-< cdk_component_name=f"devops-pipeline"
-< stack_id = aws_names.gen_awsresource_name_prefix( tier=tier, cdk_component_name=cdk_component_name )
----
+77a66,67
 > add_tags( a_construct=app, tier=tier, aws_env=aws_env, git_branch=git_branch )
-82,125d67
-< multstks = MultiCdkSubProjectsPipelineStack(
-<     scope=app,
-<     stack_id=stack_id,
-<     tier=tier,
-<     git_branch=git_branch,
-<     aws_env=aws_env,
-<     env=env ### kwargs
-< )
-< 
-< add_tags( a_construct=multstks, tier=tier, aws_env=aws_env, git_branch=pipeline_source_gitbranch )
-< 
-< ### -----------------------------------
-< # cdk_component_name=f"operations-pipeline"
-< # stack_id = aws_names.gen_awsresource_name_prefix( tier=tier, cdk_component_name=cdk_component_name )
-< 
-< # stk = OperationsPipelineStack(
-< #     scope=app,
-< #     stack_id=stack_id,
-< #     tier=tier,
-< #     git_branch=git_branch,
-< #     aws_env=aws_env,
-< #     env=env ### kwargs
-< # )
-< 
-< # add_tags( a_construct=stk, tier=tier, aws_env=aws_env, git_branch=pipeline_source_gitbranch )
-< 
-< ### -----------------------------------
-< if tier == constants.DEV_TIER or tier not in constants.STD_TIERS:
-<     cdk_component_name=f"meta-pipeline"
-<     stack_id = aws_names.gen_awsresource_name_prefix( tier=tier, cdk_component_name=cdk_component_name )
-< 
-<     stk = MetaPipelineUpdatesOtherPipelinesStack(
-<         scope=app,
-<         stack_id=stack_id,
-<         tier=tier,
-<         git_branch=git_branch,
-<         aws_env=aws_env,
-<         env=env ### kwargs
-<     )
-< 
-<     add_tags( a_construct=stk, tier=tier, aws_env=aws_env, git_branch=pipeline_source_gitbranch )
-< 
-< ### -----------------------------------
-< 
-128c70
+> 
+128c118
 < 
 ---
 > ### ..............................................................................................
