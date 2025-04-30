@@ -7,6 +7,8 @@ import * as sfntask from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import * as constants from '../bin/constants';
 import { error } from 'console';
 
+const THIS_COMPONENT_NAME = constants.CDK_DEVOPS_COMPONENT_NAME
+
 export class CleanupStacksStack extends cdk.Stack {
 constructor(scope: Construct,
     simpleStackName: string,
@@ -20,16 +22,17 @@ constructor(scope: Construct,
     //// --------------------------------------------------
     //// pre-requisites and constants
 
-    const stmc_name = constants.get_FULL_AWS_RESOURCE_PREFIX(tier, git_branch, "sfn-"+simpleStackName, constants.CDK_COMPONENT_NAME )
+    const stmc_name = constants.get_FULL_AWS_RESOURCE_PREFIX(tier, git_branch, "sfn-"+simpleStackName, THIS_COMPONENT_NAME )
     const codepipelineSourceStageActionName = "BIAD_emFACT-frontend-cdk.git" //// Click on "View Details" under Source-STAGE of codepipeline
 
     //// --------------------------------------------------
-    const bucketWipeoutLambdaName = `wipeout-bucket-${tier}`
+    const bucketWipeoutLambdaName = "wipeout-bucket"
+    // const bucketWipeoutLambdaName = constants.get_FULL_AWS_RESOURCE_PREFIX(tier, git_branch, "wipeout-bucket", constants.CDK_OPERATIONS_COMPONENT_NAME )
     const bucketWipeoutLambda = cdk.aws_lambda.Function.fromFunctionName(this, bucketWipeoutLambdaName, bucketWipeoutLambdaName)
     console.log(`2nd lambda_ref='${bucketWipeoutLambda}'`)
 
     const cleanupOrphanRsrcsSIMPLELambdaName = `CleanupOrphanResources`
-    const cleanupOrphanRsrcsLambdaName = constants.get_FULL_AWS_RESOURCE_PREFIX(tier, git_branch, cleanupOrphanRsrcsSIMPLELambdaName, constants.CDK_COMPONENT_NAME )
+    const cleanupOrphanRsrcsLambdaName = constants.get_FULL_AWS_RESOURCE_PREFIX(tier, git_branch, cleanupOrphanRsrcsSIMPLELambdaName, THIS_COMPONENT_NAME )
     const cleanupOrphanRsrcsLambda = cdk.aws_lambda.Function.fromFunctionName(this, cleanupOrphanRsrcsLambdaName, cleanupOrphanRsrcsLambdaName)
     console.log(`2nd lambda_ref='${cleanupOrphanRsrcsLambda}'`)
 
@@ -234,12 +237,19 @@ constructor(scope: Construct,
     let taskName = "parameterized but hardcoded inputs to this WipeOut-Bucket Lambda-task below"
     const taskInput = {
         "tier": tier,
-        "bucket-name": `fact-frontend-${tier}-frontendcloudfrontlogging.*`,
+        "1st-bucket-name": {"tier": tier, "only-empty-the-bucket": true, "bucket-name":
+                `${constants.ENTERPRISE_NAME}-${constants.CDK_APP_NAME}-frontend-${tier}-frontendcloudfrontlogging.*`.toLowerCase()
+            },
+        "2nd-bucket-name": {"tier": tier, "only-empty-the-bucket": true, "bucket-name":
+                `${constants.CDK_APP_NAME}-frontend-${tier}-frontendcloudfrontlogging.*`.toLowerCase()
+            },
         "only-empty-the-bucket": "any-value here is-fine" //// that is, we do NOT want the bucket destroyed.
     }
     let taskInputAsStringifiedJson = JSON.stringify(taskInput)
     // taskInputAsStringifiedJson = taskInputAsStringifiedJson.replace(/{/g, '\\{').replace(/}/g, '\\}') //// not needed .replace(/"/g, '\\"')
     console.log(`taskInputAsStringifiedJson='${taskInputAsStringifiedJson}'`)
+    console.log('reverse-engineering original JSON=')
+    console.log(JSON.parse(taskInputAsStringifiedJson))
     const setVariables = new sfn.CustomState(this, taskName,{ stateJson: {
         "Type": "Pass",
         "Parameters": {
@@ -251,14 +261,23 @@ constructor(scope: Construct,
     }})
 
     //// --------------------------------------------------
-    const invokeBucketWipeoutLambda = new sfntask.LambdaInvoke(this, "invoke lambda: "+bucketWipeoutLambdaName, {
+    const invokeBucketWipeoutLambda_1 = new sfntask.LambdaInvoke(this, "invoke lambda-1: "+bucketWipeoutLambdaName, {
         lambdaFunction: bucketWipeoutLambda,
         taskTimeout: sfn.Timeout.duration(cdk.Duration.seconds(900)),
+        inputPath: "$.1st-bucket-name",
         // integrationPattern: sfn.IntegrationPattern.RUN_JOB,
         resultSelector: {"StatusCode.$": "$.StatusCode"}, //// HTTP Response-code
         // resultSelector: {"StatusCode.$": "$.Payload.statusCode"}, //// The JSON-response-body returned by 𝜆-func
-        resultPath: "$.wipeout_bucket_lambda",
+        resultPath: "$.wipeout_bucket_lambda_1",
         // outputPath: sfn.JsonPath.format("$.1stLambda_{}_{}", sfn.JsonPath.stringAt("$.outer_loop_counter"), ,sfn.JsonPath.stringAt("$.inner_loop_counter")),
+    });
+
+    const invokeBucketWipeoutLambda_2 = new sfntask.LambdaInvoke(this, "invoke lambda-2: "+bucketWipeoutLambdaName, {
+        lambdaFunction: bucketWipeoutLambda,
+        taskTimeout: sfn.Timeout.duration(cdk.Duration.seconds(900)),
+        inputPath: "$.2nd-bucket-name",
+        resultSelector: {"StatusCode.$": "$.StatusCode"}, //// HTTP Response-code
+        resultPath: "$.wipeout_bucket_lambda_2",
     });
 
     const invokeCleanupOrphanRsrcsLambda = new sfntask.LambdaInvoke(this, "invoke lambda: "+cleanupOrphanRsrcsLambdaName, {
@@ -347,11 +366,11 @@ constructor(scope: Construct,
         "$.DestroyAppStacksNOTPipelines"
     ];
     const everyStacksIncludingPipelinesInputFlag = [
-        "$.delete-all-stacks-incl-pipepines",
+        "$.delete-all-stacks-incl-pipelines",
         "$.DeleteAppStacksInclPipelines",
         "$.DeleteAppStacksInclPipelineStacks",
-        "$.destroy-all-stacks-incl-pipepines",
-        "$.destroy-all-stacks-incl-pipepine-stacks",
+        "$.destroy-all-stacks-incl-pipelines",
+        "$.destroy-all-stacks-incl-pipeline-stacks",
         "$.DestroyAppStacksInclPipelines",
         "$.DestroyAppStacksInclPipelineStacks"
     ];
@@ -359,13 +378,18 @@ constructor(scope: Construct,
     //// --- Whether JSON-input to this StepFunc requires deletion of Frontend-stack
     Object.values( [ ...appStacksOnlyInputFlag, ...allStksBUTNOTPipelinesInputFlag, ...everyStacksIncludingPipelinesInputFlag ] )
         .flat().forEach(path => {
-            checkWhetherToDeleteFrontendStack.when( sfn.Condition.isPresent( path ), invokeBucketWipeoutLambda );
+            checkWhetherToDeleteFrontendStack.when( sfn.Condition.isPresent( path ), invokeBucketWipeoutLambda_1 );
     });
     checkWhetherToDeleteFrontendStack.otherwise( checkWhetherToCleanupFailedStacks )
 
     //// Note: No point wiping-out the buckets, unless we're trying to destroy-stacks.
-    invokeBucketWipeoutLambda.next(checkWhetherToCleanupFailedStacks)
-    invokeBucketWipeoutLambda.addCatch(taskSNSTopicAborted, {
+    invokeBucketWipeoutLambda_1.next(invokeBucketWipeoutLambda_2)
+    invokeBucketWipeoutLambda_1.addCatch(taskSNSTopicAborted, {
+        errors: [ "States.ALL" ],
+        resultPath: "$.error",
+    })
+    invokeBucketWipeoutLambda_2.next(checkWhetherToCleanupFailedStacks)
+    invokeBucketWipeoutLambda_2.addCatch(taskSNSTopicAborted, {
         errors: [ "States.ALL" ],
         resultPath: "$.error",
     })

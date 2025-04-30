@@ -7,6 +7,7 @@ import pathlib
 from constructs import Construct
 from aws_cdk import (
     Stack,
+    Tags,
     Duration,
     RemovalPolicy,
     aws_codepipeline as codepipeline,
@@ -232,6 +233,7 @@ def standard_CodeBuildDeploy_AWS_SAM(
     source_artifact :codepipeline.Artifact,
     cpu_arch :aws_lambda.Architecture = aws_lambda.Architecture.ARM_64,
     addl_env_vars :dict[str,str] = {},
+    nodejs_version :str = constants_cdk.CDK_NODEJS_VERSION,
     whether_to_use_adv_caching :bool = False,
     my_pipeline_artifact_bkt :Optional[aws_s3.IBucket] = None,
     my_pipeline_artifact_bkt_name :Optional[str] = None,
@@ -308,6 +310,9 @@ def standard_CodeBuildDeploy_AWS_SAM(
             },
             'phases': {
                 'install': {
+                    'runtime-versions': {
+                        'nodejs': nodejs_version,
+                    },
                     'commands': [
 
                         ### requests.exceptions.HTTPError: 409 Client Error: Conflict for url: http+docker://localhost/v1.44/containers/??????????v=False&link=False&force=False
@@ -372,7 +377,9 @@ def standard_CodeBuildDeploy_AWS_SAM(
         project=cb_project,
     )
 
-    enhance_CodeBuild_role_for_cdkdeploy( cb_role=cb_project.role, cdk_scope=cb_project, stk=stk, tier=tier, )
+    enhance_CodeBuild_role_for_cdkdeploy( cb_role=cb_project.role, stk=stk ) ### cdk_scope=cb_project, tier=tier, )
+
+    Tags.of(cb_project).add(key="ResourceName", value =stk.stack_name+"-CodeBuild-"+cb_proj_name)
 
     return my_build_action, my_build_output
 
@@ -387,6 +394,7 @@ def standard_CodeBuildSynth_NodeJS(
     source_artifact :codepipeline.Artifact,
     cpu_arch :aws_lambda.Architecture = aws_lambda.Architecture.ARM_64,
     addl_env_vars :dict[str,str] = {},
+    nodejs_version :str = constants_cdk.CDK_NODEJS_VERSION,
     whether_to_use_adv_caching :bool = False,
     my_pipeline_artifact_bkt :Optional[aws_s3.IBucket] = None,
     my_pipeline_artifact_bkt_name :Optional[str] = None,
@@ -464,6 +472,9 @@ def standard_CodeBuildSynth_NodeJS(
             },
             'phases': {
                 'install': {
+                    'runtime-versions': {
+                        'nodejs': nodejs_version,
+                    },
                     'commands': [
 
                         ### requests.exceptions.HTTPError: 409 Client Error: Conflict for url: http+docker://localhost/v1.44/containers/??????????v=False&link=False&force=False
@@ -536,6 +547,10 @@ def standard_CodeBuildSynth_NodeJS(
         project=cb_project,
     )
 
+    enhance_CodeBuild_role_for_cdkdeploy( cb_role=cb_project.role, stk=stk ) ### cdk_scope=cb_project, tier=tier, )
+
+    Tags.of(cb_project).add(key="ResourceName", value =stk.stack_name+"-CodeBuild-"+cb_proj_name)
+
     return my_build_action, my_build_output
 
 ### ---------------------------------------------------------------------------------
@@ -597,8 +612,8 @@ def standard_CodeBuildSynth_Python(
 
     ### Synth only
     ### automatically detect if Git-Repo-codebase is using Plain-Pip (and .venv) or whether the Git-Repo-Codebase is using Pipenv/Pifile
-    cdk_deploy_command  =  "if [ -f requirements.txt ]; then PRFX=\"\"; elif [ -f Pipfile.lock ]; then PRFX=\"pipenv run\"; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; "
-    cdk_deploy_command +=  "$PRFX npx cdk synth  --quiet --all"
+    cdk_synth_command  =  "if [ -f requirements.txt ]; then PRFX=\"\"; elif [ -f Pipfile.lock ]; then PRFX=\"pipenv run\"; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; "
+    cdk_synth_command +=  "$PRFX npx cdk synth  --quiet --all"
     cdk_synth_command +=  " --concurrency 10 --asset-parallelism true --asset-prebuild"
     cdk_synth_command += f" --context tier=\"{tier}\""
     if git_repo_url:     cdk_synth_command += f" --context git_repo=\"{git_repo_url}\""
@@ -717,6 +732,10 @@ def standard_CodeBuildSynth_Python(
         project=cb_project,
     )
 
+    enhance_CodeBuild_role_for_cdkdeploy( cb_role=cb_project.role, stk=stk ) ### cdk_scope=cb_project, tier=tier, )
+
+    Tags.of(cb_project).add(key="ResourceName", value =stk.stack_name+"-CodeBuild-"+cb_proj_name)
+
     return my_build_action, my_build_output
 
 ### ---------------------------------------------------------------------------------
@@ -753,10 +772,11 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
         8th param:  OPTIONAL: git_repo_url :str -- ghORG/gitRepoName.git
         9th param:  OPTIONAL: cdk_app_pyfile :str -- Example: all_pipelines.py (this is located in root-folder of git-repo)
         10th param:  OPTIONAL: python_version# as a string
-        11th param:  (OPTIONAL) whether_to_use_adv_caching :bool -- since CodeBuild can --NOT-- cache "node_modules" and python's "venv", 'True' will turn on VERY ADVANCED HARD-to-FOLLOW caching, that could come to bit your ass later.
-        12th param: (OPTIONAL) my_pipeline_artifact_bkt :aws_s3;IBucket (only used for advanced-caching)
-        13th param: (OPTIONAL) my_pipeline_artifact_bkt_name :str -- NAME of above bucket-param (only used for advanced-caching)
-        14th param:  OPTIONAL: addl_cdk_context -- equivalent of "-c CTX_KEY='..' "  CDK-CLI command args
+        11th param:  (OPTIONAL) addl_env_vars :dict -- pass in Env-Vars to CodeBuild
+        12th param:  (OPTIONAL) whether_to_use_adv_caching :bool -- since CodeBuild can --NOT-- cache "node_modules" and python's "venv", 'True' will turn on VERY ADVANCED HARD-to-FOLLOW caching, that could come to bit your ass later.
+        13th param: (OPTIONAL) my_pipeline_artifact_bkt :aws_s3;IBucket (only used for advanced-caching)
+        14th param: (OPTIONAL) my_pipeline_artifact_bkt_name :str -- NAME of above bucket-param (only used for advanced-caching)
+        15th param:  OPTIONAL: addl_cdk_context -- equivalent of "-c CTX_KEY='..' "  CDK-CLI command args
         Returns on objects of types:-
                     1. codepipeline_actions.CodeBuildAction
                     3. codepipeline.Artifact (representing the BUILD-Artifact)
@@ -902,13 +922,15 @@ def adv_CodeBuildCachingSynthAndDeploy_Python(
         my_pipeline_artifact_bkt.grant_read_write( cb_project )
 
     my_build_action = codepipeline_actions.CodeBuildAction(
-        action_name = f'AdvBuild_CDKSynth_{subproj_name}', ### /^[a-zA-Z0-9.@_-]{1,100}$/
+        action_name = f'Adv_CDKSynthDeploy_{subproj_name}', ### /^[a-zA-Z0-9.@_-]{1,100}$/
         input   = source_artifact,
         outputs = [my_build_output],
         project = cb_project,
     )
 
-    enhance_CodeBuild_role_for_cdkdeploy( cb_role=cb_project.role, cdk_scope=cb_project, stk=stk, tier=tier, )
+    enhance_CodeBuild_role_for_cdkdeploy( cb_role=cb_project.role, stk=stk ) ### cdk_scope=cb_project, tier=tier, )
+
+    Tags.of(cb_project).add(key="ResourceName", value =stk.stack_name+"-CodeBuild-"+cb_proj_name)
 
     return my_build_action, my_build_output
 
@@ -921,6 +943,8 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
     cb_proj_name :str,
     source_artifact :codepipeline.Artifact,
     cpu_arch :aws_lambda.Architecture = aws_lambda.Architecture.ARM_64,
+    cdk_app_pyfile :Optional[str] = None,
+    nodejs_version :str = constants_cdk.FRONTEND_NODEJS_VERSION,
     python_version :str = constants_cdk.CDK_APP_PYTHON_VERSION,
     frontend_vuejs_rootfolder :str = "frontend/ui",
     addl_env_vars :dict[str,str] = {},
@@ -944,11 +968,13 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
         5th param:  cb_proj_name :str  => When the Infrastructure project in `subfldr` is deployed, DEFINE what the CodeBuild-Project should be named.
         6th param:  source_artifact :codepipeline.Artifact => It representing the SOURCE (usually configured via `cdk_utils/StandardCodePipeline.py`)
         7th param: (OPTIONAL) cpu_arch :aws_lambda.Architecture => OPTIONAL;  Default=aws_lambda.Architecture.ARM_64
-        8th param:  OPTIONAL: python_version # as a string
-        9th param:  OPTIONAL: where is the JS/TS/VueJS/ReactJS code-base located in this git-repo;  Default = "frontend/ui"
-        10th param:  (OPTIONAL) whether_to_use_adv_caching :bool -- since CodeBuild can --NOT-- cache "node_modules" and python's "venv", 'True' will turn on VERY ADVANCED HARD-to-FOLLOW caching, that could come to bit your ass later.
-        11th param: (OPTIONAL) my_pipeline_artifact_bkt :aws_s3;IBucket (only used for advanced-caching)
-        12th param: (OPTIONAL) my_pipeline_artifact_bkt_name :str -- NAME of above bucket-param (only used for advanced-caching)
+        8th param:  OPTIONAL: cdk_app_pyfile :str -- Example: all_pipelines.py (this is located in root-folder of git-repo)
+        9th param:  OPTIONAL: python_version # as a string
+        10th param:  OPTIONAL: where is the JS/TS/VueJS/ReactJS code-base located in this git-repo;  Default = "frontend/ui"
+        11th param:  (OPTIONAL) addl_env_vars :dict -- pass in Env-Vars to CodeBuild
+        12th param:  (OPTIONAL) whether_to_use_adv_caching :bool -- since CodeBuild can --NOT-- cache "node_modules" and python's "venv", 'True' will turn on VERY ADVANCED HARD-to-FOLLOW caching, that could come to bit your ass later.
+        13th param: (OPTIONAL) my_pipeline_artifact_bkt :aws_s3;IBucket (only used for advanced-caching)
+        14th param: (OPTIONAL) my_pipeline_artifact_bkt_name :str -- NAME of above bucket-param (only used for advanced-caching)
         Returns on objects of types:-
                     1. codepipeline_actions.CodeBuildAction
                     3. codepipeline.Artifact (representing the BUILD-Artifact)
@@ -974,6 +1000,7 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
     ### automatically detect if Git-Repo-codebase is using Plain-Pip (and .venv) or whether the Git-Repo-Codebase is using Pipenv/Pifile
     cdk_deploy_command  =  "if [ -f requirements.txt ]; then PRFX=\"\"; elif [ -f Pipfile.lock ]; then PRFX=\"pipenv run\"; else echo 'Both requirements.txt and Pipfile.lock are MISSING'; exit 111; fi; "
     cdk_deploy_command +=  "$PRFX npx cdk deploy  --quiet --all"
+    if cdk_app_pyfile:   cdk_deploy_command += f" --app \"python3 {cdk_app_pyfile}\""
     cdk_deploy_command +=  " --require-approval never --concurrency 10 --asset-parallelism true --asset-prebuild"
     cdk_deploy_command += f" --context tier=\"{tier}\""
     if git_repo_url:     cdk_deploy_command += f" --context git_repo=\"{git_repo_url}\""
@@ -1008,7 +1035,8 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
             "phases": {
                 'install': {
                     'runtime-versions': {
-                        "python": python_version
+                        'python': python_version,
+                        'nodejs': nodejs_version,
                     },
                     'commands': [
 
@@ -1107,6 +1135,10 @@ def standard_CodeBuildSynthDeploy_FrontendPythonCDK(
         outputs=[my_build_output],
         project=cb_project,
     )
+
+    enhance_CodeBuild_role_for_cdkdeploy( cb_role=cb_project.role, stk=stk ) ### cdk_scope=cb_project, tier=tier, )
+
+    Tags.of(cb_project).add(key="ResourceName", value =stk.stack_name+"-CodeBuild-"+cb_proj_name)
 
     return my_build_action, my_build_output
 
@@ -1336,6 +1368,7 @@ def standard_BDDs_JSTSVuejsReactjs(
 
     test_user_sm.grant_read(cb_project.grant_principal)
 
+    Tags.of(cb_project).add(key="ResourceName", value =stk.stack_name+"-CodeBuild-"+cb_proj_name)
     return my_build_action, my_build_output
 
 
@@ -1346,17 +1379,17 @@ def standard_BDDs_JSTSVuejsReactjs(
 def enhance_CodeBuild_role_for_cdkdeploy(
     cb_role :aws_iam.Role,
     stk :Stack,
-    cdk_scope :Construct,
-    tier :str,
+    # cdk_scope :Construct,
+    # tier :str,
 ) -> aws_iam.Role:
     """ To run `cdk deploy` from within CodeBuild, we need a LOT of permissions (to create & destroy)
     """
 
-    ### To fix the error: ❌  FACT-backend-dev-SNSStack failed: AccessDenied: User: arn:aws:sts::???:assumed-role/FACT-backend-pipeline-dev-emFACTbackendcdkCodeBuild-???/AWSCodeBuild-2da0a582-???
+    ### To fix the error: ❌  {CDK_APP_NAME}-backend-dev-SNSStack failed: AccessDenied: User: arn:aws:sts::???:assumed-role/{CDK_APP_NAME}-backend-pipeline-dev-emFACTbackendcdkCodeBuild-???/AWSCodeBuild-2da0a582-???
     ###         is not authorized to perform: iam:PassRole
     ###         on resource: arn:aws:iam::??????:role/cdk-hnb659fds-cfn-exec-role-??????-??????
     ###         because no identity-based policy allows the iam:PassRole action
-    ###   User: arn:aws:sts::{AccountId}:assumed-role/FACT-devops-pipeline-sarm-CdkscleanupOrphanResource-{UUID}/AWSCodeBuild-{UUID}++ is not authorized to perform: iam:PassRole on resource: arn:aws:iam::{AAccountId}:role/FACT-devops-sarma-CleanupOrphanRes-MyLambdaFuncRole
+    ###   User: arn:aws:sts::{AccountId}:assumed-role/{CDK_APP_NAME}-devops-pipeline-sarm-CdkscleanupOrphanResource-{UUID}/AWSCodeBuild-{UUID}++ is not authorized to perform: iam:PassRole on resource: arn:aws:iam::{AAccountId}:role/{CDK_APP_NAME}-devops-sarma-CleanupOrphanRes-MyLambdaFuncRole
     cb_role.add_to_principal_policy(
         aws_iam.PolicyStatement(
             actions = ["iam:PassRole"], ### PassRole vs. AssumedRole(see next policy below)
@@ -1367,6 +1400,8 @@ def enhance_CodeBuild_role_for_cdkdeploy(
                 f"arn:{stk.partition}:iam::{stk.account}:role/cdk-*-image-publishing-role--{stk.account}-{stk.region}",
                 f"arn:{stk.partition}:iam::{stk.account}:role/cdk-*-lookup-role--{stk.account}-{stk.region}",
                 f"arn:{stk.partition}:iam::{stk.account}:role/{constants.CDK_APP_NAME}-*", ### ... devops-{tier}-*-CleanupOrphanRes-MyLambdaFuncRole*",
+                f"arn:{stk.partition}:iam::{stk.account}:role/wipeout-bucket*", ### ... devops-{tier}-*-CleanupOrphanRes-MyLambdaFuncRole*",
+                f"arn:{stk.partition}:iam::{stk.account}:role/sleep-random*", ### ... devops-{tier}-*-CleanupOrphanRes-MyLambdaFuncRole*",
     ]))
     ### To fix the error: ❌ current credentials could not be used to assume
     ###         'arn:aws:iam::?????:role/cdk-hnb659fds-file-publishing-role-??????-??????',
@@ -1382,7 +1417,7 @@ def enhance_CodeBuild_role_for_cdkdeploy(
     ###                "Principal": {
     ###                    "AWS": [
     ###                        "arn:aws:iam::??????:root",
-    ###                        "arn:aws:iam::??????:role/FACT-backend-pipeline-dev-emFACTbackendcdkCodeBuild-????????????????????????"
+    ###                        "arn:aws:iam::??????:role/{CDK_APP_NAME}-backend-pipeline-dev-emFACTbackendcdkCodeBuild-????????????????????????"
     ###                    ]
     ###                },
     ###                "Action": "sts:AssumeRole",
@@ -1448,6 +1483,10 @@ def enhance_CodeBuild_role_for_cdkdeploy(
         aws_iam.PolicyStatement(
             actions=["cloudformation:*"],
             resources=[
+                f"arn:{stk.partition}:cloudformation:{stk.region}:{stk.account}:stack/sleep-random*",
+                f"arn:{stk.partition}:cloudformation:{stk.region}:{stk.account}:stack/wipeout-bucket*",
+                f"arn:{stk.partition}:cloudformation:{stk.region}:{stk.account}:stack/StepFn-DeleteStacks*",
+                f"arn:{stk.partition}:cloudformation:{stk.region}:{stk.account}:stack/StepFn-Cleanup*",
                 f"arn:{stk.partition}:cloudformation:{stk.region}:{stk.account}:stack/{constants.CDK_APP_NAME}*",
                 f"arn:{stk.partition}:cloudformation:{stk.region}:{stk.account}:stackset/{constants.CDK_APP_NAME}*",
                 f"arn:{stk.partition}:cloudformation:{stk.region}:{stk.account}:stack/aws-sam-cli-managed-default/*", ### Running "sam deploy" within CodeBuild.
@@ -1476,6 +1515,10 @@ def enhance_CodeBuild_role_for_cdkdeploy(
             resources=[
                 f"arn:{stk.partition}:iam::{stk.account}:role/{constants.CDK_APP_NAME}*",
                 f"arn:{stk.partition}:iam::{stk.account}:policy/{constants.CDK_APP_NAME}*",
+                f"arn:{stk.partition}:iam::{stk.account}:role/wipeout-bucket*",
+                f"arn:{stk.partition}:iam::{stk.account}:policy/wipeout-bucket*",
+                f"arn:{stk.partition}:iam::{stk.account}:role/sleep-random*",
+                f"arn:{stk.partition}:iam::{stk.account}:policy/sleep-random*",
     ]))
     cb_role.add_to_principal_policy(
         aws_iam.PolicyStatement(
@@ -1510,6 +1553,8 @@ def enhance_CodeBuild_role_for_cdkdeploy(
         aws_iam.PolicyStatement(
             actions=["lambda:*"],
             resources=[
+                f"arn:{stk.partition}:lambda:{stk.region}:{stk.account}:function:sleep-random*",
+                f"arn:{stk.partition}:lambda:{stk.region}:{stk.account}:function:wipeout-bucket*",
                 f"arn:{stk.partition}:lambda:{stk.region}:{stk.account}:function:{constants.CDK_APP_NAME}*",
                 f"arn:{stk.partition}:lambda:{stk.region}:{stk.account}:function/{constants.CDK_APP_NAME}*",
                 f"arn:{stk.partition}:lambda:{stk.region}:{stk.account}:layer:{constants.CDK_APP_NAME}*",
@@ -1577,6 +1622,7 @@ def enhance_CodeBuild_role_for_cdkdeploy(
     # ]))
     cb_role.add_to_principal_policy(
         aws_iam.PolicyStatement(
+            sid="EC2ResourcesOnlyAccess",
             actions=["ec2:*"],
             resources=[
                 f"arn:{stk.partition}:ec2:{stk.region}:{stk.account}:elastic-ip/*",
@@ -1589,19 +1635,87 @@ def enhance_CodeBuild_role_for_cdkdeploy(
     ]))
     cb_role.add_to_principal_policy(
         aws_iam.PolicyStatement(
+            sid="BasicVpcSubnetLookupAccess",
             actions=[
+                "ec2:DescribeVpcAttribute",
                 "ec2:DescribeSecurityGroups",
                 "ec2:DescribeSecurityGroupRules",
                 "ec2:DescribeSubnets",
+                "ec2:DescribeAvailabilityZones",
                 "ec2:DescribeTags",
-                "ec2:DescribeVpcs",
+                "ec2:DescribeNetworkInterfaces",
+                "ec2:DescribeVpnGateways",
+            ],
+            resources=[ '*' ]
+    ))
+    cb_role.add_to_principal_policy(
+        aws_iam.PolicyStatement(
+            sid="CreateModifyVpcNewSubnetNewVPCEndpts",
+            actions=[
+                "ec2:CreateVpc",
+                "ec2:DeleteVpc",
+                "ec2:DescribeVpcBlockPublicAccessOptions",
+                "ec2:ModifyVpcAttribute",
+                "ec2:CreateSubnet",
+                "ec2:DeleteSubnet",
+                "ec2:ModifySubnetAttribute",
+                "ec2:CreateTags",
+                "ec2:DeleteTags",
+                "ec2:DescribeRouteTables",
+                "ec2:CreateRouteTable",
+                "ec2:DeleteRouteTable",
+                "ec2:AssociateRouteTable",
+                "ec2:DisassociateRouteTable",
+                "ec2:CreateRoute",
+                "ec2:DeleteRoute",
+                "ec2:CreateNetworkInterface",
+                "ec2:DeleteNetworkInterface",
                 "ec2:DescribeVpcEndpoints",
                 "ec2:DescribeVpcEndpointServices",
                 "ec2:DescribeVpcEndpointServiceConfigurations",
                 "ec2:DescribeVpcEndpointConnectionNotifications",
-                "ec2:DescribeVpcBlockPublicAccessOptions"
+                "ec2:CreateVpcEndpoint",
+                "ec2:DeleteVpcEndpoints",
+                "ec2:ModifyVpcEndpoint",
+                ### Following are needed for using AWS IPAM (IP Address Manager) to allocate a `10.0.0.0/17` & `10.0.8.0/17` CIDR blocks
+                "ec2:AssociateVpcCidrBlock",
+                "ec2:DescribeVpcs",
+                "ec2:DescribeIpamPools",
+                "ec2:GetIpamPoolAllocations",
+                "ec2:AllocateIpamPoolCidr",
             ],
-            resources=[ '*' ]
+            resources=[ '*' ],
+    ))
+    cb_role.add_to_principal_policy(
+        aws_iam.PolicyStatement(
+            sid="Rt53HostedDomainAccess",
+            actions=[
+                "route53:ListDomains*",
+                "route53:ListHostedZone*",
+                "route53:GetHostedZone*",
+                "route53:GetChange",
+                "route53:ListResourceRecordSet*",
+                "route53:ChangeResourceRecordSets",
+                "route53:ListTagsFor*",
+                "route53:Update*",
+            ],
+            resources=[
+                '*',
+                # "arn:aws:route53:::hostedzone/*",
+                # "arn:aws:route53:::change/*",
+            ]
+    ))
+    cb_role.add_to_principal_policy(
+        aws_iam.PolicyStatement(
+            sid="ACMCertMgrAccess",
+            actions=[
+                "acm:RequestCertificate",
+                "acm:DescribeCertificate",
+                "acm:DeleteCertificate",
+                "acm:AddTagsToCertificate",
+                "acm:ListTagsForCertificate",
+            ],
+            resources= ["*"],
     ))
     cb_role.add_to_principal_policy(
         aws_iam.PolicyStatement(

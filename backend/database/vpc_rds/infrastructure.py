@@ -1,3 +1,4 @@
+from typing import Optional, Union
 from constructs import Construct
 from os import path
 
@@ -10,29 +11,39 @@ from aws_cdk import (
     aws_ec2,
     aws_rds,
     aws_secretsmanager,
+    aws_kms,
+    aws_logs,
 )
 
 import constants
 import common.cdk.constants_cdk as constants_cdk
-from cdk_utils.CloudFormation_util import add_tags
+from cdk_utils.CloudFormation_util import (
+    add_tags,
+    get_vpc_privatesubnet_type,
+    get_RDS_password_exclude_pattern_adminuser,
+    get_RDS_password_exclude_pattern_alphanum_only,
+)
+import cdk_utils.CdkDotJson_util as CdkDotJson_util
 
-"""
-    V2-Aurora Postgres DB-instance.
-    Key security and best practices implemented:
-    > Multi-User (unlike the single-user V1-Aurora)
-    > Separate application-user, from admin/dba user
-    > Uses Aurora Serverless v2 with minimum capacity of 0.5 ACUs (lowest possible) [2]
-    > Placed in private isolated subnets
-    > Secure password generation with appropriate exclusion of problematic characters
-    > Automatic secret rotation every 30 days
-    > Deletion protection for production environment
-    > Different removal policies for production vs non-production
-    > Backup retention enabled
-    > Uses AWS Secrets Manager for credential management
-    > Security group restrictions for database access
-    > Multi-AZ deployment by default for high availability
-"""
+from common.cdk.retention_base import DATA_CLASSIFICATION_TYPES, DataClassification
+
 class SqlDatabaseConstruct(Construct):
+    """
+        V2-Aurora Postgres DB-instance.
+        Key security and best practices implemented:
+        > Multi-User (unlike the single-user V1-Aurora)
+        > Separate application-user, from admin/dba user
+        > Uses Aurora Serverless v2 with minimum capacity of 0.5 ACUs (lowest possible) [2]
+        > Placed in private isolated subnets
+        > Secure password generation with appropriate exclusion of problematic characters
+        > Automatic secret rotation every 30 days
+        > Deletion protection for production environment
+        > Different removal policies for production vs non-production
+        > Backup retention enabled
+        > Uses AWS Secrets Manager for credential management
+        > Security group restrictions for database access
+        > Multi-AZ deployment by default for high availability
+    """
 
     @property
     def rds_security_group(self) -> aws_ec2.ISecurityGroup:
@@ -76,9 +87,15 @@ class SqlDatabaseConstruct(Construct):
         # rds_paramgroup_name = f"default.aurora-postgresql{engine_ver_as_string}"
         # print(f"rds_paramgroup_name = '{rds_paramgroup_name}'")
 
+        acct_wide_vpc_details :dict[str,dict[str, Union[str,list[dict[str,str]]]]];
+        vpc_details_for_tier :dict[str, Union[str,list[dict[str,str]]]];
+        [ acct_wide_vpc_details, vpc_details_for_tier ] = CdkDotJson_util.get_cdk_json_vpc_details( scope, aws_env, tier )
+        sg_for_vpc_endpts :Optional[list[str]] = vpc_details_for_tier["VPCEndPts-SG"]
+        print( f"vpc_endpts = '{sg_for_vpc_endpts}'")
+
         ### ------------------------------------------
 
-        vpc_subnets = aws_ec2.SubnetSelection( one_per_az=True, subnet_type=aws_ec2.SubnetType.PRIVATE_WITH_EGRESS )
+        vpc_subnets = aws_ec2.SubnetSelection( one_per_az=True, subnet_type=get_vpc_privatesubnet_type(vpc) )
 
         ### Whether or not a NEW-VPC was created (or existing one looked up), create a SG for use by RDS
         self._rds_security_group = aws_ec2.SecurityGroup(
@@ -87,6 +104,7 @@ class SqlDatabaseConstruct(Construct):
             security_group_name = cluster_identifier,
             vpc=vpc,
         )
+        self._rds_security_group.apply_removal_policy( removal_policy )
         # RDS Subnet Group
         self.rds_subnet_group = aws_rds.SubnetGroup(
             self,
@@ -97,8 +115,39 @@ class SqlDatabaseConstruct(Construct):
             subnet_group_name = cluster_identifier,
             vpc_subnets=vpc_subnets,
         )
+        self.rds_subnet_group.apply_removal_policy( removal_policy )
+
+        sg_list_for_all_lambdas :list[aws_ec2.ISecurityGroup] = [self.rds_security_group]
+        if sg_for_vpc_endpts:
+            for sgid in sg_for_vpc_endpts:
+                sg_con = aws_ec2.SecurityGroup.from_lookup_by_id( scope=self, id="lkpSg-"+sgid, security_group_id=sgid )
+                if sg_con:
+                    sg_list_for_all_lambdas.append( sg_con )
+                    sg_con.add_ingress_rule(
+                        peer = self.rds_security_group,
+                        connection = aws_ec2.Port.HTTPS,
+                        description = f"Allow inbound from RDS-SGs {sgid}",
+                        remote_rule = True, ### <---------------------
+                    )
+                    self.rds_security_group.add_egress_rule(
+                        peer = sg_con,
+                        connection = aws_ec2.Port.HTTPS,
+                        description = f"Allow outbound from RDS-SGs {sgid} to VPCEndPt-SG",
+                    )
 
         ### ------------------------------------------
+
+        # ### Before creating Lambdas to do secret-rotation, create VPC endpoints for SecretsManager
+        # ### Note: This is taken care of, within the `backend/vpc_w_subnets.py`
+        # secrets_manager_endpoint = aws_ec2.InterfaceVpcEndpoint(self, "SecretsManagerVPCEndpoint",
+        #     vpc=vpc,
+        #     service=aws_ec2.InterfaceVpcEndpointService(f"com.amazonaws.{Stack.of(self).region}.secretsmanager"),
+        #     subnets=aws_ec2.SubnetSelection(
+        #         subnet_type=get_vpc_privatesubnet_type(vpc),
+        #         one_per_az=True
+        #     ),
+        #     private_dns_enabled=True
+        # )
 
         ### V1-Aurora Legacy-CDK-construct usage: Master-creds for database-admin/dba user
         ### NOTE: the NON-dba appl-user is created at BOTTOM of this Construct.
@@ -109,10 +158,22 @@ class SqlDatabaseConstruct(Construct):
         #     generate_secret_string=aws_secretsmanager.SecretStringGenerator(
         #         secret_string_template='{"username": "admin_user"}',
         #         generate_string_key="password",
-        #         exclude_characters="~`!#$%^&*()-_+={}[]|\\:;'”’\"<>.,?",
+        #         exclude_characters=get_RDS_password_exclude_pattern_adminuser(),
         #         password_length=32,
         #     ),
         # )
+
+        encryption_key_arn = CdkDotJson_util.lkp_cdk_json_for_kms_key( scope, tier, None, CdkDotJson_util.AwsServiceNamesForKmsKeys.rds )
+        ### Use Credentials.fromGeneratedSecret with custom username
+        admin_credentials = aws_rds.Credentials.from_generated_secret(
+            username = "aurorav2_pgsql",  ### MasterUsername: MUST match pattern ^[a-zA-Z]{1}[a-zA-Z0-9_]*$]
+            secret_name = f"{stk.stack_name}-AuroraV2-PGv16-AdminUser",
+            exclude_characters = get_RDS_password_exclude_pattern_adminuser(),
+            encryption_key = aws_kms.Key.from_key_arn(scope=scope, id="KmsKeyLkp", key_arn=encryption_key_arn),
+        )
+
+        ### RuntimeError: Error: Cannot apply RemovalPolicy: no child or not a CfnResource. Apply the removal policy on the CfnResource directly.
+        # admin_credentials.encryption_key.apply_removal_policy( removal_policy )
 
         ### ------------------------------------------
 
@@ -126,12 +187,13 @@ class SqlDatabaseConstruct(Construct):
             engine = aws_rds.DatabaseClusterEngine.aurora_postgres(version=engine_version_id),
             enable_data_api = True, ### Default = False
             auto_minor_version_upgrade = True, ### NIST 800-53 finding: RDS automatic minor version upgrades should be enabled
+            credentials = admin_credentials,
             ### Do NOT specify the following, to avoid ERROR: The instance class that you specified doesn't support the HTTP endpoint for using RDS Data API.
             #__ readers = [IClusterInstance] ### A list of instances to create as cluster-reader-instances. Default: - no readers are created. The cluster will have a single writer/reader
             writer=aws_rds.ClusterInstance.serverless_v2( id="AuroraWriter",
                 instance_identifier = f"{cluster_identifier}-writer",
                 #__ scale_with_writer =  .. .. applies to READERs only
-                auto_minor_version_upgrade = False,
+                auto_minor_version_upgrade = True, ### NIST 800-53 finding: RDS automatic minor version upgrades should be enabled
                 allow_major_version_upgrade = False,
                 publicly_accessible = False,
             ),
@@ -145,10 +207,6 @@ class SqlDatabaseConstruct(Construct):
             # instances = [0-9]+, ### !!!!! LEGACY DEPRECATED parameter !!!  DEFAULT = 2 (Writer + 1-Reader)
             ### In V1-Aurora, we have to EXPLICITY provide the secret.  Not so for V2!
             ### In V2-Aurora, Default-CDK-construct's behavior is to create a NEW username of 'admin' (or 'postgres' for PostgreSQL) and SecretsManager-generated password
-            # credentials=aws_rds.Credentials.from_secret(
-            #     secret = self.rds_master_secret,
-            #     username = "admin_user"
-            # ),
             # network_type=aws_rds.NetworkType.IPV4,
             # enable_local_write_forwarding = True, ## Whether read-replicas can forward write-operations to the writer-nstance. Only be enabled for MySQL 3.04+ or PostgreSQL 16.4+
             storage_encrypted = True,
@@ -159,14 +217,14 @@ class SqlDatabaseConstruct(Construct):
             vpc=vpc, ### WARNING: RuntimeError: Provide either vpc or instanceProps.vpc, but not both
             vpc_subnets = vpc_subnets, ### WARNING: RuntimeError: Provide either vpc or instanceProps.vpc, but not both
             subnet_group=self.rds_subnet_group, ### WARNING: RuntimeError: Provide either vpc or instanceProps.vpc, but not both
-            security_groups=[self.rds_security_group], ### WARNING: RuntimeError: Provide either vpc or instanceProps.vpc, but not both
+            security_groups=sg_list_for_all_lambdas, ### WARNING: RuntimeError: Provide either vpc or instanceProps.vpc, but not both
             # storage_type = aws_rds.DBClusterStorageType.AURORA_IOPT1, ### required for LIMITLESS mode
             # storage_type = aws_rds.DBClusterStorageType.AURORA, ### Default: - DBClusterStorageType.AURORA_IOPT1
             # instance_props=aws_rds.InstanceProps( !!!!!!!!!!!!!!!!!!! LEGACY DEPRECATED parameter !!!!!!!!!!!!!!!!!!!!
             #     # parameter_group = aws_rds.ParameterGroup.from_parameter_group_name( self, "ParamGrp", rds_paramgroup_name),
             #     vpc=vpc, ### WARNING: RuntimeError: Provide either vpc or instanceProps.vpc, but not both
             #     vpc_subnets = vpc_subnets, ### WARNING: RuntimeError: Provide either vpc or instanceProps.vpc, but not both
-            #     security_groups=[self.rds_security_group], ### WARNING: RuntimeError: Provide either vpc or instanceProps.vpc, but not both
+            #     security_groups=sg_list_for_all_lambdas, ### WARNING: RuntimeError: Provide either vpc or instanceProps.vpc, but not both
             #     allow_major_version_upgrade = False,
             #     publicly_accessible = False,
             #     delete_automated_backups = False,
@@ -175,6 +233,11 @@ class SqlDatabaseConstruct(Construct):
             #         aws_ec2.InstanceSize.XLARGE4,
             #     ),
             # ),
+
+            #### [Error AuroraV2PG/AuroraV2-PGSQL/Resource] HIPAA.Security-RDSLoggingEnabled[LogExport::postgresql]: The non-Aurora RDS DB instance or Aurora cluster does not have all CloudWatch log types exported - (Control IDs: 164.308(a)(3)(ii)(A), 164.308(a)(5)(ii)(C)). To help with logging and monitoring within your environment, ensure Amazon Relational Database Service (Amazon RDS) logging is enabled. With Amazon RDS logging, you can capture events such as connections, disconnections, queries, or tables queried.This is a granular rule that returns individual findings that can be suppressed with 'appliesTo'. The findings are in the format 'LogExport::<log>' for exported logs. Example: appliesTo: ['LogExport::audit'].
+            cloudwatch_logs_exports = ['postgresql'], ### REF: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbcluster.html#cfn-rds-dbcluster-enablecloudwatchlogsexports
+                        ### Samples: https://github.com/aws/aws-cdk/blob/main/packages/aws-cdk-lib/aws-rds/README.md
+            cloudwatch_logs_retention = DataClassification.retention_enum_for( tier, DATA_CLASSIFICATION_TYPES.CLOUD_AUDITTRAILS ),
 
             # cluster_scailability_type=aws_rds.ClusterScailabilityType.STANDARD,
             # enable_performance_insights=True, ### RuntimeError: Performance Insights must be enabled for Aurora Limitless Database.
@@ -214,7 +277,7 @@ class SqlDatabaseConstruct(Construct):
         #     vpc=vpc,
         #     vpc_subnets = vpc_subnets,
         #     subnet_group = self.rds_subnet_group,
-        #     security_groups = [self.rds_security_group],
+        #     security_groups = sg_list_for_all_lambdas,
 
         #     # storage_encryption_key = ### Default: default master key will be used for storage encryption.
         #     backup_retention = db_backup_retention,
@@ -224,6 +287,22 @@ class SqlDatabaseConstruct(Construct):
         # )
 
         self.db.secret.apply_removal_policy( removal_policy )
+        id="RDSAdminCredsRotation"
+        self.db.secret.add_rotation_schedule(  ### https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_rds/DatabaseSecret.html#aws_cdk.aws_rds.DatabaseSecret.add_rotation_schedule
+            id = id,
+            automatically_after = Duration.days(30),
+            hosted_rotation = aws_secretsmanager.HostedRotation.postgre_sql_single_user(
+                exclude_characters = get_RDS_password_exclude_pattern_adminuser(),
+                function_name = f"{cluster_identifier}-{id}",
+                # function_name = f"{stk.stack_name}-{cluster_identifier}-{id}",
+                vpc = vpc,
+                vpc_subnets = aws_ec2.SubnetSelection(
+                    subnet_type = get_vpc_privatesubnet_type(vpc),
+                    one_per_az = True,
+                ),
+                security_groups = sg_list_for_all_lambdas,
+            )
+        )
         ### !!! WARNNG !!!
         ### `self.db.secret` is --NOT-- AWS::SecretsManager::Secret.   It is actually a CustomResource created by CDK !!!!!!
         ### Attention: Because the secret is created as part of the DatabaseCluster's internal implementation, we can NOT update the secret's description!
@@ -246,20 +325,18 @@ class SqlDatabaseConstruct(Construct):
 
         # Allow access from security group
         self.db.connections.allow_from(
-            self.rds_security_group,
-            aws_ec2.Port.tcp(5432),
-            "AuroraV2-Postgres DB-access from within SG only"
+            other = self.rds_security_group,
+            port_range = aws_ec2.Port.tcp(5432),
+            description = "AuroraV2-Postgres DB-access from within SG only",
         )
 
         # Application-user creds.
         ### NOTE: can --NOT-- do this before creating the DB-Cluster!!
-        self.emfact_user_hush = aws_rds.DatabaseSecret(
-            self,
-            "AuroraV2User",
-            username="emfact_user",
-            secret_name=f"{stk.stack_name}/emfact_user",
-            master_secret=self.db.secret,
-            exclude_characters="~`!#$%^&*()-_+={}[]|\\:;'”’\"<>.,?",
+        self.emfact_user_hush = aws_rds.DatabaseSecret( self, "AuroraV2User",
+            username = constants.RDS_APPLN_USER_NAME,
+            secret_name = f"{stk.stack_name}/{constants.RDS_APPLN_USER_NAME}",
+            master_secret = self.db.secret,
+            exclude_characters = get_RDS_password_exclude_pattern_alphanum_only(),
         )
         self.emfact_user_hush.apply_removal_policy( removal_policy )
         emfact_user_hush_attached :aws_secretsmanager.ISecret = self.emfact_user_hush.attach( self.db )
@@ -268,17 +345,28 @@ class SqlDatabaseConstruct(Construct):
         # ### DBO/DBA/Admin user's credentials-rotation; Note: Hence, we do NOT specify the secret as a param!
         # self.db.add_rotation_single_user(
         #     # automatically_after=Duration.days(30), ### FYI: 30-days is the default!!
-        #     exclude_characters="{}[]()'/\"@,.<>~!#$%^&*|;:` ",
+        #     exclude_characters=get_RDS_password_exclude_pattern_alphanum_only(),
         #     ### TODO lock this auto-generated Lambda inside a VPC.
         # )
 
         ## Add credentials-rotation to the db-user used by the application/lambdas.
-        self.db.add_rotation_multi_user( id = "AppDBUser",
-            secret = emfact_user_hush_attached,
+        id="AppDBUser"
+        emfact_user_hush_attached.add_rotation_schedule(  ### https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_rds/DatabaseSecret.html#aws_cdk.aws_rds.DatabaseSecret.add_rotation_schedule
+            id = id,
+            rotate_immediately_on_update = False,
+            automatically_after = Duration.days(30) if tier in constants.UPPER_TIERS else Duration.days(1),
             # automatically_after=Duration.days(30), ### FYI: 30-days is the default!!
-            exclude_characters="{}[]()'/\"@,.<>~!#$%^&*|;:` ",
-            ### TODO lock this auto-generated Lambda inside a VPC.
-            rotate_immediately_on_update=True,
+            hosted_rotation = aws_secretsmanager.HostedRotation.postgre_sql_single_user(
+                exclude_characters = get_RDS_password_exclude_pattern_alphanum_only(),
+                function_name = f"{cluster_identifier}-{id}",
+                # function_name = f"{stk.stack_name}-{cluster_identifier}-{id}",
+                vpc = vpc,
+                vpc_subnets = aws_ec2.SubnetSelection(
+                    subnet_type = get_vpc_privatesubnet_type(vpc),
+                    one_per_az = True,
+                ),
+                security_groups = sg_list_for_all_lambdas,
+            )
         )
         emfact_user_hush_attached.apply_removal_policy( removal_policy )
 
@@ -286,20 +374,23 @@ class SqlDatabaseConstruct(Construct):
         # Create RDS Proxy
         self.db_proxy = aws_rds.DatabaseProxy( self.db, 'MyDBProxy',
             proxy_target = aws_rds.ProxyTarget.from_cluster(self.db),
-            secrets = [self.emfact_user_hush],
+            secrets = [
+                self.db.secret,  ### DBA-Admin
+                self.emfact_user_hush,  ### Appl-DB-User
+            ],
             db_proxy_name = cluster_identifier, ###  [a-zA-Z](?:-?[a-zA-Z0-9]+)*
             vpc = vpc,
             require_tls = True,
             iam_auth = True,  # Require IAM authentication
             vpc_subnets = aws_ec2.SubnetSelection(
                 # subnet_group_name = .. this is --NOT-- the same as self.rds_subnet_group !!
-                subnet_type = aws_ec2.SubnetType.PRIVATE_WITH_EGRESS,
+                subnet_type = get_vpc_privatesubnet_type(vpc),
                 one_per_az = True,
             ),
+            security_groups = sg_list_for_all_lambdas,
             debug_logging=True
         )
         self.db_proxy.apply_removal_policy( RemovalPolicy.DESTROY ) ### Even for Upper-tiers!!
-        add_tags( self.db_proxy, tier, aws_env, git_branch )
 
         ### self.db_proxy.db_proxy_name
         ### self.db_proxy.db_proxy_arn
@@ -309,7 +400,17 @@ class SqlDatabaseConstruct(Construct):
         self.db.connections.allow_from(
             self.db_proxy,
             aws_ec2.Port.tcp(5432),
-            'From RDS-Proxy to AuroraV2-Postgres-cluster'
+            "From RDS-Proxy to AuroraV2-Postgres-cluster",
         )
+        self.db_proxy.connections.allow_from(
+            self.rds_security_group,  ### Attention: Assumption: All Lambdas are running inside this same SG as RDS-Aurora.
+            aws_ec2.Port.tcp(5432),
+            "From Lambdas running inside SAME-SG as AuroraV2-Postgres-cluster, into AG of RDS-Proxy",
+        )
+
+        add_tags( self.db_proxy, tier, aws_env, git_branch )
+        # self.db_proxy.node.add_dependency(self.db)
+        # self.db.node.add_dependency(self.rds_security_group)
+        # self.db.node.add_dependency(self.rds_subnet_group)
 
 ### EoF

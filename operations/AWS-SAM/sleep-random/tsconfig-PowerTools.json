@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+      "target": "es2022",
+      "esModuleInterop": true,
+      "skipLibCheck": true,
+      "moduleDetection": "force",
+      "isolatedModules": true,
+      "strict": true,
+      "noUncheckedIndexedAccess": true,
+      "moduleResolution": "NodeNext",
+      "module": "NodeNext",
+      "sourceMap": true,
+      "experimentalDecorators": true,
+      "declaration": true,
+      "declarationMap": true,
+      "allowImportingTsExtensions": true,
+      "emitDeclarationOnly": true,
+      "removeComments": false,
+      "pretty": true,
+      "lib": [
+          "ES2022"
+      ],
+      "outDir": "dist",
+      "rootDir": ".",
+  },
+  // "include": [
+  //     "**/*"
+  // ],
+  "exclude": [
+      "./node_modules", "./dist"
+  ],
+  "watchOptions": {
+      "watchFile": "useFsEvents",
+      "watchDirectory": "useFsEvents",
+      "fallbackPolling": "dynamicPriority"
+  },
+  "types": [
+      "node"
+  ]
+}

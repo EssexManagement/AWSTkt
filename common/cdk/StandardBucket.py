@@ -10,12 +10,15 @@ from typing import Mapping, Optional, Sequence
 from constructs import Construct
 from aws_cdk import (
     Stack,
+    Tags,
     Duration,
     RemovalPolicy,
     aws_s3,
+    aws_kms,
 )
 
 from constants import UPPER_TIERS, STD_TIERS
+import cdk_utils.CdkDotJson_util as CdkDotJson_util
 
 ### ======================================================================================================
 
@@ -45,6 +48,8 @@ def _int_to_duration(i: int) -> Optional[Duration]:
     If yes, per security-policy, all buckets should be logged.
 """
 
+s3_accessLogsBkt_lookup :dict[str,aws_s3.IBucket] = {}
+
 
 def lookup_access_logs_bucket(scope: Construct, id :str, tier: str) -> Optional[aws_s3.Bucket]:
 
@@ -63,10 +68,14 @@ def lookup_access_logs_bucket(scope: Construct, id :str, tier: str) -> Optional[
     print( f"server_access_logs_bucket_name='{server_access_logs_bucket_name}'" )
 
     if server_access_logs_bucket_name:
-        server_access_logs_bucket = aws_s3.Bucket.from_bucket_name(
-            scope=scope, id="s3-access-logs-"+id,
-            bucket_name=server_access_logs_bucket_name
-        )
+        if server_access_logs_bucket_name in s3_accessLogsBkt_lookup:
+            server_access_logs_bucket = s3_accessLogsBkt_lookup[ server_access_logs_bucket_name ]
+        else:
+            server_access_logs_bucket = aws_s3.Bucket.from_bucket_name(
+                scope=scope, id="s3-access-logs-"+id,
+                bucket_name=server_access_logs_bucket_name
+            )
+            s3_accessLogsBkt_lookup[ server_access_logs_bucket_name ] = server_access_logs_bucket
     else:
         server_access_logs_bucket = None
 
@@ -125,6 +134,7 @@ def create_std_bucket(
     **kwargs,
 ) -> aws_s3.Bucket:
     HDR = " create_std_bucket() within " + __file__
+    stk = Stack.of(scope)
 
     print(f"tier='{tier}' :" + HDR )
     server_access_logs_bucket = lookup_access_logs_bucket(scope=scope, id=id, tier=tier)
@@ -157,7 +167,15 @@ def create_std_bucket(
         max_age=24*3600 ### seconds
     ))
 
-    return aws_s3.Bucket(
+    encryption_key_arn = CdkDotJson_util.lkp_cdk_json_for_kms_key( cdk_scope = scope,
+        tier = tier,
+        aws_env = None,
+        aws_rsrc_type = CdkDotJson_util.AwsServiceNamesForKmsKeys.s3
+    )
+    encryption_key = aws_kms.Key.from_key_arn(scope, 'kmslkp-'+bucket_name, encryption_key_arn) if encryption_key_arn else None
+    # encryption_key = aws_kms.Key.from_key_arn( scope, 'kmslkp-'+bucket_name, f"arn:aws:kms:{stk.region}:{stk.account}:alias/aws/s3"),
+
+    newbkt = aws_s3.Bucket(
         scope = scope,
         id = id,
         bucket_name = bucket_name,
@@ -170,7 +188,8 @@ def create_std_bucket(
         # access_control = aws_s3.BucketAccessControl.PRIVATE, ### deprecated. ### <-- ATTENTION !! Must NOT be set for CF's logging bucket
                 ### Fix CloudFormation STACK-ERROR -> Bucket cannot have ACLs set with ObjectOwnership's BucketOwnerEnforced setting
                 ### Fix cfn-lint ERROR -> E3045 A bucket with AccessControl set should also have OwnershipControl configured
-        encryption=encryption if encryption else aws_s3.BucketEncryption.S3_MANAGED,
+        encryption = encryption if encryption else aws_s3.BucketEncryption.KMS,
+        encryption_key = encryption_key,
         enforce_ssl = True,
         cors = cors_rule_list,
         server_access_logs_bucket = server_access_logs_bucket,
@@ -179,6 +198,8 @@ def create_std_bucket(
         ),
         **kwargs,
     )
+    Tags.of(newbkt).add(key="ResourceName", value = bucket_name)
+    return newbkt
 
 
 ### ======================================================================================================
@@ -199,6 +220,7 @@ def gen_s3_bucket_props(
     """per Security Guidelines, all buckets should IDEALLY have the following properties set."""
 
     HDR = " gen_s3_nucket_props() within " + __file__
+    stk = Stack.of(scope)
 
     print(f"tier='{tier}' :" + HDR )
     server_access_logs_bucket = lookup_access_logs_bucket(scope=scope, tier=tier)
@@ -231,16 +253,26 @@ def gen_s3_bucket_props(
         max_age=24*3600 ### seconds
     ))
 
+    encryption_key_arn = CdkDotJson_util.lkp_cdk_json_for_kms_key( cdk_scope = scope,
+        tier = tier,
+        aws_env = None,
+        aws_rsrc_type = CdkDotJson_util.AwsServiceNamesForKmsKeys.s3
+    )
+    encryption_key = aws_kms.Key.from_key_arn(scope, 'kmslkp-'+bucket_name, encryption_key_arn) if encryption_key_arn else None
+    # encryption_key = aws_kms.Key.from_key_arn( scope, 'kmslkp-'+bucket_name, f"arn:aws:kms:{stk.region}:{stk.account}:alias/aws/s3"),
+
     s3_bucket_props = aws_s3.BucketProps(
         auto_delete_objects = auto_delete_objects2,
         versioned = versioned2,
         removal_policy = removal_policy2,
         block_public_access = block_public_access,
         object_ownership = aws_s3.ObjectOwnership.BUCKET_OWNER_ENFORCED,
+        # object_ownership = aws_s3.ObjectOwnership.BUCKET_OWNER_PREFERRED,
         # access_control = aws_s3.BucketAccessControl.PRIVATE, ### deprecated. ### <-- ATTENTION !! Must NOT be set for CF's logging bucket
                 ### Fix CloudFormation STACK-ERROR -> Bucket cannot have ACLs set with ObjectOwnership's BucketOwnerEnforced setting
                 ### Fix cfn-lint ERROR -> E3045 A bucket with AccessControl set should also have OwnershipControl configured
-        encryption = encryption if encryption else aws_s3.BucketEncryption.S3_MANAGED,
+        encryption = encryption if encryption else aws_s3.BucketEncryption.KMS,
+        encryption_key = encryption_key,
         enforce_ssl = True,
         cors = cors_rule_list,
         server_access_logs_bucket = server_access_logs_bucket,

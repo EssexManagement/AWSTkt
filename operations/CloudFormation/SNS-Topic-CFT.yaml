@@ -1,0 +1,36 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates an SNS Topic and optionally subscribes an email address
+
+Parameters:
+  TopicName:
+    Type: String
+    Description: Name of the SNS Topic
+  EmailAddress:
+    Type: String
+    Default: ''
+    Description: Optional email address to subscribe to the SNS Topic
+    AllowedPattern: '^$|^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+    ConstraintDescription: Must be a valid email address or leave blank
+
+Conditions:
+  HasEmailAddress: !Not [!Equals [!Ref EmailAddress, '']]
+
+Resources:
+  SNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Ref TopicName
+      KmsMasterKeyId: alias/aws/sns
+      Subscription:
+        - !If
+          - HasEmailAddress
+          - Endpoint: !Ref EmailAddress
+            Protocol: email
+          - !Ref AWS::NoValue
+
+Outputs:
+  TopicARN:
+    Description: ARN of the SNS Topic
+    Value: !Ref SNSTopic
+    Export:
+      Name: !Sub '${AWS::StackName}-TopicARN'

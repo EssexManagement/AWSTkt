@@ -1,4 +1,5 @@
 import constants
+import common.cdk.constants_cdk as constants_cdk
 
 ### ===============================================================================================
 ### ...............................................................................................
@@ -7,7 +8,7 @@ import constants
 """ Supports Standardized naming for ANY AWS-Resource.  See also `gen_awsresource_name()` """
 def gen_awsresource_name_prefix(
     tier :str,
-    cdk_component_name :str = constants.CDK_COMPONENT_NAME,
+    cdk_component_name :str = constants.CDK_BACKEND_COMPONENT_NAME,
 ) -> str:
     return f"{constants.CDK_APP_NAME}-{cdk_component_name}-{tier}"
 
@@ -29,11 +30,12 @@ def gen_awsresource_name(
 ### ===============================================================================================
 
 ### The `dev` environment's VPC is shared by DEVELOPER-environments also.
-# SHARED_VPC_NAME = f"{CDK_APP_NAME}-{CDK_COMPONENT_NAME}-pipeline-dev/{CDK_APP_NAME}-{CDK_COMPONENT_NAME}-dev/Stateful/vpc_db/VPC"
-def get_vpc_name( tier :str ) -> str:
+def get_vpc_name( tier :str, aws_region :str ) -> str:
     if tier not in constants.STD_TIERS:
         tier = "dev"
-    return f"{gen_awsresource_name_prefix(tier)}/Stateful/vpc-only/VPC"
+    # aws_env :str = constants_cdk.get_aws_env( tier=tier )
+    return f"vpc-{tier}-cancer-trials-{aws_region}"
+    # return f"{constants.CDK_APP_NAME}/{aws_env}"
     # return f"{gen_awsresource_name_prefix(tier)}/{gen_awsresource_name_prefix(tier)}/Stateful/vpc_db/VPC"
 
 def get_subnet_name( tier :str, simple_subnet_name :str ) -> str:
@@ -44,19 +46,25 @@ def get_subnet_name( tier :str, simple_subnet_name :str ) -> str:
 
 ### ----------------------------------------------------------------
 """ Standardized naming for Lambdas """
-def gen_lambda_name( tier :str, simple_lambda_name :str ) -> str:
+def gen_lambda_name( tier :str, simple_lambda_name :str, component_name :str = constants.CDK_BACKEND_COMPONENT_NAME ) -> str:
     return f"{gen_awsresource_name_prefix(tier)}-{simple_lambda_name}"
+    # return f"{constants.CDK_APP_NAME}-{component_name}-{tier}-{simple_lambda_name}"
 
 ### ----------------------------------------------------------------
 """ Standardized naming for BUCKETS """
-def gen_bucket_name( tier :str, simple_bucket_name :str ) -> str:
+def gen_bucket_name( tier :str, simple_bucket_name :str, component_name :str = constants.CDK_BACKEND_COMPONENT_NAME ) -> str:
     return f"{constants.ENTERPRISE_NAME}-{gen_awsresource_name_prefix(tier)}-{simple_bucket_name}".lower()
+    # return f"{constants.ENTERPRISE_NAME}-{constants.CDK_APP_NAME}-{component_name}-{tier}-{simple_bucket_name}".lower()
 
+""" Standardized naming for BUCKETS """
+def make_bucket_name_globally_unique( simple_bucket_name :str) -> str:
+    return f"{constants.ENTERPRISE_NAME}-{simple_bucket_name}".lower()
 
 ### ----------------------------------------------------------------
 """ Standardized naming for dynamo tables """
-def gen_dynamo_table_name( tier :str, simple_table_name :str ) -> str:
+def gen_dynamo_table_name( tier :str, simple_table_name :str, component_name :str = constants.CDK_BACKEND_COMPONENT_NAME ) -> str:
     return f"{constants.ENTERPRISE_NAME}-{gen_awsresource_name_prefix(tier)}-{simple_table_name}".lower()
+    # return f"{constants.ENTERPRISE_NAME}-{constants.CDK_APP_NAME}-{component_name}-{tier}-{simple_table_name}".lower()
 
 
 ### ----------------------------------------------------------------
@@ -76,7 +84,7 @@ def gen_common_lambdalayer_name(
     simple_commonstack_name :str,
     simple_lambdalayer_name :str,
     cpu_arch_str :str,
-    component_name :str = constants.CDK_COMPONENT_NAME,
+    component_name :str = constants.CDK_BACKEND_COMPONENT_NAME,
 ) -> str:
     return f"{constants.CDK_APP_NAME}-{component_name}-{tier}_{simple_commonstack_name}_{simple_lambdalayer_name}_{cpu_arch_str}"
 
@@ -85,7 +93,7 @@ def gen_lambdalayer_name(
     tier :str,
     simple_lambdalayer_name :str,
     cpu_arch_str :str,
-    component_name :str = constants.CDK_COMPONENT_NAME,
+    component_name :str = constants.CDK_BACKEND_COMPONENT_NAME,
 ) -> str:
     return f"{constants.CDK_APP_NAME}-{component_name}-{tier}_{simple_lambdalayer_name}_{cpu_arch_str}"
 
@@ -96,8 +104,8 @@ def gen_lambdalayer_name(
     ###  .. you --MUST-- reference that specific version number. [2]
     ###
     ### Resource handler returned message: "1 validation error detected:
-    ### Value '[arn:aws:lambda:us-east-1:127516845550:layer:FACT-backend-dev-CommonAWSRrcs_psycopg2_arm64,
-    ###         arn:aws:lambda:us-east-1:580247275435:layer:LambdaInsightsExtension-Arm64:20]'
+    ### Value '[arn:aws:lambda:us-east-1:123456789012:layer:{CDK_APP_NAME}-backend-dev-CommonAWSRrcs_psycopg2_arm64,
+    ###         arn:aws:lambda:us-east-1:123456789012:layer:LambdaInsightsExtension-Arm64:20]'
     ### at 'layers' failed to satisfy constraint: Member must satisfy constraint:
     ### [   Member must have length less than or equal to 2048,
     ###     Member must have length greater than or equal to 1,
@@ -121,7 +129,9 @@ def extract_simple_resource_name(
     retstr = retstr.replace(f"{constants.ENTERPRISE_NAME}-", "")
     retstr = retstr.replace(f"{constants.HUMAN_FRIENDLY_APP_NAME}-", "")
     retstr = retstr.replace(f"{constants.CDK_APP_NAME}-", "")
-    retstr = retstr.replace(f"{constants.CDK_COMPONENT_NAME}-", "")
+    retstr = retstr.replace(f"{constants.CDK_BACKEND_COMPONENT_NAME}-", "")
+    retstr = retstr.replace(f"{constants.CDK_FRONTEND_COMPONENT_NAME}-", "")
+    retstr = retstr.replace(f"{constants.CDK_DEVOPS_COMPONENT_NAME}-", "")
     retstr = retstr.replace(f"-pipeline", "")
     retstr = retstr.replace(f"{tier}-", "")
     retstr = retstr.replace(f"-{tier}", "")

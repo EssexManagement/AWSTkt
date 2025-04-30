@@ -105,8 +105,11 @@ fi
 ### https://awscli.amazonaws.com/v2/documentation/api/latest/reference/cognito-idp/admin-set-user-password.html
 ### aws cognito-idp admin-set-user-password --user-pool-id us-east-1_fvKf0U6q7 --username vivek.ramani --password D@vidDem0123 ${AWSPROFILEREGION[@]}
 
-aws cognito-idp admin-add-user-to-group --user-pool-id ${COGNITO_USERPOOL_ID}    \
+read -p "Are you SURE .. that you want to add above Cognito-User to Cognito-Group '${COGNITO_GROUPID}'? [yN] >> " ANS
+if [ "${ANS}" == "y" ]; then
+    aws cognito-idp admin-add-user-to-group --user-pool-id ${COGNITO_USERPOOL_ID}    \
         --username ${COGNITO_TESTUSER_NAME} --group-name ${COGNITO_GROUPID} ${AWSPROFILEREGION[@]}
+fi
 
 ###---------------------------------------------------------------
 ### @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@

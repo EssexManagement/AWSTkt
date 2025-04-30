@@ -1,0 +1,4 @@
+{
+    "tier": "dev",
+    "bucket-name": "emfact-frontend-{tier}-frontendcloudfrontloggingbucke.*"
+}

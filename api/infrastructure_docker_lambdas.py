@@ -16,6 +16,7 @@ from aws_cdk import (
 import constants
 import common.cdk.constants_cdk as constants_cdk
 import common.cdk.aws_names as aws_names
+from cdk_utils.CloudFormation_util import get_vpc_privatesubnet_type
 from common.cdk.standard_lambda import StandardLambda
 from common.cdk.custom_ECRRepo_lambda_construct import CustomECRRepoLambdaConstruct
 
@@ -80,7 +81,7 @@ class DockerLambdaConstruct(Construct):
         #     vpc=vpc,
         #     security_groups=[rdsSG],
         #     vpc_subnets=ec2.SubnetSelection(
-        #         subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
+        #         subnet_type=get_vpc_privatesubnet_type(vpc)
         #     ),
         #     code=aws_lambda.DockerImageCode.from_image_asset(
 

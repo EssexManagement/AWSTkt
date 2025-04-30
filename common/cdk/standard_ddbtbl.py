@@ -15,12 +15,16 @@
 from typing import Optional
 from constructs import Construct
 from aws_cdk import (
+    Stack,
+    Tags,
     Duration,
-    aws_dynamodb,
     RemovalPolicy,
+    aws_dynamodb,
+    aws_kms,
 )
 
 from constants import STD_TIERS
+import cdk_utils.CdkDotJson_util as CdkDotJson_util
 
 ### ======================================================================================================
 
@@ -58,6 +62,7 @@ def standard_dynamodb_table(
     time_to_live_attribute: str = "expireAt",
     **kwargs,
 ) -> aws_dynamodb.Table:
+    stk = Stack.of(scope)
 
     removal_policy2: RemovalPolicy = (
         removal_policy
@@ -74,7 +79,16 @@ def standard_dynamodb_table(
     ### `removal-policy` can fix/override `deletion-protection` to True.
     print(f"removal_policy='{removal_policy2}' and deletion_protection2='{deletion_protection2}'")
 
-    return aws_dynamodb.TableV2(
+    encryption_key_arn = CdkDotJson_util.lkp_cdk_json_for_kms_key( cdk_scope = scope,
+        tier = tier,
+        aws_env = None,
+        aws_rsrc_type = CdkDotJson_util.AwsServiceNamesForKmsKeys.dynamodb
+    )
+    encryption_key = aws_kms.Key.from_key_arn(scope, 'kmslkp-'+id, encryption_key_arn) if encryption_key_arn else None
+    encryption_key = aws_dynamodb.TableEncryptionV2.customer_managed_key( encryption_key ) if encryption_key else None
+    # encryption = aws_dynamodb.TableEncryptionV2.aws_managed_key()
+
+    newtbl = aws_dynamodb.TableV2(
         scope=scope,
         id = id,
         table_name = ddbtbl_name,
@@ -82,16 +96,18 @@ def standard_dynamodb_table(
         sort_key = sort_key,
         global_secondary_indexes = global_secondary_indexes,
         time_to_live_attribute = time_to_live_attribute,
+        encryption = encryption_key,
         removal_policy = removal_policy2,
         deletion_protection = deletion_protection2,
-        encryption = encryption,
         billing = billingV2,
         table_class = table_class,
         point_in_time_recovery = True,
         dynamo_stream = ddbstream_type,
         **kwargs,
     )
+    Tags.of(newtbl).add(key="ResourceName", value = stk.stack_name+"-DynamoDBTbl-"+ddbtbl_name)
 
+    return newtbl
 
 ### ======================================================================================================
 

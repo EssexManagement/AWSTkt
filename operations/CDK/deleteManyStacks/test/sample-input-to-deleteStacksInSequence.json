@@ -1,0 +1,24 @@
+{
+    "deleteInSequence": [
+      {
+        "deleteInParallel": [
+          "emfact-backend-dev-Lambdas-0",
+          "emfact-backend-dev-Lambdas-1",
+          "emfact-backend-dev-Lambdas-2",
+          "emfact-backend-dev-Lambdas-3",
+          "emfact-backend-dev-Lambdas-4",
+          "emfact-backend-dev-Lambdas-5",
+          "emfact-backend-dev-Lambdas-6",
+          "emfact-backend-dev-Lambdas-7",
+          "emfact-backend-dev-Lambdas-8",
+          "emfact-backend-dev-Lambdas-9",
+          "emfact-backend-dev-Lambdas-10",
+          "emfact-backend-dev-Lambdas-11",
+          "emfact-backend-dev-StatelessETL",
+          "emfact-frontend-dev"
+        ]
+      },
+      "emfact-backend-dev-StatelessAPIGW"
+    ],
+    "SNSTopicName": "{SNSTopicName}"
+  }

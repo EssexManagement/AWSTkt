@@ -17,7 +17,9 @@ from constructs import Construct
 import constants as constants
 import common.cdk.constants_cdk as constants_cdk
 import common.cdk.aws_names as aws_names
+import cdk_utils.CdkDotJson_util as CdkDotJson_util
 from cdk_utils.CloudFormation_util import get_cpu_arch_enum,get_cpu_arch_as_str,  add_tags
+
 from backend.lambda_layer.lambda_layers_builder_stacks import LambdaLayersBuilderStacks
 
 ### ==============================================================================================
@@ -31,8 +33,9 @@ scope :Construct = app
 HDR = " inside "+ __file__
 
 tier :str = app.node.try_get_context("tier")
-git_branch :str = constants.get_git_branch( tier=tier )
-aws_env :str = constants.get_aws_env( tier=tier )
+git_branch :str = CdkDotJson_util.lkp_git_branch( cdk_scope=app, tier=tier )
+# git_branch :str = constants.get_git_branch( tier=tier )
+aws_env :str = constants_cdk.get_aws_env( tier=tier )
 if not tier or tier.lower().strip() == "":
     print( f"!! ERROR !! tier is EMPTY == '{tier}'.  Pass in proper value via CDK's CLI-argument '--context tier=\"dev\"' !!!!!!!!" )
     sys.exit(31)
@@ -40,7 +43,7 @@ print( f"tier = '{tier}' within "+ __file__ )
 print( f"git_branch = '{git_branch}' within "+ __file__ )
 print( f"aws_env = '{aws_env}' within "+ __file__ )
 
-stk_prefix = aws_names.gen_awsresource_name_prefix( tier, constants.CDK_COMPONENT_NAME )
+stk_prefix = aws_names.gen_awsresource_name_prefix( tier, constants.CDK_BACKEND_COMPONENT_NAME )
 
 env = cdk.Environment(
     account=os.environ["CDK_DEFAULT_ACCOUNT"],

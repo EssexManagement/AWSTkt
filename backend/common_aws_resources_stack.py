@@ -10,7 +10,7 @@ from aws_cdk import (
     Duration,
     RemovalPolicy,
     aws_lambda,
-    aws_logs,
+    aws_ec2,
     aws_iam,
 )
 
@@ -34,6 +34,11 @@ import backend.lambda_layer.lambda_layer_hashes
 ### ==============================================================================================
 
 class CommonAWSResourcesStack(Stack):
+
+    @property
+    def vpc(self) -> aws_ec2.IVpc:
+        return self._vpc
+
     def __init__( self,
         scope: Construct,
         simple_id: str,
@@ -63,23 +68,55 @@ class CommonAWSResourcesStack(Stack):
             stack_name = f"{stk_prefix}-{simple_id}".replace('_',''),
             **kwargs
         )
+        stk = Stack.of(self)
 
         self.tier = tier
+        vpc_name=aws_names.get_vpc_name( tier=tier, aws_region=stk.region )
+        print( f"vpc_name = '{vpc_name}'" )
+        self._vpc = aws_ec2.Vpc.from_lookup(self, f"vpcLookup", vpc_name=vpc_name)
+        ### Do some basic VPC sanity checks
+        if len(self._vpc.private_subnets):
+            print( "PRIVATE Subnet # 0 has RouteTable = ", self._vpc.private_subnets[0].route_table.route_table_id )
+        if len(self._vpc.isolated_subnets):
+            print( "ISOLATED (repeat NOT-private, but ISOLATED) SUbnet #0 is ", self._vpc.isolated_subnets[0].subnet_id )
+        print( aws_ec2.SubnetFilter.availability_zones(['us-east-1a']) )
 
         ### -------- build the 𝜆-layers by CPU-ARCH -------
 
         print( '^'*120 )
+
         for cpu_arch in cpu_arch_list:
+            print( f"\nChecking whether to build 𝜆-layers for {cpu_arch.name} .." )
 
             for layer in layer_modules_list:
 
-                self._lookup_lambda_layer( tier, cpu_arch, layer )
+                skip_for_cpu_arch = True;
+                print( "\n𝜆-layer "+ layer.lambda_layer_id, end=": " )
+                for larch in layer.cpu_arch:
+                    print( f"layer.cpu_arch = '{larch.name}'", end=' .. ' )
+                    if cpu_arch.name == larch.name:
+                        skip_for_cpu_arch = False
+                print( '' ) # end of line
+
+                if not skip_for_cpu_arch:
+                    self._lookup_lambda_layer( tier, cpu_arch, layer )
+                else:
+                    print( f"Lambda-Layer '{layer.lambda_layer_id}' .. is --NOT-- supported for CPU-Arch '{cpu_arch.name}'" )
 
         add_tags(self, tier=tier, aws_env=aws_env, git_branch=git_branch)
         print( '_'*120 )
 
 
     ### ---------------------------------------------------------------------------------------------------------------------
+    saved_lkp_obj = None
+    def dynamically_load_module(self, tier :str ) -> any:
+        if not self.saved_lkp_obj:
+            dyn_reloaded_module = importlib.reload(backend.lambda_layer.lambda_layer_hashes)
+            lkp_obj = dyn_reloaded_module.lambda_layer_hashes.get( tier )
+            print( json.dumps(lkp_obj, indent=4, default=str) )
+            self.saved_lkp_obj = lkp_obj
+        return self.saved_lkp_obj
+
     def _lookup_lambda_layer(self,
         tier :str,
         cpu_arch :aws_lambda.Architecture,
@@ -99,9 +136,7 @@ class CommonAWSResourcesStack(Stack):
         lkp_str_key :str = aws_names.gen_lambdalayer_name( tier, layer_id, cpu_arch_str )
         print( f"lkp_str_key = '{lkp_str_key}'" )
         ### Since the file `backend/lambda_layer/lambda_layer_hashes.py` was updated -by- this CDK-synth-execution (happened within `cdk_lambda_layers_app.py`), we need to DYNAMICALLY reload it.
-        dyn_reloaded_module = importlib.reload(backend.lambda_layer.lambda_layer_hashes)
-        lkp_obj = dyn_reloaded_module.lambda_layer_hashes.get( tier )
-        print( json.dumps(lkp_obj, indent=4, default=str) )
+        lkp_obj = self.dynamically_load_module( tier )
         lkp_lyr :dict[str, str] = lkp_obj.get( lkp_str_key ) if lkp_obj else None
         print( json.dumps(lkp_lyr, indent=4) )
         lkp_lyr_arn  = lkp_lyr.get('arn') if lkp_lyr else None

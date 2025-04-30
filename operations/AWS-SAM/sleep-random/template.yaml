@@ -1,0 +1,193 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform:
+- AWS::Serverless-2016-10-31
+
+Description: >-
+  Lambda function that can Sleep for a Random num of secs
+  See README.md for details on how to use this AWS-SAM template.
+
+Parameters:
+  Tier:
+    Type: String
+    Description: dev | int | uat | prod | some-developer-branch
+
+  EnterpriseName:
+    Type: String
+    Description: For valid-values Look for the 'application' tag for Lambdas
+    Default: "nih-nci"  ### Used in bucket-name.  So, must be 100% lower-case!!!
+
+  AppName:
+    Type: String
+    Description: For valid-values Look for the 'application' tag for Lambdas
+    Default: "CTF"
+
+  ApplnGroupName:
+    Type: String
+    Description: >-
+        This is mandatory for organizing multiple 𝜆s into one App (under Application-section of 𝜆-console)
+    Default: "CTF"
+
+  DateTimeStamp:
+    Description: Date & Time
+    Type: String
+    # AllowedPattern: >-
+    #   [0-9]-[0-9][0-9]-[0-9][0-9]
+    #   [0-9]:[0-9][0-9]:[0-9][0-9]
+    AllowedPattern: >-
+      ^\d{4}(-\d{2}){2}T(\d{2}:){2}\d{2}$
+    ConstraintDescription: "Date and time of STACK-creation"
+
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+
+    Tags:
+      'ApplicationName': !Ref ApplnGroupName  ### This is mandatory for organizing multiple 𝜆s into one App (under Application-section of 𝜆-console)
+
+    Timeout: 900
+
+    Tracing: Active
+    # You can add LoggingConfig parameters such as the Logformat, Log Group, and SystemLogLevel or ApplicationLogLevel. Learn more here https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html#sam-function-loggingconfig.
+    LoggingConfig:
+      LogFormat: JSON
+  Api:
+    TracingEnabled: true
+
+
+# Metadata:
+#   ### https://docs.localstack.cloud/user-guide/aws/serverlessrepo/#package-the-sam-application
+#   AWS::ServerlessRepo::Application:
+#     Name: CRRI-common-tools
+#     Description: Common application for multiple apps
+#     Author: Essex-Management Team
+#     # Optional: semantic version
+#     SemanticVersion: 1.0.0
+#     # Optional: source code URL
+#     SourceCodeUrl: https://github.com/youraccount/yourrepo
+
+
+Conditions:
+  IsValidTier: !Or
+    - !Equals [!Ref Tier, "dev"]
+    - !Equals [!Ref Tier, "int"]
+    - !Equals [!Ref Tier, "uat"]
+    - !Equals [!Ref Tier, "prod"]
+
+
+
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/resources-section-structure.html
+Resources:
+
+  # https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+  # This is a Lambda function config associated with the source code: SleepRandom.ts
+  SleepRandom:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}"
+      # FunctionName: SleepRandom
+      Description: !Sub >-
+        'sleep-random' a.k.a. 'SleepRandom' Lambda-function created by Stack ${AWS::StackName} on ${DateTimeStamp};
+        Lambda function that can Sleep for a Random num of secs
+      AutoPublishAlias: ""
+      # CodeUri: dist/index.zip
+      # Handler: index.handler
+      CodeUri: src/
+      Handler: handlers/SleepRandom.handler
+      Runtime: nodejs20.x
+      Architectures:
+        - arm64
+      MemorySize: 128
+      Policies:
+        # Give Lambda basic execution Permission to the Lambda
+        - AWSLambdaBasicExecutionRole
+      Tags:
+        PRODUCT: 'factrial' ### CRRI rules.  Must be all lowercase.
+        VERSION: 'v2.0.0'   ### CRRI rules.  Must be all lowercase.
+        ENVIRONMENT: !If [IsValidTier, !Ref Tier, 'dev']
+        # Environment: !Sub '${Tier}-${ApplnGroupName}'  ### This is mandatory for organizing multiple 𝜆s into one App (under Application-section of 𝜆-console)
+        application: !Ref AppName
+        component: 'devops'
+        env: !Sub '${Tier}'
+        branch: 'main'
+        BUILD: !Sub "${DateTimeStamp}"
+        SOURCE: "https://github.com/BIAD/cloud_eng.git/AWS-SAM/lambdas/sleep-random"
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: es2020
+        Sourcemap: true
+        EntryPoints:
+        - handlers/SleepRandom.ts
+
+
+  # ### The Applications section of the Lambda-console includes a Monitoring tab where ..
+  # ###   .. you can review an Amazon CloudWatch dashboard with aggregate metrics for the resources in your application.
+  # ### https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/using-sam-cli-init.html#using-sam-cli-init-new-insights
+  # ApplicationResourceGroup:
+  #   Type: AWS::ResourceGroups::Group
+  #   Properties:
+  #     Name:
+  #       Fn::Join:
+  #       - ''
+  #       - - ApplicationInsights-SAM-${CDK_APP_NAME}-Tools-
+  #         - Ref: Tier
+  #     ResourceQuery:
+  #       Type: CLOUDFORMATION_STACK_1_0
+  #     Tags:
+  #       - Key: PRODUCT
+  #         Value: 'factrial' ### CRRI rules.  Must be all lowercase.
+  #       - Key: VERSION
+  #         Value: 'v2.0.0'   ### CRRI rules.  Must be all lowercase.
+  #       - Key: ENVIRONMENT
+  #         Value: !If [IsValidTier, !Ref Tier, 'dev']
+  #       - Key: ENVIRONMENT
+  #         Value: !Sub '${Tier}'
+  #       - Key: application
+  #         Value: !Ref AppName
+  #       - Key: component
+  #         Value: 'devops'
+  #       - Key: env
+  #         Value: !Sub '${Tier}'
+  #       - Key: branch
+  #         Value: 'main'
+  #       - Key: BUILD
+  #         Value: !Sub "${DateTimeStamp}"
+  #       - Key: SOURCE
+  #         Value: "https://github.com/BIAD/cloud_eng.git/AWS-SAM/lambdas/wipeout-bucket/"
+
+  # ApplicationInsightsMonitoring:
+  #   Type: AWS::ApplicationInsights::Application
+  #   ### https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationinsights-application.html
+  #   Properties:
+  #     ResourceGroupName:
+  #       Fn::Join:
+  #       - ''
+  #       - - ApplicationInsights-SAM-${CDK_APP_NAME}-Tools-
+  #         - Ref: Tier
+  #     AutoConfigurationEnabled: 'true'
+  #     Tags:
+  #       - Key: PRODUCT
+  #         Value: 'factrial' ### CRRI rules.  Must be all lowercase.
+  #       - Key: VERSION
+  #         Value: 'v2.0.0'   ### CRRI rules.  Must be all lowercase.
+  #       - Key: ENVIRONMENT
+  #         Value: !If [IsValidTier, !Ref Tier, 'dev']
+  #       - Key: ENVIRONMENT
+  #         Value: !Sub '${Tier}'
+  #       - Key: application
+  #         Value: !Ref AppName
+  #       - Key: component
+  #         Value: 'devops'
+  #       - Key: env
+  #         Value: !Sub '${Tier}'
+  #       - Key: branch
+  #         Value: 'main'
+  #       - Key: BUILD
+  #         Value: !Sub "${DateTimeStamp}"
+  #       - Key: SOURCE
+  #         Value: "https://github.com/BIAD/cloud_eng.git/AWS-SAM/lambdas/wipeout-bucket/"
+  #   DependsOn: ApplicationResourceGroup
+
+### EoF

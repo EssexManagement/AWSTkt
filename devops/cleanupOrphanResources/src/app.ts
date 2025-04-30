@@ -13,6 +13,11 @@ import {  Context } from 'aws-lambda';
 import { Logger } from '@aws-lambda-powertools/logger';
 
 import { deleteOriginRequestPolicy, deleteResponseHeaderPolicy } from "./DeleteCloudFrontResources";
+import { deleteAllOrphanENIs, findOrphanEnisForSg, findLambdasUsingSG, LambdaDetails } from './OrphanENIs';
+
+////..........................................................................
+
+const CDK_APP_NAME = "CTF";
 
 //// Create a logger instance
 const logger = new Logger({
@@ -21,8 +26,8 @@ const logger = new Logger({
 
 ////..........................................................................
 
-const originRequestPolicyName_1 = (tier :string) => `FACTfrontend${tier}frontendrequestpolicy`;
-const originRequestPolicyName_2 = (tier :string) => `FACT-frontend-${tier}-us-east-1-OriginRequestPolicy`;
+const originRequestPolicyName_1 = (tier :string) => `${CDK_APP_NAME}frontend${tier}frontendrequestpolicy`;
+const originRequestPolicyName_2 = (tier :string) => `${CDK_APP_NAME}-frontend-${tier}-us-east-1-OriginRequestPolicy`;
 const listORP = (tier :string) => [
     originRequestPolicyName_1(tier),
     originRequestPolicyName_2(tier)
@@ -47,6 +52,7 @@ interface MyLambdaResponse {
     body: {
         message ? : string;
         error   ? : string;
+        numDeleted ? : Number;
         details ? : unknown;
         originalEvent: MyLambdaEvent;
     };
@@ -116,11 +122,14 @@ export const lambdaHandler = async (
                 tier
             })
         }
+        logger.info("3rd delete the ORPHAN ENIs");
+        const numDeleted = await deleteAllOrphanENIs();
         myLambdaResponse = {
             statusCode: 200,
             // body: JSON.stringify({
             body: {
                 message: "Success",
+                numDeleted: numDeleted,
                 originalEvent: event
             }
         };

@@ -69,7 +69,7 @@ class Api(Construct):
             scope = self,
             tier = tier,
             loggrp_type = LogGroupType.APIGW,
-            what_is_being_logged = aws_names.gen_awsresource_name( tier, constants.CDK_COMPONENT_NAME, f"APIGW-AccessLogs" ),
+            what_is_being_logged = aws_names.gen_awsresource_name( tier, constants.CDK_BACKEND_COMPONENT_NAME, f"APIGW-AccessLogs" ),
             # loggrp_name = ...
         )
 
@@ -97,13 +97,16 @@ class Api(Construct):
         )
 
         ### APIGW & the only RESTAPI constructor -----------------------------------------
+        description = CdkDotJson_util.lkp_website_details( scope, tier )
+        description=f"This service serves {constants.HUMAN_FRIENDLY_APP_NAME} at {description} -- created by Stack: {stk.stack_name}."
         self.api = aws_apigateway.RestApi( self, "emfact-api",
-            rest_api_name=f"{stk.stack_name}-emfact-api",
-            description=f"This service serves {constants.CDK_APP_NAME} {stk.stack_name}.",
-            default_cors_preflight_options=default_cors_preflight_options,
-            endpoint_types=[aws_apigateway.EndpointType.REGIONAL],
-            binary_media_types=["application/pdf"],
-            deploy_options=stage_options,
+            rest_api_name = f"{stk.stack_name}-emfact-api",
+            description = description,
+            default_cors_preflight_options = default_cors_preflight_options,
+            endpoint_types = [aws_apigateway.EndpointType.REGIONAL],
+            binary_media_types = ["application/pdf"],
+            deploy_options = stage_options,
+            cloud_watch_role_removal_policy = constants_cdk.get_stateful_removal_policy( construct=scope, tier=tier ),
         )
 
         self.api_v1_resource = self.api.root.add_resource("api").add_resource("v1")
@@ -155,7 +158,7 @@ class Api(Construct):
         #         return
         #     print( f"INTEGRATING(with-APIGW) Lambdas for Chunk # {chunk_num}: from {beg} to {enddd} --- inside Api(constructor) within "+ __file__ )
 
-        #     id_ = f"{constants.CDK_APP_NAME}-{constants.CDK_COMPONENT_NAME}-{tier}-Lambdas-{chunk_num}",
+        #     id_ = f"{APP_NAME}-{COMPONENT_NAME}-{tier}-Lambdas-{chunk_num}",
         #     id_=f"{beg}-{enddd}"
 
         ### ------------------------- integrate ALL 𝜆s from config.py ---------------------------

@@ -122,8 +122,8 @@ for line in "${LINES[@]}"; do
     # {
     #     "type": "AWS_PROXY",
     #     "httpMethod": "POST",
-    #     "uri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:127516845550:function:FACT-backend-dev-Lambdas--06getpriortherapyE9B595E-uvaKERc9HRt2/invocations",
-    #     "uri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:668282225937:function:FACT-backend-uat-Lambdas--2430gettrialcriteriacoun-52XHvjDIo4F2/invocations",
+    #     "uri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:FACT-backend-dev-Lambdas--06getpriortherapyE9B595E-uvaKERc9HRt2/invocations",
+    #     "uri": "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:FACT-backend-uat-Lambdas--2430gettrialcriteriacoun-52XHvjDIo4F2/invocations",
 
     #     "requestTemplates": {
     #         "application/json": "{ \"statusCode\": \"200\" }"

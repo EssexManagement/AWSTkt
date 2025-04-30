@@ -63,9 +63,6 @@ class LambdaOnlyConstructs(Construct):
         stk = Stack.of(self)
         this_dir = path.dirname(__file__)
 
-        # tier = self.node.try_get_context("tier")
-        # aws_env = tier if tier in constants.STD_TIERS else constants.DEV_TIER ### ["dev", "int", "uat", "prod"]:
-        # git_branch = constants.get_git_branch( tier=tier )
         print( f"tier='{tier}' within "+ __file__ )
         print( f"aws_env='{aws_env}' within "+ __file__ )
         print( f"git_branch='{git_branch}' within "+ __file__ )
@@ -125,9 +122,7 @@ class LambdaOnlyConstructs(Construct):
         a_lambda :dict
 
         for a_lambda in lambda_configs.list:
-
             handler = LambdaConfigs.get_handler(a_lambda)
-
             index = LambdaConfigs.get_lambda_index( a_lambda )
             handler = LambdaConfigs.get_handler(a_lambda)
             entry = LambdaConfigs.get_lambda_entry( a_lambda )
@@ -229,8 +224,11 @@ class LambdaOnlyConstructs(Construct):
             if "CT_API_UNPUBLISHED" in lambda_specific_environment:
                 self.cts_api_v2_unpublished.grant_read(my_lambdafn)
 
+            ### All Lambdas should have access to RDSProxy
+            rds_con.db_proxy.grant_connect(my_lambdafn, constants.RDS_APPLN_USER_NAME)
+
             # if handler_id in ("get_search_results", "post_search_results"):
-            if handler in ('post_search_and_match'):
+            if handler in ('post_search_and_match', 'send_create_pdf_message'):
                 create_report_queue.grant_purge(my_lambdafn)
                 create_report_queue.grant_send_messages(my_lambdafn)
             if handler in ('create_report_queue_processor'):

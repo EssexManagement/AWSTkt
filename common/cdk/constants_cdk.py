@@ -21,6 +21,9 @@ CDK_APP_PYTHON_VERSION = "3.12"
 LAMBDA_PYTHON_RUNTIME = aws_lambda.Runtime.PYTHON_3_12
 LAMBDA_PYTHON_RUNTIME_VER_STR = aws_lambda.Runtime.PYTHON_3_12.name.replace("python","")
 
+CDK_NODEJS_VERSION = "22"
+FRONTEND_NODEJS_VERSION = "20"
+
 ### ===============================================================================================
 
 CDK_IAMRoleName_prefix = "hnb659fds"
@@ -36,6 +39,53 @@ BUILD_KICKOFF_TIMESTAMP_STR = localized_now.strftime('%Y-%m-%d %H:%M:%S %Z')
 BUILD_KICKOFF_TIMESTAMP_LOCAL_STR = localized_now.strftime('%Y-%m-%dT%H:%M:%S')
 
 ### ===============================================================================================
+
+TIER_TO_AWSENV_MAPPING = {
+
+    ### CloudOne
+    constants.ACCT_PROD:  "CTF-prod",
+    constants.ACCT_NONPROD: "CTF-nonprod",
+    constants.PROD_TIER:  "CTF-prod",
+    constants.STAGE_TIER: "CTF-prod",
+    constants.TEST_TIER:  "CTF-nonprod",
+    constants.QA_TIER:    "CTF-nonprod",
+    constants.DEV_TIER:   "CTF-nonprod",
+
+    ### CloudOne - DEVELOPER-Tiers ONLY
+    "sarma": "CTF-nonprod",
+
+    ### CRRI-Cloud
+    # constants.DEV_TIER: "DEVINT",
+    # constants.INT_TIER: "DEVINT",
+    # constants.UAT_TIER: "UAT",
+    # constants.PROD_TIER: "PROD",
+
+    ### Essex-Cloud - DEVELOPER-Tiers ONLY
+    # "sarma": "EssexCloud-DEV",
+    ### Essex-Cloud
+    # constants.ACCT_NONPROD: "EssexCloud-DEV",
+    # constants.DEV_TIER: "EssexCloud-DEV",
+}
+
+SUBNET_NAMES_LOOKUP = {
+    ### Assumption: Each Tier has its -own- VPC!!    That individual VPC's name is SAME as "${TIER}"
+    ### Assumption: Each "aws_env" will have >1 vpc at any time.
+    ### Format: key = aws_env
+    ### Format: value = { TIER: [ list of -NAMES- of subnets ],   .. ..  }
+
+    "CTF-nonprod": {
+        "dev": [ constants.DEV_TIER  ],
+        # "qa":  [ constants.QA_TIER ]
+    },
+    "CTF-prod": {
+        "stage": [ constants.STAGE_TIER ],
+        "prod":  [ constants.PROD_TIER  ]
+    },
+    # "DEVINT":         [ constants.DEV_TIER,  constants.TEST_TIER ],
+    # "EssexCloud-DEV": [ constants.DEV_TIER,  constants.TEST_TIER ],
+}
+
+
 
 DEFAULT_CPU_ARCH         = aws_lambda.Architecture.ARM_64
 DEFAULT_CPU_ARCH_NAMESTR = aws_lambda.Architecture.ARM_64.name
@@ -60,7 +110,13 @@ CODEBUILD_BUILD_IMAGE_X86 = aws_codebuild.LinuxBuildImage.AMAZON_LINUX_2_5
 CODEBUILD_BUILD_IMAGE_UBUNTU = aws_codebuild.LinuxBuildImage.STANDARD_7_0
 CODEBUILD_EC2_SIZE    = aws_codebuild.ComputeType.LARGE
 
-USE_ADVANCED_CODEBUILD_CACHE = True
+# USE_ADVANCED_CODEBUILD_CACHE = True
+def use_advanced_codebuild_cache( tier :str ) -> bool:
+    if tier in constants.STD_TIERS:
+        return False ### do --NOT-- touch this line.
+    else:
+        return True ### <------------- Developers!!! Only edit this line !!!!!!!!!!!!!!
+
 CODEBUILD_FILECACHE_FLDRPATH = "tmp/CodeBuild_FileCacheFldr"  ### Keep this in sync with
 
 ### ===============================================================================================
@@ -73,6 +129,27 @@ BDD_CODEBUILD_TIMEOUT = Duration.minutes(120)
 ### ===============================================================================================
 ### ...............................................................................................
 ### ===============================================================================================
+
+""" Standardized naming for AWS-Environments a.k.a. AWS-PROFILES """
+def get_aws_env( tier :str ) -> str:
+    if tier in TIER_TO_AWSENV_MAPPING:
+        return TIER_TO_AWSENV_MAPPING[tier]
+    else:
+        return "DEVINT"
+    # if tier in [ DEV_TIER, INT_TIER ]:
+    #     return "DEVINT"
+    # elif tier in [ UAT_TIER ]:
+    #     return "UAT"
+    # elif tier in [ PROD_TIER ]:
+    #     return "PROD"
+    # # elif tier in [ PROD_TIER, UAT_TIER ]:
+    # #     return "PROD"
+    # else:
+    #     return "DEVINT"
+    #     # traceback.print_exc()
+    #     # raise ValueError(f"Invalid tier: {tier}")
+
+### ----------------------------------------------------------------
 
 """Return the CW-Logs Retention based on the Tier/Environment """
 def get_LOG_RETENTION(
@@ -95,9 +172,9 @@ def get_LOG_RETENTION(
 ### ===============================================================================================
 
 def get_stateful_removal_policy(
-    construct :Optional[Construct],
     tier :str,
-    aws_env :str = None
+    construct :Optional[Construct] = None,
+    aws_env :Optional[str] = None,
 ) -> aws_logs.RetentionDays:
     if tier == constants.PROD_TIER or tier == constants.UAT_TIER:
         return RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE

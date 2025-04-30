@@ -1,0 +1,35 @@
+{
+    "name": "sleep-for-random-secs",
+    "description": "Lambda that sleeps for random # of secs or based on input",
+    "version": "0.0.1",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "unit": "jest",
+        "lint": "eslint '*.ts' --quiet --fix",
+        "compile": "tsc",
+        "test": "npm run compile && npm run unit"
+      },
+      "dependencies": {
+        "micromatch": ">=4.0.8",
+        "@aws-sdk/client-s3": "*",
+        "esbuild": "*"
+      },
+      "devDependencies": {
+        "typescript": "*",
+        "eslint": "*",
+        "eslint-config-prettier": "*",
+        "eslint-plugin-prettier": "*",
+        "@types/aws-lambda": "*",
+        "@types/jest": "*",
+        "@types/node": "*",
+        "@typescript-eslint/eslint-plugin": "*",
+        "@typescript-eslint/parser": "*",
+        "ts-node": "*",
+        "jest": "*",
+        "@jest/globals": "*",
+        "ts-jest": "*",
+        "prettier": "*"
+    },
+    "author": "Sarma Seetamraju"
+}

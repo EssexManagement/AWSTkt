@@ -1,0 +1,67 @@
+{
+    "name": "replaced-by-user-input",
+    "description": "replaced-by-user-input",
+    "version": "0.0.1",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "compile-build": "npx tsc",
+        "clean": "rm -rf .aws-sam/   ~/.aws-sam/   ./node_modules/   ./dist/    package-lock.json",
+        "!!ATTENTION!!": "following npx esbuild CLI-ARGs must match cdk's NodejsFunction({ bundling: ..})",
+        "build": "npx esbuild src/handlers/SleepRandom.ts --bundle --minify --target=ES2022 --sourcemap --keep-names --format=esm --sources-content=true --tree-shaking=true --banner:js='import { createRequire } from \"module\";const require = createRequire(import.meta.url);' --platform=node --outfile=dist/index.js",
+        "postbuild": "cd dist; zip -r index.zip index.js",
+        "all-options-build": "npx esbuild src/handlers/SleepRandom.ts --entry-names=SleepRandom.ts --bundle --minify --target=ES2022 --sourcemap --keep-names --format=esm --sources-content=true --tree-shaking=true --banner:js='import { createRequire } from \"module\";const require = createRequire(import.meta.url);' --platform=node --outfile=dist/index.js",
+        "commonjs-esbuild": "npx esbuild src/handlers/SleepRandom.ts --bundle --format=cjs --minify --sourcemap --platform=node --target=node16 --outfile=dist/bundle.js",
+        "disabled-prebuild": "./npm-preBuild.sh",
+        "original-prebuild": "rm -rf dist build",
+        "disabled-build": "node ./bin/esuild.mjs",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "imports": {
+        "#types": "./functions/commons/types.js",
+        "#constants": "./functions/commons/constants.js",
+        "#powertools": "./functions/commons/powertools/index.js",
+        "#powertools/*": "./functions/commons/powertools/*.js",
+        "#clients/*": "./functions/commons/clients/*.js",
+        "#helpers/*": "./functions/commons/helpers/*.js",
+        "#errors": "./functions/commons/errors.js"
+    },
+    "devDependencies": {
+        "aws-cdk-lib": "*",
+        "@types/aws-lambda": "*",
+        "@types/node": "*",
+        "source-map-support": "*",
+        "tsx": "*",
+        "typescript": "*",
+        "vitest": "*",
+        "ts-node": "*",
+        "jest": "*"
+    },
+    "dependencies": {
+        "@aws-lambda-powertools/batch": "*",
+        "@aws-lambda-powertools/idempotency": "*",
+        "@aws-lambda-powertools/logger": "*",
+        "@aws-lambda-powertools/metrics": "*",
+        "@aws-lambda-powertools/parameters": "*",
+        "@aws-lambda-powertools/tracer": "*",
+        "@aws-sdk/client-ssm": "*",
+        "@aws-sdk/lib-dynamodb": "*",
+        "@middy/core": "*",
+        "@types/aws-lambda": "*",
+        "@types/node": "*",
+        "esbuild": "*"
+    },
+    "author": "Sarma Seetamraju",
+     "jest": {
+        "testMatch": [
+            "**/__tests__/**/*.[jt]s?(x)",
+            "**/?(*.)+(spec|test).[jt]s?(x)",
+            "**/__tests__/**/*.mjs?(x)",
+            "**/?(*.)+(spec|test).mjs?(x)"
+        ],
+        "moduleFileExtensions": [
+            "mjs",
+            "js"
+        ]
+    }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "cleanup-failed_stacks",
+  "version": "*",
+  "bin": {
+    "cleanup-failed_stacks": "bin/cleanup-failed_stacks.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "jest",
+    "cdk": "cdk"
+  },
+  "dependencies": {
+    "micromatch": ">=4.0.8",
+    "aws-cdk-lib": "*",
+    "constructs": "*",
+    "source-map-support": "*"
+  },
+  "devDependencies": {
+    "@types/jest": "*",
+    "@types/node": "*",
+    "jest": "*",
+    "ts-jest": "*",
+    "aws-cdk": "*",
+    "ts-node": "*",
+    "typescript": "*"
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "vpc-provider:account=924221118260:filter.tag:Name=vpc-dev-cancer-trials-us-east-1:region=us-east-1:returnAsymmetricSubnets=true": {
+    "vpcId": "vpc-04ad892f26893e05f",
+    "vpcCidrBlock": "100.64.8.0/22",
+    "ownerAccountId": "924221118260",
+    "availabilityZones": [],
+    "subnetGroups": [
+      {
+        "name": "Isolated",
+        "type": "Isolated",
+        "subnets": [
+          {
+            "subnetId": "subnet-01894f24ee8d82f58",
+            "cidr": "100.64.8.0/24",
+            "availabilityZone": "us-east-1a",
+            "routeTableId": "rtb-0d8c4f4a4c78caa7a"
+          },
+          {
+            "subnetId": "subnet-0b8a32a3c6e31c724",
+            "cidr": "100.64.9.0/24",
+            "availabilityZone": "us-east-1b",
+            "routeTableId": "rtb-0d8c4f4a4c78caa7a"
+          }
+        ]
+      }
+    ]
+  },
+  "vpc-provider:account=924221118260:filter.tag:Name=vpc-qa-cancer-trials-us-east-1:region=us-east-1:returnAsymmetricSubnets=true": {
+    "vpcId": "vpc-0278e9432c57072dd",
+    "vpcCidrBlock": "100.64.12.0/22",
+    "ownerAccountId": "924221118260",
+    "availabilityZones": [],
+    "subnetGroups": []
+  },
+  "vpc-provider:account=924221118260:filter.vpc-id=vpc-04ad892f26893e05f:region=us-east-1:returnAsymmetricSubnets=true": {
+    "vpcId": "vpc-04ad892f26893e05f",
+    "vpcCidrBlock": "100.64.8.0/22",
+    "ownerAccountId": "924221118260",
+    "availabilityZones": [],
+    "subnetGroups": [
+      {
+        "name": "Isolated",
+        "type": "Isolated",
+        "subnets": [
+          {
+            "subnetId": "subnet-01894f24ee8d82f58",
+            "cidr": "100.64.8.0/24",
+            "availabilityZone": "us-east-1a",
+            "routeTableId": "rtb-0d8c4f4a4c78caa7a"
+          },
+          {
+            "subnetId": "subnet-0b8a32a3c6e31c724",
+            "cidr": "100.64.9.0/24",
+            "availabilityZone": "us-east-1b",
+            "routeTableId": "rtb-0d8c4f4a4c78caa7a"
+          }
+        ]
+      }
+    ]
+  }
+}

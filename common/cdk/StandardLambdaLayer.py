@@ -2,7 +2,7 @@ import os
 import hashlib
 import time
 from pathlib import Path, PurePath
-from typing import Union, TypeVar
+from typing import Optional, Union, TypeVar
 import traceback
 
 PathLike = TypeVar('PathLike', str, PurePath)
@@ -25,7 +25,9 @@ from aws_cdk import (
 )
 
 import common.FSUtils as FSUtils
+import constants
 import common.cdk.constants_cdk as constants_cdk
+import common.cdk.aws_names as aws_names
 from common.cdk.standard_lambda import LambdaLayerOption
 from cdk_utils.CloudFormation_util import (
     get_docker_platform,
@@ -97,6 +99,18 @@ class LambdaLayerProps():
         return self._lambda_layer_fldr
 
     @property
+    def cpu_arch(self) -> list[aws_lambda.Architecture]:
+        return self._cpu_arch
+
+    @property
+    def builder_cmd(self) -> Path:
+        return self._builder_cmd
+
+    @property
+    def lambda_layer_zipfilename(self) -> str:
+        return self._lambda_layer_zipfilename
+
+    @property
     def lambda_layer_sizing_option(self) -> LambdaLayerOption:
         return self._lambda_layer_sizing_option
 
@@ -104,6 +118,12 @@ class LambdaLayerProps():
         lambda_layer_id :str,
         lambda_layer_fldr :Path,
         lambda_layer_sizing_option :LambdaLayerOption,
+        builder_cmd :Optional[str] = None,
+        lambda_layer_zipfilename :Optional[Path] = None,
+        cpu_arch :list[aws_lambda.Architecture] = [
+            aws_lambda.Architecture.ARM_64,
+            aws_lambda.Architecture.X86_64,
+        ],
     ):
         """ Examples of parameter-values:
                 lambda_layer_id = "psycopg3-pandas"
@@ -113,6 +133,11 @@ class LambdaLayerProps():
         self._lambda_layer_id = lambda_layer_id
         self._lambda_layer_fldr = lambda_layer_fldr
         self._lambda_layer_sizing_option = lambda_layer_sizing_option
+        self._cpu_arch = cpu_arch
+
+        ### Optional constructor-params
+        self._builder_cmd = builder_cmd
+        self._lambda_layer_zipfilename = lambda_layer_zipfilename
 
         ### private constants.
         # _LAMBDA_LAYER_BUILDER_SCRIPT = constants.PROJ_ROOT_FLDR_PATH / 'api/lambda_layer/bin/etl-lambdalayer-builder-venv.sh'
@@ -149,10 +174,13 @@ class LambdaLayerUtility():
         ### Now calculate the SHA-256 hash and then convert it into HEX
         pipfile_lock = "Pipfile.lock"
         requirements_txt = "requirements.txt"
+        HashingInputFile = "HashInput.txt"
         if FSUtils.is_valid_file(FSUtils.join_path(layer_fldr_path, pipfile_lock)):
             asset_hash = FSUtils.get_sha256_hex_hash_for_file( layer_fldr_path, pipfile_lock )
         elif FSUtils.is_valid_file(FSUtils.join_path(layer_fldr_path, requirements_txt)):
             asset_hash = FSUtils.get_sha256_hex_hash_for_file( layer_fldr_path, requirements_txt )
+        elif FSUtils.is_valid_file(FSUtils.join_path(layer_fldr_path, HashingInputFile)):
+            asset_hash = FSUtils.get_sha256_hex_hash_for_file( layer_fldr_path, HashingInputFile )
         else:
             raise FileNotFoundError(f"Neither {pipfile_lock} nor {requirements_txt} found in {layer_fldr_path}")
         print( f"asset_hash = '{asset_hash}'" )
@@ -172,7 +200,129 @@ class LambdaLayerUtility():
 
     ### -----------------------------------------------
 
-    """ Build a CPU-architecture specific Lambda-layer -- using Docker (AWS-official Python-Container-Image)
+    """ No Pipfile.  No requirements.txt.
+        ATTENTION ! Just a very-traditional legacy DOCKERFILE only.
+        This method assumes nothing.
+        All inputs must be --HARDCODED-- inside the Dockerfile, incl. cpu-architecture.
+        Build a CPU-architecture specific Lambda-layer.
+
+        param # 1 : tier :str -- dev|test|int|uat|stage|prod
+        param # 2 : layer_fldr_path :Path -- pathlib.Path to the folder containing the Lambda-layer source code.
+        param # 3 : layer_simplename -- Example: weasyprint_x86
+        Param # 4 : docker_env :dict -- Passed onto Docker-Container when running
+
+        Returns: pathlib.Path to the ZIP-file.
+    """
+    def build_lambda_layer_using_pure_dockerfile(self,
+        tier :str,
+        layer_fldr_path :Path,
+        layer_simplename :str,
+        docker_env :dict = {},
+    ) -> aws_lambda.AssetCode:
+        HDR = f" -- build_lambda_layer(tier={tier},layer's simplename={layer_simplename}): within {__file__}"
+
+        docker_cont_img_tag = aws_names.gen_awsresource_name(
+            tier=tier,
+            cdk_component_name=constants.CDK_BACKEND_COMPONENT_NAME,
+            simple_resource_name = f"{layer_simplename}:latest"
+        ).lower();  ### Docker image tags are required to be 100% lowercase.
+        inside_docker_src_path    = "/asset-input"  ### This is the default-path within aws_lambda.Code.from_asset()
+        inside_docker_output_path = "/asset-output" ### This is the default-path within aws_lambda.Code.from_asset()
+        print( f"inside_docker_src_path = '{inside_docker_src_path}', inside_docker_output_path ='{inside_docker_output_path}' " )
+
+        # Initialize Docker client with retry logic
+        max_retries = 3
+        retry_delay = 5
+        is_success = False
+        for attempt in range(max_retries):
+            try:
+                # Try different Docker socket configurations
+                if os.path.exists('/var/run/docker.sock'):
+                    client = docker.from_env()
+                    print("Connected to Docker daemon via /var/run/docker.sock")
+                else:
+                    client = docker.DockerClient(base_url='tcp://127.0.0.1:2375')
+                    print("Connected to Docker daemon via tcp://127.0.0.1:2375")
+
+                # Test Docker connection
+                client.ping()
+                is_success = True
+                print("Docker connection successful")
+                break
+            except Exception as e:
+                print(f"Attempt {attempt + 1} failed. Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+
+        if not is_success:
+            raise Exception(f"Failed to connect to Docker daemon after {max_retries} attempts")
+
+        try:
+            ### Build the Docker image
+            print(f"Building Docker image from {layer_fldr_path}")
+            ### docker build --rm --force-rm -t "${AppName}-${TIER}-weasy"  ${layer_fldr_path}
+            image, build_logs = client.images.build(
+                path = str(layer_fldr_path),
+                tag = docker_cont_img_tag,
+                rm = True,  # Remove intermediate containers
+                forcerm = True,  # Always remove intermediate containers
+                timeout = 15*60,
+            )
+
+            # Print build logs
+            for log in build_logs:
+                if 'stream' in log:
+                    print(log['stream'].strip())
+
+            ### Create and run the container
+            ### docker run --rm -v "/var/run/docker.sock:/var/run/docker.sock" -v ".:/asset-input" -w /asset-input --env CPU_ARCH=x86_64 --env PYTHON_VERSION=3.12 "${AppName}-${TIER}-${layer_simplename}"
+            container = client.containers.run(
+                image = docker_cont_img_tag,
+                environment = docker_env,
+                volumes={
+                    str(layer_fldr_path): {
+                        'bind': inside_docker_src_path,
+                        'mode': 'rw'
+                    }
+                },
+                working_dir=inside_docker_src_path,
+                remove=True,  # Automatically remove container when it exits
+                detach=False  # Wait for the container to complete
+            )
+
+            # Create AssetCode from the built layer
+            my_asset = aws_lambda.Code.from_asset(
+                path=str(layer_fldr_path),
+                bundling=BundlingOptions(
+                    image=DockerImage.from_registry(layer_simplename),
+                    command=["bash", "-c", f"cp -r {inside_docker_src_path}/* {inside_docker_output_path}/"],
+                    environment=docker_env,
+                    volumes=[
+                        DockerVolume(
+                            container_path=inside_docker_src_path,
+                            host_path=str(layer_fldr_path)
+                        )
+                    ],
+                    output_type=BundlingOutput.NOT_ARCHIVED
+                )
+            )
+
+            return my_asset
+
+        except docker.errors.BuildError as be:
+            print(f"Docker build error: {str(be)}")
+            raise
+        except docker.errors.APIError as ae:
+            print(f"Docker API error: {str(ae)}")
+            raise
+        except Exception as e:
+            print(f"Unexpected error: {str(e)}")
+            print(traceback.format_exc())
+            raise
+
+    ### -----------------------------------------------
+
+    """ Using --JUST-- as `Pipfile` as input ..
+        Build a CPU-architecture specific Lambda-layer -- using Docker (AWS-official Python-Container-Image)
         Once you have initialized this class via constructor, this method makes it very easy to create MULTIPLE chip-arch specific layers.
 
         param # 1 : tier :str -- dev|test|int|uat|stage|prod
@@ -191,7 +341,7 @@ class LambdaLayerUtility():
         layer_opt : LambdaLayerOption,
         # zipfile_simplename :str,
         # reuse_if_exists :bool = False,  ### re-use does NOT work with `CodeAsset`.  So, unfortunately, we have to rebuild everytime!
-    ) -> tuple[aws_lambda.AssetCode, str]:
+    ) -> aws_lambda.AssetCode:
         HDR = f" -- build_lambda_layer(tier={tier},cpu={cpu_arch_str}): within {__file__}"
 
         print( f"\nlayer_fldr_path(as-is) = '{layer_fldr_path}' in "+HDR )
@@ -229,7 +379,7 @@ class LambdaLayerUtility():
         # ### USE-CASE #2 -- not working -- is to enable Docker-in-Docker (which --FAILS-- inside AWS-CodeBuild)
         # ### FYI: `aws_lambda.Code.from_asset()` is -NOT- actually doing anything -- until this Asset is used in the `aws_lambda.LayerVersion()` construct.
         # ###       By which time, all the values of "platform" within BuildOptions are OVERWRITTEN each time this is invoked!!!
-        # ###       >> Bundling asset FACT-backend-dev/CommonAWSRrcs/layer-psycopg2-arm64/Code/Stage...
+        # ###       >> Bundling asset {CDK_APP_NAME}-backend-dev/CommonAWSRrcs/layer-psycopg2-arm64/Code/Stage...
         # ###       >> Unable to find image 'public.ecr.aws/lambda/python:3.12-arm64' locally
         # ###       >> 3.12-arm64: Pulling from lambda/python
         # ###       >> Digest: sha256:04f633717595035419032727f8f28ac29cdd0400e6b3ca9a4cac23bea4bb0bb6

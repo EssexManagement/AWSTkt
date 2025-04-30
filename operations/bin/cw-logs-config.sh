@@ -2,6 +2,9 @@
 
 ### Since setting CW-Log-Group retention blows up the Cloudformation-file-sizes, we're manually setting it via this script file.
 
+CDK_APP_NAME="CTF"
+
+
 if [ $# -ge 1 ]; then
     if [ "$1" == "--debug" ]; then
         DEBUGG="y"
@@ -82,7 +85,7 @@ FUNCTION_ARNS=$(  jq '.Functions[].FunctionArn'  ${TMPFILE11} --raw-output )
 for FN in ${FUNCTION_NAMES[@]}; do
     # printf "${FN} .. "
     if [[ "${FN}" =~ "${CDK_APP_NAME}-backend-${ENV}-" ]]; then
-        if [ "${DEBUGG}" == "y" ]; then printf "\n${FN} is a FACT Lambda !!!\n"; fi
+        if [ "${DEBUGG}" == "y" ]; then printf "\n${FN} is a ${CDK_APP_NAME} Lambda !!!\n"; fi
         aws lambda get-function --function-name "${FN}" --output json > ${TMPFILE22}
         if [ "${DEBUGG}" == "y" ]; then ls -la ${TMPFILE22}; fi
         LOGGRP_NAME=$( jq '.Configuration.LoggingConfig.LogGroup' ${TMPFILE22} --raw-output )

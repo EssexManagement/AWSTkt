@@ -1,0 +1,36 @@
+{
+    "cleanupFailedStksSequence": [
+        {
+            "cleanupFailedStksParallel": [
+                "emfact-backend-matt-Lambdas-0",
+                "emfact-backend-matt-Lambdas-1",
+                "emfact-backend-matt-Lambdas-2",
+                "emfact-backend-matt-Lambdas-3",
+                "emfact-backend-matt-Lambdas-4",
+                "emfact-backend-matt-Lambdas-5",
+                "emfact-backend-matt-Lambdas-6",
+                "emfact-backend-matt-Lambdas-7",
+                "emfact-backend-matt-Lambdas-8",
+                "emfact-backend-matt-Lambdas-9",
+                "emfact-backend-matt-Lambdas-10",
+                "emfact-backend-matt-Lambdas-11",
+                "emfact-backend-matt-StatelessETL",
+
+                "emfact-frontend-dev",
+
+                "emfact-devops-matt-PostDeployment",
+                "emfact-devops-matt-1ClickEn2End",
+                "emfact-backend-pipeline-matt",
+                "emfact-frontend-pipeline-matt"
+            ]
+        },
+        "emfact-backend-matt-StatelessAPIGW",
+        {
+            "cleanupFailedStksParallel": [
+                "emfact-backend-matt-Cognito",
+                "emfact-backend-matt-Stateful"
+            ]
+        }
+    ],
+    "SNSTopicName": "{SNSTopicName}"
+  }

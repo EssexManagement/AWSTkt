@@ -1,0 +1,122 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Template for deploying application tiers via StepFunction
+
+Parameters:
+  1xxxTier:
+    Type: String
+    Description: The tier to deploy
+    AllowedPattern: '[a-zA-Z0-9-]+'
+    ConstraintDescription: >-
+      Tier must contain only alphanumeric characters and hyphens
+  2xxxOtherTierExists:
+    Type: String
+    Description: >-
+      Are there -OTHER- tiers already existing in this AWS account?
+    AllowedValues:
+      - Yes
+      - No
+  3xxxAwsEnv:
+    Type: String
+    Description: Account Type
+    AllowedValues:
+      - acct-nonprod
+      - acct-prod
+  4xxxDeploymentReason:
+    Type: String
+    Description: Why are you deploying?
+    # Default: "Not Applicable. Tier NOT deployed"
+    AllowedValues:
+      # - "Not Applicable. Tier NOT deployed"
+      - "Currently, Tier does NOT exist"
+      - "EXISTING Tier needs an update deployed. No issues exist"
+      - "EXISTING Tier has some issues"
+      - "EXISTING Tier has FATAL-problems"
+  5xxxDestructionScope:
+    Type: String
+    Description: >-
+      For fatal problems, what level of destruction is needed?
+    # Default: "Not Applicable. NO existing Tier"
+    AllowedValues:
+      - "Not Applicable. NO existing Tier"
+      - "Not Applicable. Just Update Tier"
+      - "Destroy & Re-deploy ALL Stacks"
+      - "Wipe out every single Stack"
+  zzzBody:
+    Type: String
+    Description: >-
+      Optional!!! Currently -NOT- in use.  Future: JSON body for additional parameters
+    Default: ''
+
+Conditions:
+  IsNewTier: !Equals [!Ref 4xxxDeploymentReason, "Currently, Tier does NOT exist"]
+  IsExistingTierNoIssues: !Equals [!Ref 4xxxDeploymentReason, "EXISTING Tier needs an update deployed. No issues exist"]
+  IsExistingTierWithIssues: !Equals [!Ref 4xxxDeploymentReason, "EXISTING Tier has some issues"]
+  IsExistingTierTotallyFailed: !Equals [!Ref 4xxxDeploymentReason, "EXISTING Tier has FATAL-problems"]
+  UserRequestedStackDestruction: !Or
+    - !Equals [!Ref 5xxxDestructionScope, "Destroy & Re-deploy ALL Stacks"]
+    - !Equals [!Ref 5xxxDestructionScope, "Wipe out every single Stack"]
+  IsStackDestructionRequired: !And
+    - !Condition IsExistingTierTotallyFailed
+    - !Condition UserRequestedStackDestruction
+
+  ValidationCheck111: !Not
+    - !And
+      - !Condition IsNewTier
+      - !Not [!Equals [!Ref 5xxxDestructionScope, "Not Applicable. NO existing Tier"]]
+  ValidationCheck222: !Not
+    - !And
+      - !Not [!Condition IsNewTier]
+      - !And
+        - !Not [!Equals [!Ref 4xxxDeploymentReason, "EXISTING Tier needs an update deployed. No issues exist"]]
+        - !Not [!Condition UserRequestedStackDestruction]
+  # ValidationCheck333: !Not
+  #   - !Or
+  #     - !Condition IsNewTier
+  #     - !Equals [!Ref 4xxxDeploymentReason, "EXISTING Tier needs an update deployed. No issues exist"]
+  #     - !Equals [!Ref 5xxxDestructionScope, "Not Applicable. Just Update Tier"]
+
+Resources:
+  ValidationError1:
+    Type: AWS::CloudFormation::WaitConditionHandle
+    Condition: ValidationCheck111
+    Metadata:
+      Error: >-
+        ERROR: Cannot select 'Not Applicable. NO existing Tier' tier already exists!
+  ValidationError2:
+    Type: AWS::CloudFormation::WaitConditionHandle
+    Condition: ValidationCheck222
+    Metadata:
+      Error: >-
+        ERROR: Deployment-Reason and/or DestructionScope is invalid for Tier that is already existing!
+  # ValidationError3:
+  #   Type: AWS::CloudFormation::WaitConditionHandle
+  #   Condition: ValidationCheck333
+  #   Metadata:
+  #     Error: >-
+  #       ERROR: Destruction scope is invalid (since Tier is being simply updated)!
+
+  StepFunctionExecutor:
+    Type: Custom::StepFunctionExecutor
+    Properties:
+      ServiceTimeout: 3600 ### Max timeout allowed is 1-hr
+      ### Match the name in `ServiceToken` below with:-
+      ###     const lambdaSimpleName = 'Invoke_1ClickEnd2End_SFn';
+      ###     const functionName = `${constants.CDK_APP_NAME}-Ops-${lambdaSimpleName}`;
+      ServiceToken: !Sub "arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:CTF-Ops-Invoke_1ClickEnd2End_SFn"  ### such as an SNS-topic ARN or Lambda-func ARN.
+      # ServiceToken: !GetAtt StepFunctionInvokeProvider.ServiceToken
+
+      Tier: !Ref 1xxxTier
+      OtherTierExists: !Ref 2xxxOtherTierExists
+      AwsEnv: !Ref 3xxxAwsEnv
+      DeploymentReason: !Ref 4xxxDeploymentReason
+      DestructionScope: !Ref 5xxxDestructionScope
+      AccountId: !Ref AWS::AccountId
+      Region: !Ref AWS::Region
+      # Body: !Ref zzzBody
+
+Outputs:
+  StepFunctionExecutionArn:
+    Description: The ARN of the StepFunction execution
+    Value: !GetAtt StepFunctionExecutor.ExecutionArn
+
+### EoF

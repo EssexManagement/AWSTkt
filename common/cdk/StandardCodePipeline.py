@@ -4,15 +4,16 @@ import os
 from constructs import Construct
 from aws_cdk import (
     Stack,
+    Tags,
     RemovalPolicy,
     aws_codebuild as codebuild,
     aws_codepipeline as codepipeline,
     aws_codepipeline_actions,
+    aws_codestarconnections,
     aws_iam,
     aws_s3,
     aws_secretsmanager,
     SecretValue,
-    aws_codepipeline_actions as codepipeline_actions,
 )
 
 from common.cdk.retention_base import (
@@ -74,16 +75,16 @@ def createStandardPipeline(
 
     ### ATTENTION: We are -NOT- using GitHubSourceAction, since Triggers-for-GitHub are -NOT- supported via CloudFormation.
     ###             See more details near codepipeline.TriggerProps(..) and add_property_override(..)
-    # my_source_action = codepipeline_actions.GitHubSourceAction(
+    # my_source_action = aws_codepipeline_actions.GitHubSourceAction(
     #     action_name='GitHub-Source',
     #     owner=git_repo_org_name,
     #     repo=git_repo_name,
     #     branch=pipeline_source_gitbranch,
     #     output=source_artifact,
     #     oauth_token=SecretValue.secrets_manager(secret_id=gitTokenRefARN),
-    #     trigger=codepipeline_actions.GitHubTrigger.WEBHOOK,
+    #     trigger=aws_codepipeline_actions.GitHubTrigger.WEBHOOK,
     # )
-    my_source_action = codepipeline_actions.CodeStarConnectionsSourceAction(
+    my_source_action = aws_codepipeline_actions.CodeStarConnectionsSourceAction(
         action_name='Source',
         owner=git_repo_org_name,
         repo=git_repo_name,
@@ -146,8 +147,7 @@ def createStandardPipeline(
         prefixes_for_s3_tiers={ S3_LIFECYCLE_RULES.SCRATCH.name: [''], },
     )
 
-    my_pipeline_artifact_bkt_name = aws_names.gen_bucket_name( tier, "CodePipeline-artifacts-"+ aws_names.extract_simple_resource_name(tier, pipeline_name) )
-    # bucket_name = f"{constants.CDK_APP_NAME}-{constants.CDK_COMPONENT_NAME}-{tier}-CodePipeline-artifacts".lower()
+    my_pipeline_artifact_bkt_name = aws_names.make_bucket_name_globally_unique( pipeline_name +"-CodePpln-artif" )
     my_pipeline_artifact_bkt = create_std_bucket(
         scope = cdk_scope,
         id    = "artif-bkt",
@@ -171,6 +171,15 @@ def createStandardPipeline(
         cross_account_keys = False,
         artifact_bucket = my_pipeline_artifact_bkt,
     )
+
+    ### Create policy to allow using CodeStar-connection
+    codestar_policy = aws_iam.PolicyStatement(
+        effect=aws_iam.Effect.ALLOW,
+        actions=["codestar-connections:UseConnection"],
+        resources=[codestar_connection_arn]
+    )
+    my_pipeline.role.add_to_principal_policy( codestar_policy )
+
     my_pipeline.my_pipeline_artifact_bkt      = my_pipeline_artifact_bkt
     my_pipeline.my_pipeline_artifact_bkt_name = my_pipeline_artifact_bkt_name
 
@@ -201,6 +210,43 @@ def createStandardPipeline(
     )
 
     return my_pipeline
+
+### ---------------------------------------------------------------------------------
+
+"""
+    Creates a NEW AWS-CodeStar-connection, with the provided connection-name (optional param #4).
+    Right now, the tier & aws_env parameters (#2 & #3) are ignored.
+"""
+def create_codestar_connection(
+    cdk_scope :Construct,
+    tier :str,
+    aws_env :str,
+    codestar_connection_name :str = f"{constants.CDK_APP_NAME}-GitHub-V2",
+) -> str:
+    """ Looks up `cdk.json` file and .. .. returns codestar_connection_arn :str
+        Parameter #1 - cdk_scope :Construct => Pass in any Construct within a Stack
+        Parameter #2 - tier :str            => dev|int|uat|prod
+        Parameter #3 - aws_env :str
+        Parameter #4 - (OPTIONAL) codestar_connection_name :str (defaults to '{APP_NAME}-GitHub-V2')
+    """
+    stk = Stack.of(cdk_scope)
+
+    ### WARNING !!! maxLength: 32
+    print( f"codestar_connection_name = '{codestar_connection_name}' within "+ __file__ )
+
+    # effective_tier = tier if tier in constants.STD_TIERS else "dev"
+    # codestar_connection_name = f"{constants.CDK_APP_NAME}-GitHub-V2-{effective_tier}"
+
+    codestar_connection = aws_codestarconnections.CfnConnection( scope=cdk_scope, id="codestar-connection",
+        connection_name = codestar_connection_name,
+        provider_type = "GitHub",
+    )
+    Tags.of(codestar_connection).add(key="ResourceName", value =stk.stack_name+"-CodeStarConn-"+codestar_connection_name)
+    codestar_connection_arn = codestar_connection.ref
+
+    print( f"codestar_connection_arn = '{codestar_connection_arn}' within "+ __file__ )
+
+    return codestar_connection_arn
 
 ### ---------------------------------------------------------------------------------
 

@@ -1,0 +1,36 @@
+{
+  "name": "cdk-service_catalog_item",
+  "version": "0.1.0",
+  "description": "AWS-CDK-sub-project to deploy a Service-Catalog Item",
+  "bin": {
+    "cdk-service_catalog_item": "bin/cdk-service_catalog_item.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "jest",
+    "cdk": "cdk"
+  },
+  "devDependencies": {
+    "@types/dockerode": "*",
+    "@types/jest": "*",
+    "@types/js-yaml": "*",
+    "@types/node": "*",
+    "aws-cdk": "*",
+    "jest": "*",
+    "ts-jest": "*",
+    "ts-node": "*",
+    "ts-node-dev": "*",
+    "tsconfig-paths": "*",
+    "typescript": "*"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "*",
+    "@aws-cdk/aws-lambda-nodejs": "*",
+    "constructs": "*",
+    "dockerode": "*",
+    "esbuild": "*",
+    "js-yaml": "*",
+    "source-map-support": "*"
+  }
+}

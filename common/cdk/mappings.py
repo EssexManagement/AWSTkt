@@ -27,24 +27,49 @@ class createCftMapping(object):
 
     def __init__(self, scope: Construct, tier :str, aws_env :str ):
         if not hasattr(self, 'init_already_invoked'):
-            datadogstreams_by_awsenv = {
-                "devint":  "stream/DatadogLambdaLogStream",         ### arn:aws:kinesis:us-east-1:123456789012:stream/DatadogLambdaLogStream
-                "uat":  "stream/DatadogLogsStream",                 ### arn:aws:kinesis:us-east-1:123456789012:stream/DatadogLambdaLogStream
-                "prod": "stream/DatadogLogsStream",
+            datadogstreams_by_aws_acct = {
+                "CTF": { ### AWS-Account-wide configuration.  --NOT-- tier-specific configuration.
+                    "CTF-nonprod": None,
+                    "CTF-prod":    None,
+                    # "CTF-nonprod": "stream/DatadogLambdaLogStream",     ### arn:aws:kinesis:us-east-1:123456789012:stream/DatadogLambdaLogStream
+                    # "CTF-prod":    "stream/DatadogLambdaLogStream",     ### arn:aws:kinesis:us-east-1:123456789012:stream/DatadogLambdaLogStream
+                },
+                "FACT": { ### AWS-Account-wide configuration.  --NOT-- tier-specific configuration.
+                    "devint": "stream/DatadogLambdaLogStream",          ### arn:aws:kinesis:us-east-1:123456789012:stream/DatadogLambdaLogStream
+                    "uat":    "stream/DatadogLogsStream",               ### arn:aws:kinesis:us-east-1:123456789012:stream/DatadogLambdaLogStream
+                    "prod":   "stream/DatadogLogsStream",
+                },
             }
             try:
                 lock.acquire()
+                lkp = datadogstreams_by_aws_acct[constants.CDK_APP_NAME]
                 self.DataDogDestinations = CfnMapping( scope=scope, id="DataDogDestinations",          ### https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk/CfnMapping.html
                     lazy=True, ### TODO Is this a good idea?  As per following outpuf from `cdk synth`:
-                            ### [Info at /FACT-backend-pipeline-main/FACT-backend-main/StatelessETL/dailETL/DataDogDestinations]
+                            ### [Info at /{CDK_APP_NAME}-backend-pipeline-main/{CDK_APP_NAME}-backend-main/StatelessETL/dailETL/DataDogDestinations]
                             ###             Consider making this CfnMapping a lazy mapping by providing `lazy: true`:
                             ###             either no findInMap was called or every findInMap could be immediately resolved without using Fn::FindInMap
                     mapping={
-                        "dev":  { "NOTUSINGcsms": datadogstreams_by_awsenv["devint"] },
-                        "int":  { "NOTUSINGcsms": datadogstreams_by_awsenv["devint"] },
-                        "uat":  { "NOTUSINGcsms": datadogstreams_by_awsenv["uat"] },
+                        "dev":  {
+                            "FACT": lkp["devint"] if "devint" in lkp else None,
+                            "CTF": lkp["CTF-nonprod"] if "CTF-nonprod" in lkp else None,
+                        },
+                        "test":  {
+                            "CTF": lkp["CTF-nonprod"] if "CTF-nonprod" in lkp else None,
+                        },
+                        "int":  {
+                            "FACTrial": lkp["devint"] if "devint" in lkp else None,
+                        },
+                        "stage":  {
+                            "CTF": lkp["CTF-prod"] if "CTF-prod" in lkp else None,
+                        },
+                        "uat":  {
+                            "FACTrial": lkp["uat"] if "uat" in lkp else None,
+                        },
                         # "perf": {},
-                        "prod": { "NOTUSINGcsms": datadogstreams_by_awsenv["prod"] },
+                        "prod": {
+                            "CTF": lkp["CTF-prod"] if "CTF-prod" in lkp else None,
+                            "FACTrial": lkp["prod"] if "prod" in lkp else None,
+                        },
                     }
                 )
                 self.init_already_invoked = "__init__ has been invoked before already!"  ### Make sure this is set LAST, and NO EXCEPTIONS after this line!!!
@@ -122,7 +147,7 @@ class Mappings:
         try:
             DataDogDestinations = createCftMapping( scope=self.ref2scope, tier=tier, aws_env=aws_env ).DataDogDestinations
             effective_tier = tier if tier in constants.STD_TIERS else "dev"
-            ddname = DataDogDestinations.find_in_map( effective_tier.lower(), "csms" )
+            ddname = DataDogDestinations.find_in_map( effective_tier.lower(), constants.CDK_APP_NAME )
             if ddname is None:
                 return None
             s :str = f"arn:{stk.partition}:kinesis:{stk.region}:{stk.account}:{ddname}"
@@ -130,7 +155,7 @@ class Mappings:
             return s
         except Exception as e:
             # print( e )
-            if "Error: Mapping doesn't contain second-level key 'csms'" == str(e):
+            if f"Error: Mapping doesn't contain second-level key '{constants.CDK_APP_NAME}'" == str(e):
                 return None
             else:
                 raise e
@@ -139,7 +164,7 @@ class Mappings:
     def get_datadog_arn_elsewhere( self, tier :str, aws_env :str, region :str, account_id: str ) -> str:
         try:
             DataDogDestinations = createCftMapping( scope=self.ref2scope, tier=tier, aws_env=aws_env ).DataDogDestinations
-            ddname = DataDogDestinations.find_in_map( tier.lower(), "csms", )
+            ddname = DataDogDestinations.find_in_map( tier.lower(), constants.CDK_APP_NAME, )
             if ddname is None:
                 return None
             s :str = f"arn:aws:kinesis:{region}:{account_id}:{ddname}"
@@ -147,7 +172,7 @@ class Mappings:
             return s
         except Exception as e:
             # print( e )
-            if "Error: Mapping doesn't contain second-level key 'csms'" == str(e):
+            if f"Error: Mapping doesn't contain second-level key '{constants.CDK_APP_NAME}'" == str(e):
                 return None
             else:
                 raise e

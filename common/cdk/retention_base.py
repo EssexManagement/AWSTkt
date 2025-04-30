@@ -136,7 +136,7 @@ class DataClassification:
         elif data_type == DATA_CLASSIFICATION_TYPES.CLOUD_TEMPORARY:
             return 1 * 365
         elif data_type == DATA_CLASSIFICATION_TYPES.SCRATCH:
-            return 1  ### Just 1 day!!!
+            return 365  ### Just 1 day!!!
         else:
             raise DataClassificationException(
                 f"!!! INTERNAL-ERROR !!! code is NOT ready to handle data-classification-type '{data_type}'. Valid values are: {list(DATA_CLASSIFICATION_TYPES)}"
@@ -149,6 +149,51 @@ class DataClassification:
         #     case DATA_CLASSIFICATION_TYPES.SCRATCH:    return 1 ### Just 1 day!
         #     case _:
         #         raise DataClassificationException( f"!!! INTERNAL-ERROR !!! code is NOT ready to handle data-classification-type '{data_type}'. Valid values are: {list(DATA_CLASSIFICATION_TYPES)}")
+
+    @staticmethod
+    def retention_enum_for(tier: str, data_type: DATA_CLASSIFICATION_TYPES) -> aws_logs.RetentionDays:
+        """Convert the return-value of `retention_for()` into aws_logs.Retention ENUM """
+        days: int = DataClassification.retention_for( tier, data_type )
+        if days <= 1:
+            return aws_logs.RetentionDays.ONE_DAY
+        elif days <= 3:
+            return aws_logs.RetentionDays.THREE_DAYS
+        elif days <= 5:
+            return aws_logs.RetentionDays.FIVE_DAYS
+        elif days <= 7:
+            return aws_logs.RetentionDays.ONE_WEEK
+        elif days <= 14:
+            return aws_logs.RetentionDays.TWO_WEEKS
+        elif days <= 30:
+            return aws_logs.RetentionDays.ONE_MONTH
+        elif days <= 60:
+            return aws_logs.RetentionDays.TWO_MONTHS
+        elif days <= 90:
+            return aws_logs.RetentionDays.THREE_MONTHS
+        elif days <= 120:
+            return aws_logs.RetentionDays.FOUR_MONTHS
+        elif days <= 150:
+            return aws_logs.RetentionDays.FIVE_MONTHS
+        elif days <= 180:
+            return aws_logs.RetentionDays.SIX_MONTHS
+        elif days <= 365:
+            return aws_logs.RetentionDays.ONE_YEAR
+        elif days <= 400:
+            return aws_logs.RetentionDays.THIRTEEN_MONTHS
+        elif days <= 545:
+            return aws_logs.RetentionDays.EIGHTEEN_MONTHS
+        elif days <= 731:
+            return aws_logs.RetentionDays.TWO_YEARS
+        elif days <= 1827:
+            return aws_logs.RetentionDays.FIVE_YEARS
+        elif days <= 2557:
+            return aws_logs.RetentionDays.SEVEN_YEARS
+        elif days <= 3653:
+            return aws_logs.RetentionDays.TEN_YEARS
+        elif days < 0:  # For infinite retention
+            raise DataClassificationException( f"invalid Invalid return-value '{days}' from `retention_for()` for data-classification-type '{data_type}'." )
+        else:
+            raise DataClassificationException( f"UNSUPPORTED Retention for days = '{days}' from `retention_for()` for data-classification-type '{data_type}'." )
 
     @staticmethod
     def removal_policy(tier: str, data_type: DATA_CLASSIFICATION_TYPES) -> RemovalPolicy:

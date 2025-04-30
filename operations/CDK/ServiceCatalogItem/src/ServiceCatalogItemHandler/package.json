@@ -1,0 +1,40 @@
+{
+    "name": "lambda-to-handle-itops-user-input-to-service-catalog-item",
+    "version": "1.0.0",
+    "description": "A Lambda-function that handles and validates IT-Operations-user-input used for Service-Catalog item-provisioning.",
+    "author": "Sarma Seetamraju",
+    "license": "MIT",
+    "main": "index.js",
+    "type": "module",
+    "repository": "https://github.com/awslabs/aws-sam-cli/tree/develop/samcli/local/init/templates/cookiecutter-aws-sam-hello-nodejs",
+    "scripts": {
+        "unit": "jest",
+        "lint": "eslint '*.ts' --quiet --fix",
+        "compile": "tsc",
+        "build": "npx esbuild --bundle index.ts --entry-names=index --minify --target=ES2020 --sourcemap --keep-names --format=cjs --sources-content=true --tree-shaking=true --outdir=dist",
+        "test": "npm run compile && npm run unit"
+    },
+    "dependencies": {
+        "micromatch": ">=4.0.8",
+        "@aws-sdk/client-s3": "*",
+        "@aws-sdk/client-sfn": "*",
+        "esbuild": "*"
+    },
+    "devDependencies": {
+        "typescript": "*",
+        "eslint": "*",
+        "eslint-config-prettier": "*",
+        "eslint-plugin-prettier": "*",
+        "@types/mock-aws-s3": "*",
+        "@types/aws-lambda": "*",
+        "@types/jest": "*",
+        "@types/node": "*",
+        "@typescript-eslint/eslint-plugin": "*",
+        "@typescript-eslint/parser": "*",
+        "ts-node": "*",
+        "jest": "*",
+        "@jest/globals": "*",
+        "ts-jest": "*",
+        "prettier": "*"
+    }
+}

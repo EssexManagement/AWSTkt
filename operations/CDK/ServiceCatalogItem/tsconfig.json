@@ -1,0 +1,127 @@
+{
+    "$schema": "https://json.schemastore.org/tsconfig",
+    "ts-node": { ////  <——— This is required to use the "@..." in your TypeScript’s import -statements.
+        // Do not forget to `npm i -D tsconfig-paths`
+        "require": ["tsconfig-paths/register"]
+    },
+    "compilerOptions": {
+        "target": "ES2024",
+        "module": "CommonJS", //// Per -MY- testing “npx cdk” is OK w/ “commonjs” or “nodenext” only!
+            //// REF: https://www.typescriptlang.org/tsconfig/#module
+        "baseUrl": ".", ////  <——— This is required to use the `paths` option in next line below
+        "paths": {
+            "@/*": ["./*"],
+            "*": ["node_modules/*"]
+        },
+
+        //// For all of the following -- REF: https://www.typescriptlang.org/tsconfig/
+        //// For all of the following -- REF: https://www.typescriptlang.org/tsconfig/
+
+        //// Below-settings for CDK-CDK-CDK-CDK-CDK -ONLY- !!!  Whatever AWS puts out as latest example cdk-code.
+        //// Below-settings for CDK-CDK-CDK-CDK-CDK -ONLY- !!!  Whatever AWS puts out as latest example cdk-code.
+        //// Below-settings for CDK-CDK-CDK-CDK-CDK -ONLY- !!!  Whatever AWS puts out as latest example cdk-code.
+        //// Below-settings for CDK-CDK-CDK-CDK-CDK -ONLY- !!!  Whatever AWS puts out as latest example cdk-code.
+
+        "lib": [    //// https://www.typescriptlang.org/tsconfig/#lib
+            "ES2024",
+            // "DOM" /// Only needed when running TypeScript inside a BROWSER, and when you need "DOM"
+        ],
+
+        /* ---- Base Options ---- */
+        "declaration": true,
+        "strict": true,
+        "noImplicitAny": true,
+        "strictNullChecks": true,
+        "noImplicitThis": true,
+
+        /* ---- Strictness ---- */
+        "alwaysStrict": true,
+        "noUnusedLocals": false, //// I like to give variable-names to function-responses.. just in case I have to quickly debug later.
+        "noUnusedParameters": false,
+        "noImplicitReturns": true, //// `true` => TypeScript will check all code paths in a function (to ensure a value is always returned).
+        "noFallthroughCasesInSwitch": false,
+        "noUncheckedIndexedAccess": true,
+            //// keep it `true` so that  `| undefined` is automatically added to interface/class properties that do NOT have default values.
+            //// REF: https://www.typescriptlang.org/tsconfig/#noUncheckedIndexedAccess
+        "noImplicitOverride": true, //// Best practice = `true` -- REF: https://www.typescriptlang.org/tsconfig/#noImplicitOverride
+
+        /* ---- Node Stuff ---- */
+        "moduleResolution": "Node", //// !! Attention !! Match this with `Module` above!
+        // "noEmit": true,
+            //// REF: https://www.typescriptlang.org/tsconfig/#noEmit
+            //// Do --NOT-- emit compiler-output files like JavaScript source-code, source-maps or declarations.
+            //// This ALLOWS another tool like `Babel`, or `swc` to handle converting the TypeScript file to a file ..
+            ////    ..  which can run inside a JavaScript environment (Example: a high-performance JS-Lambda).
+        // "emitDeclarationOnly": true, //// <--- conflicts with `noEmit` above
+        // "declarationMap": true,
+        // "allowImportingTsExtensions": true,
+        // "rewriteRelativeImportExtensions": true, //// RE-write `.ts`, `.tsx`, `.mts`, and `.cts` files --> to their JavaScript-eqvt output files.
+        "inlineSources": true,
+        "inlineSourceMap": true,
+        "preserveSymlinks": false, //// Same flag as in Node.js; Node.js --NEVER-- resolves real-path of symlinks!!
+        // "sourceMap": true,  /// TBD - whether a good idea for CDK ???
+            //// allow debuggers and other tools to display the original TypeScript source code.
+            //// Source map files are emitted as `.js.map` (or `.jsx.map`) files next to the corresponding `.js` output file.
+
+            /* ---- tweaking Perf ---- */
+        "skipLibCheck": false, //// `true` => to speed up compilation process, and skips type checking of all declaration files (.d.ts files).
+        "isolatedModules": false,
+            //// https://www.typescriptlang.org/tsconfig/#isolatedModules
+            //// These limitations can cause runtime problems with some TypeScript features like `const enums` and `namespaces`.
+            //// Setting the isolatedModules flag tells TypeScript to -_WARN--  you if you write certain code that can’t be correctly interpreted by a single-file transpilation process.
+            //// It does ---NOT--- change the behavior of your code, or otherwise change the behavior of TypeScript’s
+            //// While you can use TypeScript to produce JavaScript code from TypeScript code, ..
+            ////    .. it’s also common to use other transpilers such as Babel to do this.
+            //// However, other transpilers only operate on a single file at a time, ..
+            ////    .. which means they can’t apply code transforms that depend on understanding the full type system.
+            ////
+
+        /* ---- Code-Generation ---- */
+        "experimentalDecorators": false,
+            //// https://www.typescriptlang.org/tsconfig/#experimentalDecorators
+            //// `true` => Use a version of decorators that predates the TC39 standardization process.
+            //// Decorators are a language feature which hasn’t yet been fully ratified into the JavaScript specification.
+        "removeComments": true, // Default is `false`
+        "pretty": true, // Default is `true`; TypeScript runtime Error-messages will now be pretty!
+        // "outDir": "lib/esm",
+        // "rootDir": ".",
+        "strictPropertyInitialization": true, //// TypeScript will raise an error, when a class property was declared but -NOT- set in the constructor.
+        // "allowSyntheticDefaultImports": ..
+            //// https://www.typescriptlang.org/tsconfig/#allowSyntheticDefaultImports
+            //// When set to true, allowSyntheticDefaultImports allows you to write an import like:
+            ////     > import React from "react";
+            //// instead of:
+            ////     > import * as React from "react";
+
+        /* ---- Modules & Compatibility ---- */
+        "forceConsistentCasingInFileNames": true,
+        "moduleDetection": "auto", //// (Default == auto) REF: https://www.typescriptlang.org/tsconfig/#moduleDetection
+        "esModuleInterop": true, //// Short-summary: ALWAYS set to `true`!
+            //// https://www.typescriptlang.org/tsconfig/#esModuleInterop
+            //// `esModuleInterop`==true -> will fix All (below) problems in the code transpiled by TypeScript.
+            //// By default (a.k.a. esModuleInterop==false a.k.a. NOT set) ..
+            ////    .. TypeScript treats CommonJS/AMD/UMD modules similar to ES6 modules.
+            ////    In doing so, there are 2 flawed assumptions w/ ES6 modules. See more in link.
+            //// Note .. .. Enabling `esModuleInterop` will also enable `allowSyntheticDefaultImports` !!
+
+        //// !!! Avoid defining`typeRoots` !!!
+        //   "typeRoots": [
+        //     "node_modules/@types",
+        //     "./mysubfolder/@types",
+        //   ]
+            //// By default all visible ”@types” packages are included in your compilation.
+            //// Packages in node_modules/@types of any enclosing folder are considered visible.
+            //// By default, that means packages within ./node_modules/@types/, ../node_modules/@types/, ../../node_modules/@types/, and so on.
+
+    },
+    "include": [
+        "**/*.ts",
+        "node_modules/@types/**/*.ts",
+    ],
+    "exclude": [
+        // "./node_modules",
+        "./dist", "lib/esm",
+        "./.venv", "./.local", "./.cache", "__pycache__",
+        "cdk.out"
+    ]
+}

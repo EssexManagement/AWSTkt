@@ -5,10 +5,11 @@ from enum import Enum, auto, unique
 from constructs import Construct
 from aws_cdk import (
     Stack,
+    Tags,
     Duration,
     RemovalPolicy,
     aws_logs,
-    aws_ec2 as ec2,
+    aws_ec2,
     aws_lambda,
     aws_lambda_python_alpha,
     aws_ecr,
@@ -16,7 +17,9 @@ from aws_cdk import (
 )
 
 import constants
+import common.cdk.aws_names as aws_names
 import common.cdk.constants_cdk as constants_cdk
+from cdk_utils.CloudFormation_util import get_vpc_privatesubnet_type
 from cdk_utils.CloudFormation_util import get_cpu_arch_as_str
 from common.cdk.standard_logging import get_log_grp, LogGroupType
 
@@ -80,24 +83,35 @@ class StandardLambda():
         Use a MINIMUM MemorySize for -ALL- lambdas, so that LambdaLayers can be supported.
     """
 
-    def update_vpc( self, new_vpc_info: ec2.IVpc ) -> None:
+    def update_vpc( self, new_vpc_info: aws_ec2.IVpc ) -> None:
         self._vpc = new_vpc_info
 
-    def update_sg( self, new_sg: ec2.ISecurityGroup ) -> None:
-        self._sg_lambda = new_sg
+    def add_sg( self, new_sg: aws_ec2.ISecurityGroup ) -> None:
+        self._sg_lambda.append( new_sg)
+
+    def update_sg( self, new_sg: aws_ec2.ISecurityGroup ) -> None:
+        self._sg_lambda = [new_sg]
+
+    def update_sgs( self, new_sgs: list[aws_ec2.ISecurityGroup] ) -> None:
+        self._sg_lambda = new_sgs
 
     ###------------------------------------------------
     def __init__( self,
-        vpc: Optional[ec2.IVpc],
-        sg_lambda: Optional[ec2.ISecurityGroup],
+        create_within_vpc :bool,
+        vpc :Optional[aws_ec2.IVpc],
+        sg_lambda: Optional[list[aws_ec2.ISecurityGroup]],
         tier: str,
         min_memory :Optional[int] = None,
         default_timeout :Optional[Duration] = None,
     ) -> None:
         super().__init__()
-        self._construct_id_suffix = vpc.vpc_id if vpc else "noVPC"
 
-        self._vpc = vpc
+        if create_within_vpc and vpc:
+            self._vpc = vpc
+            self._construct_id_suffix = self._vpc.vpc_id
+        else:
+            self._vpc = None
+            self._construct_id_suffix = "noVPC"
         self._sg_lambda = sg_lambda
         self._tier = tier
         self.default_timeout = default_timeout
@@ -195,8 +209,8 @@ class StandardLambda():
             memory_size = memory_size or self.min_memory,
 
             vpc = self._vpc,
-            vpc_subnets = ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS) if self._vpc else None,
-            security_groups = [self._sg_lambda] if self._sg_lambda and self._vpc else None,
+            vpc_subnets = aws_ec2.SubnetSelection(subnet_type=get_vpc_privatesubnet_type(self._vpc)) if self._vpc else None,
+            security_groups = self._sg_lambda if self._sg_lambda and self._vpc else None,
 
             timeout = timeout or self.default_timeout,
             runtime = runtime or _DEFAULT_LAMBDA_PYTHON_RUNTIME,
@@ -264,7 +278,7 @@ class StandardLambda():
         # all_layers = self._get_layers( layers=layers )
 
         ### REF: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_lambda_python_alpha/PythonFunction.html
-        return aws_lambda.Function(
+        newfunc = aws_lambda.Function(
             scope = scope,
             id = lambda_name,
 
@@ -278,8 +292,8 @@ class StandardLambda():
             memory_size = memory_size or self.min_memory,
 
             vpc = self._vpc,
-            vpc_subnets = ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS) if self._vpc else None,
-            security_groups = [self._sg_lambda] if self._sg_lambda and self._vpc else None,
+            vpc_subnets = aws_ec2.SubnetSelection(subnet_type=get_vpc_privatesubnet_type(self._vpc)) if self._vpc else None,
+            security_groups = self._sg_lambda if self._sg_lambda and self._vpc else None,
 
             timeout = timeout or self.default_timeout,
             tracing = aws_lambda.Tracing.ACTIVE,
@@ -294,5 +308,9 @@ class StandardLambda():
 
             **kwargs
         )
+        # add a specific Tag called "ResourceName"
+        Tags.of(newfunc).add(key="ResourceName", value=stk.stack_name+"-"+lambda_name)
+
+        return newfunc
 
 ### EoF
