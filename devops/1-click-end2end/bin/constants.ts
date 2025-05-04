@@ -7,10 +7,13 @@ import { env } from "process";
 /// !!! WARNING !!! Keep this file --IN-SYNC-- with the Python-file `./constants.py`
 
 export const ENTERPRISE_NAME = "NIH-NCI"
-export const HUMAN_FRIENDLY_APP_NAME = "FACTrial";
+export const HUMAN_FRIENDLY_APP_NAME = "CancerTrialsFinder";
 export const HUMAN_FRIENDLY_APP_VERSION = "2.0.0"; //// ❌❌❌ BE careful of defining it here, AS WELL AS in `./constants.py` PYTHON-file.
-export const CDK_APP_NAME = "FACT";
-export const CDK_COMPONENT_NAME = "devops";
+export const CDK_APP_NAME = "CTF";
+export const CDK_DEVOPS_COMPONENT_NAME = "devops";
+export const CDK_OPERATIONS_COMPONENT_NAME = "operations";
+
+const THIS_COMPONENT_NAME = CDK_DEVOPS_COMPONENT_NAME;
 
 //// ----------------------------------------------------------------
 export const PROD_TIER = "prod"
@@ -63,7 +66,7 @@ export function get_git_branch( tier :string ) {
 export function get_SHARED_AWS_RESOURCE_PREFIX(
     tier :string,
     git_branch :string,
-    componentName :string = CDK_COMPONENT_NAME,
+    componentName :string = THIS_COMPONENT_NAME,
 ) {
     return `${CDK_APP_NAME}-${componentName}-${tier}`
 }
@@ -72,18 +75,20 @@ export function get_FULL_AWS_RESOURCE_PREFIX(
     tier :string,
     git_branch :string,
     subComponent :string,
-    componentName :string = CDK_COMPONENT_NAME,
+    componentName :string = THIS_COMPONENT_NAME,
 ) {
     return `${get_SHARED_AWS_RESOURCE_PREFIX(tier, git_branch, componentName)}-${subComponent}`
 }
 
 //// ----------------------------------------------------------------
 export function get_SNS_TOPICNAME(tier :string, git_branch :string){
-    if (tier == PROD_TIER) return CDK_APP_NAME+"-prod"
-    else if (tier == UAT_TIER) return CDK_APP_NAME+"-uat"
-    else if (tier == INT_TIER) return CDK_APP_NAME+"-int"
-    else if (tier == DEV_TIER) return CDK_APP_NAME+"-dev"
-    else return CDK_APP_NAME+"-dev"
+    return "Operations"
+    // return CDK_APP_NAME+"-Ops"
+    // if (tier == PROD_TIER) return CDK_APP_NAME+"-prod"
+    // else if (tier == UAT_TIER) return CDK_APP_NAME+"-uat"
+    // else if (tier == INT_TIER) return CDK_APP_NAME+"-int"
+    // else if (tier == DEV_TIER) return CDK_APP_NAME+"-dev"
+    // else return CDK_APP_NAME+"-dev"
     // else throw new Error(`Unable to determine SNS-Topic-name: Invalid tier value: ${tier}`)
 }
 // export const SNS_TOPIC = get_FULL_AWS_RESOURCE_PREFIX(tier, git_branch, "sns-topic")

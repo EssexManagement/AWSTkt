@@ -34,9 +34,9 @@ def get_proxy_endpoint() -> str:
     """Get the RDS Proxy endpoint from its ARN"""
     try:
         rds_client = boto3.client('rds')
-        proxy_arn = os.environ.get('DBP')
+        proxy_arn = os.environ.get('DBPArn')
         logger.info(f"Proxy ARN: {proxy_arn}")
-        proxy_name  = os.environ.get('DBPName')
+        proxy_name  = os.environ.get('DBPName').lower();
         logger.info(f"Proxy proper-name: {proxy_name}")
         if not proxy_name:
             raise ValueError("RDS Proxy's NAME not found in environment variables")

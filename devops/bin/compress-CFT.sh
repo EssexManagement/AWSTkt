@@ -7,7 +7,9 @@ printf "%.0s-" {1..120}; echo ''; echo ''
 ls -la ./cdk.out
 printf "%.0s-" {1..120}; echo ''; echo ''
 
-FILE_PATTERN="./cdk.out/FACT-backend-Lambdas-*.template.json"
+CDK_APP_NAME="CTF"
+
+FILE_PATTERN="./cdk.out/${CDK_APP_NAME}-backend-Lambdas-*.template.json"
 
 ### ==============================================================================
 
@@ -23,7 +25,7 @@ OS3='./cdk.out/orig-sorted.json'
 
 ### ==============================================================================
 
-# for CFT_FILE in $( ls ./cdk.out/FACT-backend-Lambdas-*.template.json ); do
+# for CFT_FILE in $( ls ./cdk.out/${CDK_APP_NAME}-backend-Lambdas-*.template.json ); do
 for CFT_FILE in $FILES; do
     printf "compressing '$CFT_FILE' .. ..\t\t"
 

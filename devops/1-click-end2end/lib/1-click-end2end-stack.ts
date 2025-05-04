@@ -7,6 +7,8 @@ import * as sfntask from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import * as constants from '../bin/constants';
 import { error } from 'console';
 
+const THIS_COMPONENT_NAME = constants.CDK_DEVOPS_COMPONENT_NAME
+
 export class OneClickEnd2EndStack extends cdk.Stack {
 constructor(scope: Construct,
     simpleStackName: string,
@@ -20,32 +22,46 @@ constructor(scope: Construct,
     //// --------------------------------------------------
     //// pre-requisites and constants
 
-    const stmc_name = constants.get_FULL_AWS_RESOURCE_PREFIX(tier, git_branch, "sfn-"+simpleStackName, constants.CDK_COMPONENT_NAME )
+    const stmc_name = constants.get_FULL_AWS_RESOURCE_PREFIX(tier, git_branch, "sfn-"+simpleStackName, THIS_COMPONENT_NAME )
     const codepipelineSourceStageActionName = "BIAD_emFACT-frontend-cdk.git" //// Click on "View Details" under Source-STAGE of codepipeline
 
     //// --------------------------------------------------
     let preDeploySfnName = "sfn-CleanupStacks"
     //// let preDeploySfnName = "sfn-PRE-deployment"
-    preDeploySfnName = constants.get_FULL_AWS_RESOURCE_PREFIX(tier, git_branch, preDeploySfnName, constants.CDK_COMPONENT_NAME )
+    preDeploySfnName = constants.get_FULL_AWS_RESOURCE_PREFIX(tier, git_branch, preDeploySfnName, THIS_COMPONENT_NAME )
     const preDeploySfn = cdk.aws_stepfunctions.StateMachine.fromStateMachineName(this, preDeploySfnName, preDeploySfnName)
     console.log(`preDeploySfn='${preDeploySfn}'`)
 
     let postBackendDeploySfnName = "sfn-PostDeployment"
-    postBackendDeploySfnName = constants.get_FULL_AWS_RESOURCE_PREFIX(tier, git_branch, postBackendDeploySfnName, constants.CDK_COMPONENT_NAME )
+    postBackendDeploySfnName = constants.get_FULL_AWS_RESOURCE_PREFIX(tier, git_branch, postBackendDeploySfnName, THIS_COMPONENT_NAME )
     const postBackendDeploySfn = cdk.aws_stepfunctions.StateMachine.fromStateMachineName(this, postBackendDeploySfnName, postBackendDeploySfnName)
     console.log(`postBackendDeploySfn='${postBackendDeploySfn}'`)
 
-    let componentName = "frontend"
+    let componentName = "backend"
+    const backendCodePipelineName = `${constants.CDK_APP_NAME}-${componentName}-pipeline-${tier}`;
+    const backendCodePipeline = cdk.aws_codepipeline.Pipeline.fromPipelineArn(this, backendCodePipelineName,
+              `arn:${cdk.Stack.of(this).partition}:codepipeline:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:${backendCodePipelineName}`     )
+    console.log(`backendCodePipeline='${backendCodePipeline}'`)
+
+    componentName = "frontend"
     const frontendCodePipelineName = `${constants.CDK_APP_NAME}-${componentName}-pipeline-${tier}`;
     const frontendCodePipeline = cdk.aws_codepipeline.Pipeline.fromPipelineArn(this, frontendCodePipelineName,
               `arn:${cdk.Stack.of(this).partition}:codepipeline:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:${frontendCodePipelineName}`    )
     console.log(`frontendCodePipeline='${frontendCodePipeline}'`)
 
-    componentName = "backend"
-    const backendCodePipelineName = `${constants.CDK_APP_NAME}-${componentName}-pipeline-${tier}`;
-    const backendCodePipeline = cdk.aws_codepipeline.Pipeline.fromPipelineArn(this, backendCodePipelineName,
-              `arn:${cdk.Stack.of(this).partition}:codepipeline:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:${backendCodePipelineName}`     )
-    console.log(`backendCodePipeline='${backendCodePipeline}'`)
+    componentName = "BDDs"
+    const BDDsCodePipelineName = `${constants.CDK_APP_NAME}-${componentName}-pipeline-${tier}`;
+    const BDDsCodePipeline = cdk.aws_codepipeline.Pipeline.fromPipelineArn(this, BDDsCodePipelineName,
+              `arn:${cdk.Stack.of(this).partition}:codepipeline:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:${BDDsCodePipelineName}`     )
+    console.log(`BDDsCodePipeline='${BDDsCodePipeline}'`)
+
+    //// --------------------------------------------------
+
+    const devopsRDSInstanceSetupSIMPLELambdaName = "devops_RDSInstanceSetup";
+    const BackendCDKComponentName = "backend";
+    const devopsRDSInstanceSetupLambdaName = constants.get_FULL_AWS_RESOURCE_PREFIX(tier, git_branch, devopsRDSInstanceSetupSIMPLELambdaName, BackendCDKComponentName )
+    const devopsRDSInstanceSetupLambda = cdk.aws_lambda.Function.fromFunctionName(this, devopsRDSInstanceSetupLambdaName, devopsRDSInstanceSetupLambdaName)
+    console.log(`devops_RDSInstanceSetup Lambda-construct = '${devopsRDSInstanceSetupLambda}'`)
 
     //// --------------------------------------------------
     //// other basic-resources
@@ -137,6 +153,18 @@ constructor(scope: Construct,
     //   comment: "Increment the inner-loop-counter, while retaining rest of Task's input as-is",
     // });
 
+    const invokeDevopsRDSInstanceSetupLambda = new sfntask.LambdaInvoke(this, "invoke lambda: "+devopsRDSInstanceSetupLambdaName, {
+        lambdaFunction: devopsRDSInstanceSetupLambda,
+        taskTimeout: sfn.Timeout.duration(cdk.Duration.seconds(900)),
+        // integrationPattern: sfn.IntegrationPattern.RUN_JOB,
+        payload: sfn.TaskInput.fromObject({ "MaxRandomSleepTime": 5 }),
+        resultSelector: {"StatusCode.$": "$.StatusCode"}, //// HTTP Response-code
+        // resultSelector: {"StatusCode.$": "$.Payload.statusCode"}, //// The JSON-response-body returned by 𝜆-func
+        resultPath: sfn.JsonPath.DISCARD,  // This preserves the input as output
+        // resultPath: "$.devops_RDSInstanceSetup",
+        // outputPath: sfn.JsonPath.format("$.1stLambda_{}_{}", sfn.JsonPath.stringAt("$.outer_loop_counter"), ,sfn.JsonPath.stringAt("$.inner_loop_counter")),
+    });
+
     const deployBackend = new sfn.CustomState(this, "start "+backendCodePipelineName+" only",{ stateJson: {
         "Type": "Task",
         "Resource": "arn:aws:states:::aws-sdk:codepipeline:startPipelineExecution",
@@ -164,6 +192,13 @@ constructor(scope: Construct,
         "ResultPath": "$."+frontendCodePipelineName,
     }})
 
+    const runBDDs = new sfn.CustomState(this, "start "+BDDsCodePipelineName+" only",{ stateJson: {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::aws-sdk:codepipeline:startPipelineExecution",
+        "Parameters": { "Name": BDDsCodePipelineName },
+        "ResultPath": "$."+BDDsCodePipelineName,
+    }})
+
     const getStatusOfDeployBackend = new sfn.CustomState(this, "get status-of "+backendCodePipelineName+" only",{ stateJson: {
         "Type": "Task",
         "Resource": "arn:aws:states:::aws-sdk:codepipeline:getPipelineExecution",
@@ -184,6 +219,17 @@ constructor(scope: Construct,
         },
         "ResultSelector": { "Status.$": "$.PipelineExecution.Status" },
         "ResultPath": "$.Status"+frontendCodePipelineName,
+    }})
+
+    const getStatusOfRunBDDs = new sfn.CustomState(this, "get status-of "+BDDsCodePipelineName+" only",{ stateJson: {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::aws-sdk:codepipeline:getPipelineExecution",
+        "Parameters": {
+            "PipelineExecutionId.$": "$."+BDDsCodePipelineName+".PipelineExecutionId",
+            "PipelineName": BDDsCodePipelineName
+        },
+        "ResultSelector": { "Status.$": "$.PipelineExecution.Status" },
+        "ResultPath": "$.Status"+BDDsCodePipelineName,
     }})
 
     // write a CustomTask that invokes AWSInspector2 SDK for ListFindings, filtered for "findingType" == "CRITICAL"
@@ -271,15 +317,20 @@ constructor(scope: Construct,
 
     //// --------------------------------------------------
     // Check whether All of the CodePipeline Executions have ended for the specific pipeline named "postBackendDeploySfnName"
+
+    const waitAfterBackendCodePipelineExecution = new sfn.Wait(this, "wait-state-2 after STARTING Pipeline "+backendCodePipelineName, {
+        time: sfn.WaitTime.duration(cdk.Duration.seconds(300)),
+        comment: `after kicking OFF Pipeline ${backendCodePipelineName} .. wait-in-loop to check if Pipeline ended`,
+    })
+
     const waitAfterFrontendCodePipelineExecution = new sfn.Wait(this, "wait-state-1 after STARTING Pipeline "+frontendCodePipelineName, {
         time: sfn.WaitTime.duration(cdk.Duration.seconds(300)),
         comment: `after kicking OFF Pipeline ${frontendCodePipelineName} .. wait-in-loop to check if Pipeline ended`,
     })
 
-    // Check whether All of the CodePipeline Executions have ended for the specific pipeline named "postBackendDeploySfnName"
-    const waitAfterBackendCodePipelineExecution = new sfn.Wait(this, "wait-state-2 after STARTING Pipeline "+backendCodePipelineName, {
+    const waitAfterBDDsCodePipelineExecution = new sfn.Wait(this, "wait-state-2 after STARTING Pipeline "+BDDsCodePipelineName, {
         time: sfn.WaitTime.duration(cdk.Duration.seconds(300)),
-        comment: `after kicking OFF Pipeline ${backendCodePipelineName} .. wait-in-loop to check if Pipeline ended`,
+        comment: `after kicking OFF Pipeline ${BDDsCodePipelineName} .. wait-in-loop to check if Pipeline ended`,
     })
 
     // const waitAfterFirstLambdaFails = new sfn.Wait(this, "wait-state-1 after failure of "+bucketWipeoutLambdaName, {
@@ -289,6 +340,7 @@ constructor(scope: Construct,
 
     const checkBackendPipelineStatus = new sfn.Choice(this, "What is "+backendCodePipelineName+" Pipeline Status");
     const checkWhetherToDeployFrontend = new sfn.Choice(this, "Skip "+frontendCodePipelineName+" DEPLOY-ment?");
+    const checkBDDsPipelineStatus = new sfn.Choice(this, "What is "+BDDsCodePipelineName+" Pipeline Status");
     const checkFrontendPipelineStatus = new sfn.Choice(this, "What is "+frontendCodePipelineName+" Pipeline Status");
     const checkWhetherAnyAWSInspector2Findings = new sfn.Choice(this, "Any High+ AWS-Inspector Findings: cdk-hnb659fds-container-assets-");
     const whetherWipeCleanDB = new sfn.Choice(this, "Whether to WipeCleanDB during POST-Deploy SFn-invocation?", { comment: "post-deploy Sfn "+postBackendDeploySfnName+" .. whether it should WipeCleanDB when invoked?" })
@@ -331,18 +383,24 @@ constructor(scope: Construct,
     )
     checkBackendPipelineStatus.otherwise( taskSNSTopicAborted )
 
-    whetherWipeCleanDB.when(sfn.Condition.isPresent("$.run-rds-init"), postBackendDeploySfnWipeCleanDBInvoke )
-    whetherWipeCleanDB.when(sfn.Condition.isPresent("$.runRdsInit"),   postBackendDeploySfnWipeCleanDBInvoke )
+    whetherWipeCleanDB.when(sfn.Condition.isPresent("$.run-rds-init"), invokeDevopsRDSInstanceSetupLambda )
+    whetherWipeCleanDB.when(sfn.Condition.isPresent("$.runRdsInit"),   invokeDevopsRDSInstanceSetupLambda )
     whetherWipeCleanDB.otherwise( postBackendDeploySfnInvoke )
 
-    postBackendDeploySfnInvoke.next(checkWhetherToDeployFrontend)
-    postBackendDeploySfnInvoke.addCatch(taskSNSTopicAborted, {
+    invokeDevopsRDSInstanceSetupLambda.next( postBackendDeploySfnWipeCleanDBInvoke )
+    invokeDevopsRDSInstanceSetupLambda.addCatch(taskSNSTopicAborted, {
         errors: [ "States.ALL" ],
         resultPath: "$.error",
     })
 
     postBackendDeploySfnWipeCleanDBInvoke.next(checkWhetherToDeployFrontend)
     postBackendDeploySfnWipeCleanDBInvoke.addCatch(taskSNSTopicAborted, {
+        errors: [ "States.ALL" ],
+        resultPath: "$.error",
+    })
+
+    postBackendDeploySfnInvoke.next(checkWhetherToDeployFrontend)
+    postBackendDeploySfnInvoke.addCatch(taskSNSTopicAborted, {
         errors: [ "States.ALL" ],
         resultPath: "$.error",
     })
@@ -371,9 +429,31 @@ constructor(scope: Construct,
     )
     checkFrontendPipelineStatus.when(
         sfn.Condition.stringEquals("$.Status"+frontendCodePipelineName+".Status", "Succeeded"),
-        invokeAWSInspector2FindingsAPI,
+        runBDDs,
     )
     checkFrontendPipelineStatus.otherwise( taskSNSTopicAborted )
+
+    runBDDs.next(waitAfterBDDsCodePipelineExecution)
+    runBDDs.addCatch(taskSNSTopicAborted, {
+        errors: [ "States.ALL" ],
+        resultPath: "$.error",
+    })
+    waitAfterBDDsCodePipelineExecution.next(getStatusOfRunBDDs)
+    getStatusOfRunBDDs.next(checkBDDsPipelineStatus)
+    getStatusOfRunBDDs.addCatch(taskSNSTopicAborted, {
+        errors: [ "States.ALL" ],
+        resultPath: "$.error",
+    })
+    checkBDDsPipelineStatus.when(
+        sfn.Condition.stringEquals("$.Status"+BDDsCodePipelineName+".Status", "InProgress"),
+        waitAfterBDDsCodePipelineExecution,
+    )
+    checkBDDsPipelineStatus.when(
+        sfn.Condition.stringEquals("$.Status"+BDDsCodePipelineName+".Status", "Succeeded"),
+        invokeAWSInspector2FindingsAPI,
+    )
+    checkBDDsPipelineStatus.otherwise( taskSNSTopicAborted )
+
 
     invokeAWSInspector2FindingsAPI.next( checkWhetherAnyAWSInspector2Findings )
     checkWhetherAnyAWSInspector2Findings.when(

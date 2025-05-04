@@ -36,7 +36,10 @@ Files2bCompared=(
     ./README*.md
     ./.gitignore
 
-    ./cdk_app.py
+    ./cdk_backend_app.py
+    ./cdk_frontend_app.py
+    ./cdk_lambda_layers_app.py
+    ./cdk_operations_pipeline_app.py
     ./cdk_pipelines_app.py
     ./cdk.json
     ./constants.py
@@ -47,16 +50,17 @@ Files2bCompared=(
     ./requirements.in
     # ./requirements.txt
 
-    ./common/__init__.py
-    ./common/cdk/__init__.py
-    ./common/cdk/constants_cdk.py
-    ./common/cdk/constants_cdk.py
-    ./common/cdk/mappings.py
-    ./common/cdk/retention_base.py
-    ./common/cdk/StandardBucket.py
-    ./common/cdk/standard_lambda.py
-    ./common/cdk/StandardCodeBuild.py
-    ./common/cdk/StandardCodePipeline.py
+    ./common/
+    # ./common/__init__.py
+    # ./common/cdk/__init__.py
+    # ./common/cdk/constants_cdk.py
+    # ./common/cdk/constants_cdk.py
+    # ./common/cdk/mappings.py
+    # ./common/cdk/retention_base.py
+    # ./common/cdk/StandardBucket.py
+    # ./common/cdk/standard_lambda.py
+    # ./common/cdk/StandardCodeBuild.py
+    # ./common/cdk/StandardCodePipeline.py
 
     ./cdk_utils/
     ./common/cdk/
@@ -64,16 +68,17 @@ Files2bCompared=(
     ./cognito/infrastructure.py
     ./cognito/src/*.py
 
-    ./backend/sqs_cdk.py
     ./backend/common_aws_resources_stack.py
-    ./backend/lambda_layer/psycopg/
-    ./backend/lambda_layer/psycopg_pandas/
-    ./backend/lambda_layer/bin/
-    ./backend/database/vpc_rds/
-    ./backend/database/vpc_rds/lambda/
-    ./backend/database/rds_init/__init__.py
-    ./backend/database/rds_init/README.md
-    ./backend/database/rds_init/infrastructure.py
+    ./backend/vpc_w_subnets.py
+    ./backend/database/
+    ./backend/infra
+    ./backend/lambda_layer/
+    ./backend/sqs_cdk.py
+    # ./backend/database/vpc_rds/
+    # ./backend/database/vpc_rds/lambda/
+    # ./backend/database/rds_init/__init__.py
+    # ./backend/database/rds_init/README.md
+    # ./backend/database/rds_init/infrastructure.py
 
     ./backend/etl/__init__.py
     ./backend/etl/infrastructure.py
@@ -100,38 +105,39 @@ Files2bCompared=(
 
     ./app_pipeline/__init__.py
     ./app_pipeline/pipeline.py
-    ./app_pipeline/AllStacks.py
+    ./app_pipeline/BackendStacks.py
 
-    ./devops/pipeline.py
-    ./devops/bin/
-    ./devops/README*
+    ./devops
+    # ./devops/pipeline.py
+    # ./devops/bin/
+    # ./devops/README*
 
-    ./devops/1-click-end2end/bin/
-    ./devops/1-click-end2end/lib/
-    ./devops/1-click-end2end/test/
-    ./devops/1-click-end2end/.*ignore
-    ./devops/1-click-end2end/cdk.json
-    ./devops/1-click-end2end/package*.json
-    ./devops/1-click-end2end/README.md
-    ./devops/1-click-end2end/tsconfig.json
+    # ./devops/1-click-end2end/bin/
+    # ./devops/1-click-end2end/lib/
+    # ./devops/1-click-end2end/test/
+    # ./devops/1-click-end2end/.*ignore
+    # ./devops/1-click-end2end/cdk.json
+    # ./devops/1-click-end2end/package*.json
+    # ./devops/1-click-end2end/README.md
+    # ./devops/1-click-end2end/tsconfig.json
 
-    ./devops/post-deployment/bin/
-    ./devops/post-deployment/lib/
-    ./devops/post-deployment/test/
-    ./devops/post-deployment/.*ignore
-    ./devops/post-deployment/cdk.json
-    ./devops/post-deployment/package*.json
-    ./devops/post-deployment/README.md
-    ./devops/post-deployment/tsconfig.json
+    # ./devops/post-deployment/bin/
+    # ./devops/post-deployment/lib/
+    # ./devops/post-deployment/test/
+    # ./devops/post-deployment/.*ignore
+    # ./devops/post-deployment/cdk.json
+    # ./devops/post-deployment/package*.json
+    # ./devops/post-deployment/README.md
+    # ./devops/post-deployment/tsconfig.json
 
-    ./devops/cleanup-stacks/bin/
-    ./devops/cleanup-stacks/lib/
-    ./devops/cleanup-stacks/test/
-    ./devops/cleanup-stacks/.*ignore
-    ./devops/cleanup-stacks/cdk.json
-    ./devops/cleanup-stacks/package*.json
-    ./devops/cleanup-stacks/README.md
-    ./devops/cleanup-stacks/tsconfig.json
+    # ./devops/cleanup-stacks/bin/
+    # ./devops/cleanup-stacks/lib/
+    # ./devops/cleanup-stacks/test/
+    # ./devops/cleanup-stacks/.*ignore
+    # ./devops/cleanup-stacks/cdk.json
+    # ./devops/cleanup-stacks/package*.json
+    # ./devops/cleanup-stacks/README.md
+    # ./devops/cleanup-stacks/tsconfig.json
 
     ./operations/bin/
     ./operations/pipeline.py

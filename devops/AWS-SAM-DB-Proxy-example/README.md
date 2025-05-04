@@ -19,9 +19,14 @@ To build + deploy your application for the first time, run the following in your
 
 FYI - These below commands will have a series of user-prompts (see list below).
 
+PRE-REQUISITES: Edit the file `template.json` and CHANGE the `Default` value of ALL the "Template-Parameters".
+
+Only after that, run following commands:-
+
 ```bash
 TIER="dev|int|stage|prod"  ### 👈🏾👈🏾 PICK on value !!!!!!!
-StackName="FACT-devops-${TIER}-AWSSAM-sample"
+AppName="FACT"  ### 👈🏾👈🏾 Fix this alue !!!!!!!
+StackName="${AppName}-devops-${TIER}-AWSSAM-sample"
 
 AWSPROFILE=.. ..
 AWSREGION=.. ..
@@ -31,7 +36,7 @@ AWSREGION=.. ..
 sam build
 
 sam deploy --stack-name "${StackName}"      \
-    --parameter-overrides Tier=${TIER} DateTimeStamp=$(date +"%Y-%M-%dT%H:%M:%S")   \
+     --parameter-overrides Tier=${TIER} AppName="${AppName}" DateTimeStamp=$(date +"%Y-%M-%dT%H:%M:%S")   \
     --capabilities CAPABILITY_NAMED_IAM  --no-confirm-changeset --on-failure DELETE \
     --profile ${AWSPROFILE} --region ${AWSREGION}
 ```
@@ -50,7 +55,9 @@ FYI - The `sam build` CLI installs dependencies defined in `src/package.json`, c
 Test locally and invoke them with the `sam local invoke` command.
 
 ```bash
-sam local invoke --event events/event.json  --profile ${AWSPROFILE} --region ${AWSREGION}
+sam local invoke \
+	--parameter-overrides Tier=${TIER} AppName="${AppName}" DateTimeStamp=$(date +"%Y-%M-%dT%H:%M:%S") \
+	--event events/event.json  --profile ${AWSPROFILE} --region ${AWSREGION}
 ```
 
 <HR/><HR/><HR/><HR/>
@@ -66,9 +73,9 @@ https://repost.aws/knowledge-center/lambda-rds-database-proxy
 
 ? Did the RDS-Proxy connect to the Aurora-instance?<BR/>
 ```bash
-DBProxyName="AWSTkt-backend-dev-stateful-aurorav2-pg-16"
+DBProxyName="AWSTkt-backend-${TIER}-stateful-aurorav2-pg-16"
 
-aws rds describe-db-proxy-targets --db-proxy-name ${DBProxyName} --profile ${AWSPROFILE} --region ${AWSREGION}`
+aws rds describe-db-proxy-targets --db-proxy-name ${DBProxyName} --profile ${AWSPROFILE} --region ${AWSREGION}
 ```
 
 Is the DB-Proxy READY-to-accept client connections?<BR/>

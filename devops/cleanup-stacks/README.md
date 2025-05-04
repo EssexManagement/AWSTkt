@@ -14,7 +14,7 @@ Will destroy `Frontend`, `APIGW`, `Lambda-*` & `Common` stacks.
     "delete-app-stacks-only": "can be any value here in the RHS -- pick one of these 2 lines",
     "DestroyAppStacksOnly":   "can be any value here in the RHS -- pick one of these 2 lines",
     "tier": "dev",
-    "bucket-name": `fact-frontend-${tier}-frontendcloudfrontloggingbucket.*`
+    "bucket-name": `${constants.ENTERPRISE_NAME}-${constants.CDK_APP_NAME}-frontend-${tier}-frontendcloudfrontloggingbucket.*`
 }
 ```
 
@@ -26,10 +26,10 @@ Will destroy the `Pipeline` stacks too!!!!
 
 ```
 {
-    "delete-all-stacks-incl-pipepines": "can be any value here in the RHS -- pick one of these 2 lines",
+    "delete-all-stacks-incl-pipelines": "can be any value here in the RHS -- pick one of these 2 lines",
     "DeleteAppStacksInclPipelines":    "can be any value here in the RHS -- pick one of these 2 lines",
     "tier": "dev",
-    "bucket-name": `fact-frontend-${tier}-frontendcloudfrontloggingbucket.*`
+    "bucket-name": `${constants.ENTERPRISE_NAME}-${constants.CDK_APP_NAME}-frontend-${tier}-frontendcloudfrontloggingbucket.*`
 }
 ```
 
@@ -40,10 +40,10 @@ Will destroy `Frontend`, `APIGW`, `Lambda-*` & `Common` as well as `RDS`, `SQS`,
 
 ```
 {
-    "destroy-all-stacks-NOT-pipepines": "can be any value here in the RHS -- pick one of these 2 lines",
+    "destroy-all-stacks-NOT-pipelines": "can be any value here in the RHS -- pick one of these 2 lines",
     "DestroyAppStacksNOTPipelines":    "can be any value here in the RHS -- pick one of these 2 lines",
     "tier": "dev",
-    "bucket-name": `fact-frontend-${tier}-frontendcloudfrontloggingbucket.*`
+    "bucket-name": `${constants.ENTERPRISE_NAME}-${constants.CDK_APP_NAME}-frontend-${tier}-frontendcloudfrontloggingbucket.*`
 }
 ```
 
@@ -57,7 +57,7 @@ Will destroy `Lambda-*` & `Common` stacks only.
     "delete-stateless-stacks-only": "can be any value here in the RHS -- pick one of these 2 lines",
     "DeleteStateLESSStacksOnly":    "can be any value here in the RHS -- pick one of these 2 lines",
     "tier": "dev",
-    "bucket-name": `fact-frontend-${tier}-frontendcloudfrontloggingbucket.*`
+    "bucket-name": `${constants.ENTERPRISE_NAME}-${constants.CDK_APP_NAME}-frontend-${tier}-frontendcloudfrontloggingbucket.*`
 }
 ```
 
@@ -88,7 +88,8 @@ TIER="dev|int|stage|prod"
 AWSPROFILE=....
 AWSREGION=.....
 
-\rm -rf package-lock.json node_modules/ cdk.out/
+\rm -rf package-lock.json
+\rm -rf node_modules/ cdk.out/
 npm i --include-dev
 
 npx cdk synth --context TIER="${TIER}" --quiet --profile ${AWSPROFILE} --region ${AWSREGION}

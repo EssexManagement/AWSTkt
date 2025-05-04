@@ -12,56 +12,65 @@ Parameters:
     Type: String
     Description: dev | int | uat | prod | some-developer-branch
 
-  EnterpriseName:
-    Type: String
-    Description: >-
-        See FACTrial project's git-repo's constants.py file for further details
-    Default: "nih-nci"  ### Used in bucket-name.  So, must be 100% lower-case!!!
-
   AppName:
     Type: String
     Description: >-
-        See FACTrial project's git-repo's constants.py file for further details
-    Default: "FACT"
+        See project's git-repo's constants.py file for further details
+
+  EnterpriseName:
+    Type: String
+    Description: >-
+        See project's git-repo's constants.py file for further details
+    Default: "nih-nci"  ### Used in bucket-name.  So, must be 100% lower-case!!!
 
   ComponentName:
     Type: String
-    Description: >-
-        See FACTrial project's git-repo's constants.py file for further details
     Default: "backend"
+    Description: >-
+        See project's git-repo's constants.py file for further details
 
   ApplnGroupName:
     Type: String
+    Default: "FACT"
     Description: >-
         This is mandatory for organizing multiple 𝜆s into one App (under Application-section of 𝜆-console)
-    Default: "FACTrial"
-
-  DBPName:
-    Type: String
-    Default: stateful-aurorav2-pg-16
-
-  DBP:
-    Type: String
-    Description: >-
-      Name of the DB-Proxy to use for the RDS Instance.
-      Must start with `prx-`.   do --NOT--- use the prefix ~~db-proxy:~~
-    Default: "prx-0e51fa5ffbac02dbb"
-  DBA:
-    Type: String
-    Default: "AuroraV2PGAuroraV2PGSQLSecr-HU1yBXXUGyaB-1ORA0z"
-  DBU:
-    Type: String
-    Default: "FACT-backend-sarma-Stateful/emfact_user-xVlG1l"
 
   DatabaseSecurityGroup:
     Type: String
-    Default: "sg-0acc967abf782455c"
+    Default: "sg-075c8181bca0dc94b"
+    # Default: "sg-073ceb588ef030c5d"
   PrivateSubnet1:
     Type: String
     Default: "subnet-08184de0fb0505e56"
   PrivateSubnet2:
     Type: String
     Default: "subnet-09bb39dab2b799afa"
+
+  DBPName:
+    Type: String
+    Default: "stateful-aurorav2-pg-16"
+    Description: >-
+      Note: This value will be prefixed automatically with "${AppName}-${ComponentName}-${Tier}-"
+  DBPId:
+    Type: String
+    Default: "prx-005aac6280f98578b" ### "matt" tier
+    # Default: "prx-046b51f228374fca5" ### "sarma" tier
+    Description: >-
+      ID of the DB-Proxy to use.
+      Must start with `prx-`.   do --NOT--- use the prefix ~~db-proxy:~~
+
+  DBA:
+    Type: String
+    Default: "Stateful-AuroraV2-PGv16-AdminUser"
+    Description: >-
+      Note: This value will be prefixed automatically with "${AppName}-${ComponentName}-${Tier}-"
+      Unique partial-id of Secret (that contains the Admin-DBA user for Postgres)
+  DBU:
+    Type: String
+    Default: "Stateful/emfact_user"
+    Description: >-
+      Note: This value will be prefixed automatically with "${AppName}-${ComponentName}-${Tier}-"
+      Unique partial-id of Secret (that contains the Application-database-user for Postgres)
 
   DateTimeStamp:
     Description: Date & Time
@@ -139,8 +148,8 @@ Resources: # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/reso
                   - "secretsmanager:GetResourcePolicy"
                   - "secretsmanager:ListSecretVersionIds"
                 Resource:
-                  - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${DBA}"
-                  - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${DBU}"
+                  - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:FACT-backend-${Tier}-${DBA}*"
+                  - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:FACT-backend-${Tier}-${DBU}*"
               - Sid: "KMSAccess" ### as per: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-proxy-iam-setup.html
                 Effect: Allow
                 Action:
@@ -171,8 +180,8 @@ Resources: # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/reso
                 Action:
                   - "rds-db:connect"
                 Resource:
-                  - !Sub "arn:aws:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:${DBP}/*"  # Allow connecting through the proxy
-                  - !Sub "arn:aws:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:${DBP}/dbuser"  # Allow connecting through the proxy
+                  - !Sub "arn:aws:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:${DBPId}/*"  # Allow connecting through the proxy
+                  - !Sub "arn:aws:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:${DBPId}/dbuser"  # Allow connecting through the proxy
               ### IAM-Console says the following Amazon-Q generated Stmt has INVALID-ACTION
               # - Sid: "RDSProxyGenerateDBAuthToken"
               #   Effect: Allow
@@ -201,7 +210,7 @@ Resources: # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/reso
         # - Key: BUILD
         #   Value: !Ref DateTimeStamp
         - Key: SOURCE
-          Value: "https://github.com/BIAD/emFACT-backend-cdk/tree/main/devops/RDSInstanceSetup/"
+          Value: "github-Repo /devops/RDSInstanceSetup/"
 
   # https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
   MyLambdaFunc:
@@ -231,11 +240,11 @@ Resources: # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/reso
       Environment:
         Variables:
           DBPName: !Sub "${AppName}-${ComponentName}-${Tier}-${DBPName}"
-          DBP: !Sub "arn:aws:rds:${AWS::Region}:${AWS::AccountId}:db-proxy:${DBP}"
-          DBA: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${DBA}"
-          DBU: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${DBU}"
+          DBPArn: !Sub "arn:aws:rds:${AWS::Region}:${AWS::AccountId}:db-proxy:${DBPId}"
+          DBA: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:FACT-backend-${Tier}-${DBA}"
+          DBU: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:FACT-backend-${Tier}-${DBU}"
           POWERTOOLS_SERVICE_NAME: RDSInstanceSetup-Powertools
-          POWERTOOLS_METRICS_NAMESPACE: "FACTrial"
+          POWERTOOLS_METRICS_NAMESPACE: "CTF"
           POWERTOOLS_LOGGER_LOG_LEVEL: "INFO"
           POWERTOOLS_LOGGER_SAMPLE_RATE: "1"
           POWERTOOLS_LOGGER_LOG_EVENT: "true"
@@ -251,7 +260,7 @@ Resources: # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/reso
         env: !Ref Tier
         branch: 'main'
         # BUILD: !Ref DateTimeStamp
-        SOURCE: "https://github.com/BIAD/emFACT-backend-cdk/tree/main/devops/RDSInstanceSetup/"
+        SOURCE: "github-Repo /devops/RDSInstanceSetup/"
 
       # Events:
       #   invoke:
@@ -270,7 +279,7 @@ Resources: # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/reso
   #     Name:
   #       Fn::Join:
   #       - ''
-  #       - - ApplicationInsights-SAM-FACT-Tools-
+  #       - - ApplicationInsights-SAM-..-Tools-
   #         - Ref: Tier
   #     ResourceQuery:
   #       Type: CLOUDFORMATION_STACK_1_0
@@ -284,7 +293,7 @@ Resources: # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/reso
   #       - Key: ENVIRONMENT
   #         Value: !Sub '${Tier}'
   #       - Key: application
-  #         Value: 'FACT'
+  #         Value: '${CDK_APP_NAME}'
   #       - Key: component
   #         Value: 'devops'
   #       - Key: env
@@ -303,7 +312,7 @@ Resources: # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/reso
   #     ResourceGroupName:
   #       Fn::Join:
   #       - ''
-  #       - - ApplicationInsights-SAM-FACT-Tools-
+  #       - - ApplicationInsights-SAM-${CDK_APP_NAME}-Tools-
   #         - Ref: Tier
   #     AutoConfigurationEnabled: 'true'
   #     Tags:
@@ -316,7 +325,7 @@ Resources: # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/reso
   #       - Key: ENVIRONMENT
   #         Value: !Sub '${Tier}'
   #       - Key: application
-  #         Value: 'FACT'
+  #         Value: '${CDK_APP_NAME}'
   #       - Key: component
   #         Value: 'devops'
   #       - Key: env

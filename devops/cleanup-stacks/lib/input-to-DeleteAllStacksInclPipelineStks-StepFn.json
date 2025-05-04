@@ -18,6 +18,7 @@
         {
             "deleteInParallel": [
                 "{app}-backend-{tier}-CommonAWSRrcs",
+                "{app}-backend-{tier}-CommonRsrcs",
                 "{app}-backend-{tier}-CommonRsrc-arm64",
                 "{app}-backend-{tier}-CommonRsrc-amd64",
                 "{app}-backend-{tier}-SqsStack",
@@ -42,14 +43,23 @@
         {
             "deleteInParallel": [
                 "{app}-devops-{tier}-PostDeployment",
-                "{app}-devops-{tier}-CleanupStacks",
                 "{app}-devops-{tier}-1ClickEnd2End",
-
+                "{app}-devops-{tier}-CleanupOrphanResources"
+            ]
+        },
+        {
+            "deleteInParallel": [
                 "{app}-meta-pipeline-{tier}",
-                "{app}-devops-pipeline-{tier}",
                 "{app}-operations-pipeline-{tier}",
                 "{app}-backend-pipeline-{tier}",
-                "{app}-frontend-pipeline-{tier}"
+                "{app}-frontend-pipeline-{tier}",
+                "{app}-BDDs-pipeline-{tier}"
+            ]
+        },
+        {
+            "deleteInParallel": [
+                "{app}-devops-pipeline-{tier}",
+                "{app}-devops-{tier}-CleanupStacks"
             ]
         }
     ],

@@ -6,6 +6,8 @@ import * as sfntask from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import * as constants from '../bin/constants';
 import { stat } from 'fs';
 
+const THIS_COMPONENT_NAME = constants.CDK_DEVOPS_COMPONENT_NAME;
+
 export class PostDeploymentStack extends cdk.Stack {
 constructor(scope: Construct,
     simpleStackName: string,
@@ -18,7 +20,7 @@ constructor(scope: Construct,
     //// --------------------------------------------------
     //// pre-requisites and constants
 
-    const stmc_name = constants.get_FULL_AWS_RESOURCE_PREFIX(tier, git_branch, "sfn-"+simpleStackName, constants.CDK_COMPONENT_NAME )
+    const stmc_name = constants.get_FULL_AWS_RESOURCE_PREFIX(tier, git_branch, "sfn-"+simpleStackName, THIS_COMPONENT_NAME )
 
     let dbAdminActivitiesFunctionName = 'devops_RDSInstanceSetup';
     dbAdminActivitiesFunctionName = constants.get_FULL_AWS_RESOURCE_PREFIX(tier, git_branch, /* sub .. COMPONENT-NAME */ dbAdminActivitiesFunctionName, /* COMPONENT-NAME override */ "backend");

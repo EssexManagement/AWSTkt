@@ -18,6 +18,7 @@
         {
             "cleanupFailedStksParallel": [
               "{app}-backend-{tier}-CommonAWSRrcs",
+              "{app}-backend-{tier}-CommonRsrcs",
               "{app}-backend-{tier}-CommonRsrc-arm64",
               "{app}-backend-{tier}-CommonRsrc-amd64",
               "{app}-backend-{tier}-SqsStack",
@@ -49,7 +50,8 @@
                 "{app}-devops-pipeline-{tier}",
                 "{app}-operations-pipeline-{tier}",
                 "{app}-backend-pipeline-{tier}",
-                "{app}-frontend-pipeline-{tier}"
+                "{app}-frontend-pipeline-{tier}",
+                "{app}-BDDs-pipeline-{tier}"
             ]
         }
     ],

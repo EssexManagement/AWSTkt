@@ -1,6 +1,7 @@
 #!/bin/bash -f
 
-### Cleanup working-scratch-files from under "~/devops/" top-level subfolder.
+
+### Cleanup working-scratch-files from under "~/operations/" top-level subfolder.
 
 echo "Usage: $0 [--include-Pipfile.lock]"
 sleep 5
@@ -35,14 +36,19 @@ CWD="$(pwd)"
 #     echo "Will compare with KNOWN warnings stored in ${KNOWN_PROJ_ITEMS}"
 # fi
 
-RootDir_devopsPipelineCode="$( dirname "${SCRIPT_FOLDER}" )" ### Grand-Parent-folder of this script.
-echo "RootDir_devopsPipelineCode = '${RootDir_devopsPipelineCode}'"
+RootDir_BackendCode="./backend"
+RootDir_OperationsCode="./operations"
+echo "RootDir_OperationsCode = '${RootDir_OperationsCode}'"
 
 
 # Bash-flag to appropriately set `glob` (allow '*' to work)
 set +o noglob
 
-DirEntry_List=$( ls -d "${RootDir_devopsPipelineCode}"/*  )   ### <------------------------ Unique to this file !!!! <------------------------
+DirEntry_List=$(   ### <------------------------ Unique to this file !!!! <------------------------
+    ls -d "${RootDir_OperationsCode}/CDK/"*
+    ls -d "${RootDir_OperationsCode}/AWS-SAM/"*
+    ls -d "${RootDir_BackendCode}/lambda_layer/"*
+)
 
 ###---------------------------------------------------------------
 ### @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -58,15 +64,18 @@ DirEntry_List=$( ls -d "${RootDir_devopsPipelineCode}"/*  )   ### <-------------
 
 \rm -rf ~/.cache/ ~/.local/ ~/.venv/ ~/node_modules  ./node_modules  ./.venv   ./__pycache__
 
-\rm -rf ${RootDir_devopsPipelineCode}/node_modules  ${RootDir_devopsPipelineCode}/__pycache__
+\rm -rf ./frontend/ui/dist/   ./frontend/ui/node_modules
 
-# Loop over each subfolder of RootDir_devopsPipelineCode and if subfolder does Not have a "Pipfile" skip it
+\rm -rf ${RootDir_OperationsCode}/node_modules  ${RootDir_OperationsCode}/__pycache__
+
+# Loop over each subfolder of RootDir_OperationsCode and if subfolder does Not have a "Pipfile" skip it
 for subfolder in ${DirEntry_List[@]}; do
     if [ ! -d "${subfolder}" ]; then
         echo -n "skipping NON-dir '$( basename ${subfolder} )' ..  "
         continue
     fi
 
+    ls -lad "${subfolder}"
     # echo "Pipfile path for subfolder = '${subfolder}/Pipfile'"
     # ls -la "${subfolder}/Pipfile"
     if [ ! -f "${subfolder}/package.json" ] && [ ! -f "${subfolder}/Pipfile" ] && [ ! -f "${subfolder}/template.yaml" ] && [ ! -f "${subfolder}/requirements.in" ] && [ ! -f "${subfolder}/requirements.txt" ]; then

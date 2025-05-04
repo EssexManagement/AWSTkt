@@ -1,140 +1,176 @@
 {
-  "app": "python3 app.py",
-  "requireApproval": "never",
+  "app": "python3 cdk_app.py",
   "watch": {
-    "include": [
-      "**"
-    ],
-    "exclude": [
-      "README.md",
-      "cdk*.json",
-      "requirements*.txt",
-      "source.bat",
-      "**/__init__.py",
-      "**/__pycache__",
-      "tests"
-    ]
+      "include": [
+          "**"
+      ],
+      "exclude": [
+          "README.md",
+          "cdk*.json",
+          "requirements*.txt",
+          "source.bat",
+          "**/__init__.py",
+          "**/__pycache__",
+          "tests"
+      ]
   },
   "context": {
     "git-source": {
-      "git_token_ref" : "github/cdk",
-      "codestar-connection": {
-          "HOWTO-via-AWS-CLI": "aws codestar-connections create-connection --connection-name \"FACTrial-GitHub-V2\" --provider-type \"GitHub\"  --profile ${AWSPROFILE} --region ${AWSREGION}",
-          "VERIFY-via-AWS-CLI": "aws codestar-connections list-connections --max-results 50  --profile ${AWSPROFILE} --region ${AWSREGION}",
-          "dev": {
-            "name": "FACTrial-GitHub-V2",
-            "arn": "arn:aws:codeconnections:us-east-1:127516845550:connection/2135aa52-7ca9-49d5-b338-9a5db089d963"
-          }
-      },
-      "git_commit_hashes" : {
-        "dev" : "main",
-        "AWSTkt" : "main"
-      }
+        "providerType":  "GitLab",
+        "Comment-re-providerType": "https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codestarconnections-connection.html#cfn-codestarconnections-connection-providertype",
+
+        "git_token_ref": "AWSTkt/dev/git-token",
+        "codestar-connection": {
+            "HOWTO-via-AWS-CLI": "aws codestar-connections create-connection --connection-name \"FACTrial-GitHub-V2\" --provider-type \"GitHub\"  --profile ${AWSPROFILE} --region ${AWSREGION}",
+            "VERIFY-via-AWS-CLI": "aws codestar-connections list-connections --max-results 50  --profile ${AWSPROFILE} --region ${AWSREGION}",
+            "CTF-nonprod": {
+                "name": "CloudOneNP-ClinicalTrialFinder",
+                "arn": "arn:aws:codeconnections:us-east-1:924221118260:connection/d2aa22c6-a877-4533-be46-b7b9bdf16126"
+            },
+            "CTF-prod": {
+                "name": "CloudOneP-ClinicalTrialFinder",
+                "arn": "???"
+            }
+        },
+        "git_commit_hashes" : {
+            "acct-nonprod" : "main",
+            "acct-prod" : "main",
+            "matt": "matt",
+            "sarma" : "sarma",
+            "dev" : "dev",
+            "int" : "main",
+            "test" : "main",
+            "uat" : "v2.0.5.1",
+            "stage" : "v3.0.0",
+            "prod" : "v3.0.0"
+        }
     },
-    "cidr" : {
-      "dev" : "10.121.0.0/16"
-    },
-    "private_subnet_cidr": {
-      "default": "192.168.50.0/24"
+    "vpc" : {
+        "CTF-nonprod" : {
+            "dev": {
+                "vpc-id":  "vpc-04ad892f26893e05f",
+                "vpc-cidr":  "100.64.8.0/22",
+                "route-table": "rtb-0d8c4f4a4c78caa7a",
+                "subnets": [
+                    { "az": "us-east-1a", "subnet-cidr": "100.64.8.0/24",   "subnet-id": "subnet-01894f24ee8d82f58" },
+                    { "az": "us-east-1b", "subnet-cidr": "100.64.10.0/24",  "subnet-id": "subnet-0b8a32a3c6e31c724" }
+                ],
+                "VPCEndPts-SG": ["sg-004bcbda95ced2a30"]
+            }
+        },
+        "CTF-nonprod-BACKUP" : {
+            "test": {
+                "vpc-id": "vpc-0278e9432c57072dd",
+                "vpc-cidr": "100.64.12.0/22",
+                "route-table": "rtb-069738f9af3c5a79d",
+                "subnets": [
+                    { "az": "us-east-1a", "subnet-cidr": "100.64.12.0/24",  "subnet-id": "subnet-?????" },
+                    { "az": "us-east-1b", "subnet-cidr": "100.64.14.0/24",  "subnet-id": "subnet-?????" }
+                ],
+                "VPCEndPts-SG": false
+            }
+        }
     },
     "security": {
-      "WAF-ACL": {
-        "global": {
+        "WAF-ACL": {
+            "global": {
+                "comment": "CloudOne-CTF Prod vs. Non-Prod aws-accounts",
+                "dev": "arn:aws:wafv2:us-east-1:924221118260:global/webacl/FMManagedWebACLV2-C1-WAF-LOG4J-WAF-POLICY-1743089710566-GLOBAL/c8c5a55a-a6b5-47c4-b838-5b8229d638ce"
+            },
+            "regional": {
+                "comment": "CloudOne-CTF Prod vs. Non-Prod aws-accounts",
+                "dev": "arn:aws:wafv2:us-east-1:924221118260:regional/webacl/FMManagedWebACLV2-C1-WAF-LOG4J-WAF-POLICY-1743089710566/6720a87d-daba-43b9-8b25-441b67bd6775"
+            }
         },
-        "regional": {
-          "dev": "arn:aws:wafv2:us-east-1:127516845550:regional/webacl/DEFAULT-WAF-WebACL-REGIONAL-USOnly/e66483e6-3898-4e74-8b3c-2f13793c0af6"
+        "kms": {
+            "default": {
+                "dev":   "arn:aws:kms:{}:{}:alias/dev/common",
+                "test":  "arn:aws:kms:{}:{}:alias/test/common",
+                "stage": "arn:aws:kms:{}:{}:alias/stage/common",
+                "prod":  "arn:aws:kms:{}:{}:alias/prod/common"
+            },
+            "secretsmanager":{
+                "dev":   "arn:aws:kms:{}:{}:alias/aws/secretsmanager",
+                "test":  "arn:aws:kms:{}:{}:alias/aws/secretsmanager",
+                "stage": "arn:aws:kms:{}:{}:alias/aws/secretsmanager",
+                "prod":  "arn:aws:kms:{}:{}:alias/aws/secretsmanager"
+            },
+            "s3":{
+                "dev":   "arn:aws:kms:{}:{}:alias/aws/s3",
+                "test":  "arn:aws:kms:{}:{}:alias/aws/s3",
+                "stage": "arn:aws:kms:{}:{}:alias/aws/s3",
+                "prod":  "arn:aws:kms:{}:{}:alias/aws/s3"
+            },
+            "rds":{
+                "dev":   "arn:aws:kms:{}:{}:alias/aws/rds",
+                "test":  "arn:aws:kms:{}:{}:alias/aws/rds",
+                "stage": "arn:aws:kms:{}:{}:alias/aws/rds",
+                "prod":  "arn:aws:kms:{}:{}:alias/aws/rds"
+            }
+        },
+        "std-console-sso-roles": {
+            "DevOpsUser": {
+                "acct-nonprod": "AWSReservedSSO_NCIAWSDevOpsUserAccess_bbed7858ce9dcb72"
+            },
+            "PowerUser":  {
+                "acct-nonprod": "AWSReservedSSO_NCIAWSPowerUserAccess_b8929064e5912818"
+            },
+            "AdminUser":  {
+                "acct-nonprod": "AWSReservedSSO_NCIAWSAdministratorAccess_9e5ed493ce7dc498"
+            }
         }
-      }
+    },
+    "root_domain": "cancertrialsfinder.cancer.gov",
+    "CRRI-root_domain": "FACTrial.com",
+    "EssexCloud-root_domain": "em-fact.com",
+    "frontend_domain" : {
+        "cloudfront_georestrictions": ["US"],
+        "cancertrialsfinder.cancer.gov": {
+            "dev":   "cancertrialsfinder-dev.cancer.gov",
+            "test":  "cancertrialsfinder-test.cancer.gov",
+            "stage": "cancertrialsfinder-stage.cancer.gov",
+            "prod":  "cancertrialsfinder-pilot.cancer.gov",
+            "main" : "not-allowed.such.fqdn"
+        }
     },
     "PostgreSQL-Engine-Version": {
-      "!Attention!": "the major-version specified -BELOW- .. .. is converted to EXACT-ENGINE-Version within common/cdk/constants_cdk.py",
-      "dev": "16",
-      "developer": "16"
+        "!Attention!": "the major-version specified -BELOW- .. .. is converted to EXACT-ENGINE-Version within common/cdk/constants_cdk.py",
+        "dev": "16",
+        "int": "16",
+        "uat": "16",
+        "prod": "16",
+        "developer": "16"
     },
     "retention": {
-      "db_backup_retention": {
-        "dev" : 1
-      },
-      "log-retention":{
-        "comment": "ALLOWED-Values are attributes of Python-AWS-CDK aws_logs.RetentionDays CLASS. See https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_logs/RetentionDays.html#aws_cdk.aws_logs.RetentionDays",
-        "dev" : "ONE_YEAR"
-      }
+        "db_backup_retention": {
+            "dev" : 35,
+            "int": 35,
+            "uat": 35,
+            "prod": 35
+        },
+        "log-retention":{
+            "comment": "ALLOWED-Values are attributes of Python-AWS-CDK aws_logs.RetentionDays CLASS. See https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_logs/RetentionDays.html#aws_cdk.aws_logs.RetentionDays",
+            "dev" : "ONE_YEAR",
+            "int": "ONE_YEAR",
+            "uat": "ONE_YEAR",
+            "prod": "ONE_YEAR"
+        }
     },
-    "s3_access_logging_bucket": {
-      "dev": "s3logs-devint"
-    },
+    "s3_access_logging_bucket": {},
     "etl_cron" : {
-      "dev" : {"hour" : "13", "minute" : "0"}
+        "matt" : {"hour" : "13", "minute" : "0"},
+        "sarma" : {"hour" : "13", "minute" : "0"},
+        "dev" : {"hour" : "13", "minute" : "0"},
+        "int" : {"hour" : "13", "minute" : "15"},
+        "uat" : {"hour" : "13", "minute" : "30"},
+        "prod" : {"hour" : "13", "minute" : "45"}
     },
-    "frontend_domain" : {
-      "MyCompany.com": {
-        "dev" :  "{}.dev.MyCompany.com"
-      }
-    },
-    "root_domain": "MyCompany.com",
     "LambdaInsights": "arn:aws:lambda:us-east-1:580247275435:layer:LambdaInsightsExtension:16",
     "OtelPython": "arn:aws:lambda:us-east-1:901920570463:layer:aws-otel-python-amd64-ver-1-12-0:1",
-    "support-email": [
-        "USeetamraju@Emmes.com"
-    ],
-    "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
-    "@aws-cdk/core:checkSecretUsage": true,
-    "@aws-cdk/core:target-partitions": [
-      "aws",
-      "aws-cn"
-    ],
-    "@aws-cdk-containers/ecs-service-extensions:enableDefaultLogDriver": true,
-    "@aws-cdk/aws-ec2:uniqueImdsv2TemplateName": true,
-    "@aws-cdk/aws-ecs:arnFormatIncludesClusterName": true,
-    "@aws-cdk/aws-iam:minimizePolicies": true,
-    "@aws-cdk/core:validateSnapshotRemovalPolicy": true,
-    "@aws-cdk/aws-codepipeline:crossAccountKeyAliasStackSafeResourceName": true,
-    "@aws-cdk/aws-s3:createDefaultLoggingPolicy": true,
-    "@aws-cdk/aws-sns-subscriptions:restrictSqsDescryption": true,
-    "@aws-cdk/aws-apigateway:disableCloudWatchRole": true,
-    "@aws-cdk/core:enablePartitionLiterals": true,
-    "@aws-cdk/aws-events:eventsTargetQueueSameAccount": true,
-    "@aws-cdk/aws-ecs:disableExplicitDeploymentControllerForCircuitBreaker": true,
-    "@aws-cdk/aws-iam:importedRoleStackSafeDefaultPolicyName": true,
-    "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": true,
-    "@aws-cdk/aws-route53-patters:useCertificate": true,
-    "@aws-cdk/customresources:installLatestAwsSdkDefault": false,
-    "@aws-cdk/aws-rds:databaseProxyUniqueResourceName": true,
-    "@aws-cdk/aws-codedeploy:removeAlarmsFromDeploymentGroup": true,
-    "@aws-cdk/aws-apigateway:authorizerChangeDeploymentLogicalId": true,
-    "@aws-cdk/aws-ec2:launchTemplateDefaultUserData": true,
-    "@aws-cdk/aws-secretsmanager:useAttachedSecretResourcePolicyForSecretTargetAttachments": true,
-    "@aws-cdk/aws-redshift:columnId": true,
-    "@aws-cdk/aws-stepfunctions-tasks:enableEmrServicePolicyV2": true,
-    "@aws-cdk/aws-ec2:restrictDefaultSecurityGroup": true,
-    "@aws-cdk/aws-apigateway:requestValidatorUniqueId": true,
-    "@aws-cdk/aws-kms:aliasNameRef": true,
-    "@aws-cdk/aws-autoscaling:generateLaunchTemplateInsteadOfLaunchConfig": true,
-    "@aws-cdk/core:includePrefixInUniqueNameGeneration": true,
-    "@aws-cdk/aws-efs:denyAnonymousAccess": true,
-    "@aws-cdk/aws-opensearchservice:enableOpensearchMultiAzWithStandby": true,
-    "@aws-cdk/aws-lambda-nodejs:useLatestRuntimeVersion": true,
-    "@aws-cdk/aws-efs:mountTargetOrderInsensitiveLogicalId": true,
-    "@aws-cdk/aws-rds:auroraClusterChangeScopeOfInstanceParameterGroupWithEachParameters": true,
-    "@aws-cdk/aws-appsync:useArnForSourceApiAssociationIdentifier": true,
-    "@aws-cdk/aws-rds:preventRenderingDeprecatedCredentials": true,
-    "@aws-cdk/aws-codepipeline-actions:useNewDefaultBranchForCodeCommitSource": true,
-    "@aws-cdk/aws-cloudwatch-actions:changeLambdaPermissionLogicalIdForLambdaAction": true,
-    "@aws-cdk/aws-codepipeline:crossAccountKeysDefaultValueToFalse": true,
-    "@aws-cdk/aws-codepipeline:defaultPipelineTypeToV2": true,
-    "@aws-cdk/aws-kms:reduceCrossAccountRegionPolicyScope": true,
-    "@aws-cdk/aws-eks:nodegroupNameAttribute": true,
-    "@aws-cdk/aws-ec2:ebsDefaultGp3Volume": true,
-    "@aws-cdk/aws-ecs:removeDefaultDeploymentAlarm": true,
-    "@aws-cdk/custom-resources:logApiResponseDataPropertyTrueDefault": false,
-    "@aws-cdk/aws-s3:keepNotificationInImportedBucket": false,
-    "@aws-cdk/aws-ecs:reduceEc2FargateCloudWatchPermissions": true,
-    "@aws-cdk/aws-dynamodb:resourcePolicyPerReplica": true,
-    "@aws-cdk/aws-ec2:ec2SumTImeoutEnabled": true,
-    "@aws-cdk/aws-appsync:appSyncGraphQLAPIScopeLambdaPermission": true,
-    "@aws-cdk/aws-rds:setCorrectValueForDatabaseInstanceReadReplicaInstanceResourceId": true,
-    "@aws-cdk/core:cfnIncludeRejectComplexResourceUpdateCreatePolicyIntrinsics": true,
-    "@aws-cdk/aws-lambda-nodejs:sdkV3ExcludeSmithyPackages": true,
-    "@aws-cdk/aws-stepfunctions-tasks:fixRunEcsTaskPolicy": true
+    "ctsapi-v1-prod-url": "https://clinicaltrialsapi.cancer.gov/v1/clinical-trials",
+    "ctsapi-v2-prod-url": "https://clinicaltrialsapi.cancer.gov/api/v2/trials",
+    "ctsapi-v2-prod-unpublished-name": "CancerTrialsFinder/prod/clinicaltrialsapi.cancer.gov",
+    "bing-maps-key-unpublished-name": "CancerTrialsFinder/prod/bing_maps_key",
+    "ctsapi-version": "2"
   }
 }

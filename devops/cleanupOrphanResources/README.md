@@ -22,7 +22,7 @@ FYI - These below commands will have a series of user-prompts (see list below).
 
 ```bash
 TIER="dev|int|stage|prod"  ### 👈🏾👈🏾 PICK on value !!!!!!!
-StackName="FACT-devops-${TIER}-cleanupOrphanResources"
+StackName="${CDK_APP_NAME}-devops-${TIER}-cleanupOrphanResources"
 
 AWSPROFILE=.. ..
 AWSREGION=.. ..

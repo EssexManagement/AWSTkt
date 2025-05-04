@@ -16,26 +16,26 @@ Parameters:
   EnterpriseName:
     Type: String
     Description: >-
-        See FACTrial project's git-repo's constants.py file for further details
+        See project's git-repo's constants.py file for further details
     Default: "nih-nci"  ### Used in bucket-name.  So, must be 100% lower-case!!!
 
   AppName:
     Type: String
     Description: >-
-        See FACTrial project's git-repo's constants.py file for further details
-    Default: "FACT"
+        See project's git-repo's constants.py file for further details
+    Default: "CTF"
 
   ComponentName:
     Type: String
     Description: >-
-        See FACTrial project's git-repo's constants.py file for further details
+        See project's git-repo's constants.py file for further details
     Default: "backend"
 
   ApplnGroupName:
     Type: String
     Description: >-
         This is mandatory for organizing multiple 𝜆s into one App (under Application-section of 𝜆-console)
-    Default: "FACTrial"
+    Default: "CTF"
 
   DateTimeStamp:
     Description: Date & Time
@@ -51,7 +51,7 @@ Parameters:
 
 Globals: # https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
   Function:
-    Timeout: 5
+    Timeout: 60
     MemorySize: 128
 
     Tracing: Active
@@ -113,6 +113,24 @@ Resources:
                 - cloudfront:DeleteOriginRequestPolicy
                 - cloudfront:DeleteResponseHeadersPolicy
               Resource: '*'
+            - Effect: Allow
+              Action:
+                - ec2:DescribeNetworkInterfaces
+                - ec2:DescribeSecurityGroups
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - ec2:DeleteNetworkInterface
+              Resource: !Sub "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:network-interface/*"
+              # Condition:
+              #   StringEquals:
+              #     "ec2:CreatorAccountId": !Sub "${AWS::AccountId}"
+            - Effect: Allow
+              Action:
+                - lambda:ListFunctions
+                - lambda:GetFunction
+              Resource: "*"
+
 
       # Events:
       #   MyOwnApi:
@@ -130,19 +148,21 @@ Resources:
         EntryPoints:
         - app.ts
 
-  ApplicationResourceGroup:
-    Type: AWS::ResourceGroups::Group
-    Properties:
-      Name:
-        Fn::Sub: ApplicationInsights-SAM-${AWS::StackName}
-      ResourceQuery:
-        Type: CLOUDFORMATION_STACK_1_0
-  ApplicationInsightsMonitoring:
-    Type: AWS::ApplicationInsights::Application
-    Properties:
-      ResourceGroupName:
-        Ref: ApplicationResourceGroup
-      AutoConfigurationEnabled: 'true'
+  ### Disabled due to NIST-800.53 [CloudWatch.15] CloudWatch alarms should have specified actions configured
+  ### Basically, Each Alarm should have thresholds defined, and SNS-Topics associated, so that notifications go out on Alarms.
+  # ApplicationResourceGroup:
+  #   Type: AWS::ResourceGroups::Group
+  #   Properties:
+  #     Name:
+  #       Fn::Sub: ApplicationInsights-SAM-${AWS::StackName}
+  #     ResourceQuery:
+  #       Type: CLOUDFORMATION_STACK_1_0
+  # ApplicationInsightsMonitoring:
+  #   Type: AWS::ApplicationInsights::Application
+  #   Properties:
+  #     ResourceGroupName:
+  #       Ref: ApplicationResourceGroup
+  #     AutoConfigurationEnabled: 'true'
 
 Outputs:
 

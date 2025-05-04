@@ -18,6 +18,7 @@
         {
             "deleteInParallel": [
                 "{app}-backend-{tier}-CommonAWSRrcs",
+                "{app}-backend-{tier}-CommonRsrcs",
                 "{app}-backend-{tier}-CommonRsrc-arm64",
                 "{app}-backend-{tier}-CommonRsrc-amd64",
                 "{app}-backend-{tier}-SqsStack",

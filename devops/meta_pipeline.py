@@ -108,8 +108,10 @@ class MetaPipelineUpdatesOtherPipelinesStack(Stack):
             ],
             codebase_ignore_paths=[
                 ### Max 8 items !!!!!!!!!!!!!!!!!!
-                "api/**", "backend/**",  "cognito/**",
-                "etl/**", "user_data/**",
+                "api/**", "backend/**", "etl/**",
+                "cognito/**",
+                "frontend/**",
+                "user_data/**",
                 "scripts/**",
                 "tests/**",
             ]
@@ -129,7 +131,7 @@ class MetaPipelineUpdatesOtherPipelinesStack(Stack):
             source_artifact = my_source_artif,
             git_repo_url = f"{git_repo_org_name}/{git_repo_name}",
             cdk_app_pyfile = cdk_app_pyfile,
-            whether_to_use_adv_caching = constants_cdk.USE_ADVANCED_CODEBUILD_CACHE,
+            whether_to_use_adv_caching = constants_cdk.use_advanced_codebuild_cache( tier ),
             my_pipeline_artifact_bkt = my_pipeline_v2.my_pipeline_artifact_bkt,
             my_pipeline_artifact_bkt_name = my_pipeline_v2.my_pipeline_artifact_bkt_name,
         )

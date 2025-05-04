@@ -115,17 +115,16 @@ class MultiCdkSubProjectsPipeline(Construct):
             1st param:  typical CDK scope (parent Construct/stack)
             2nd param:  typical CDK construct_id
             3rd param:  pipeline_name :str  => Usually, pass in the stack_id as
-            4th param:  second_component_name :str => Currently NOT-USED.  Examples: 'application-name' or the constant-string `devops` or `operations` or `monitoring` representing the various other Pipelines.
-            5th param:  tier :str           => (dev|int|uat|tier)
-            6th param:  aws_env :str        => typically the AWS_ACCOUNT AWSPROFILE (DEVINT_SHARED|UAT|PROD)
+            4th param:  tier :str           => (dev|int|uat|tier)
+            5th param:  aws_env :str        => typically the AWS_ACCOUNT AWSPROFILE (DEVINT_SHARED|UAT|PROD)
+            6th param:  git_branch :str    => Currently UN-USED !!!! (NOTE: When CodePipeline-or-CodeBuild do a git-clone, this will be the DEFAULT-git-branch that they'll use)
             7th param:  git_repo_name :str  => (simple name only. NOT the URL)
             8th param:  git_repo_org_name :str
             9th param:  codestar_connection_arn :str => (ideally lookup it up from cdk.json and pass it in here)
-            10th param:  git_branch :str    => Currently UN-USED !!!! (NOTE: When CodePipeline-or-CodeBuild do a git-clone, this will be the DEFAULT-git-branch that they'll use)
-            11th param: pipeline_source_gitbranch :str => (Typically, `dev|main|git-tag1|...` as provided in cdk.json's `git_commit_hashes` element)
-            12th param: codebase_root_folder :str => SubFolder within which to find the various "subprojects".
+            10th param: pipeline_source_gitbranch :str => (Typically, `dev|main|git-tag1|...` as provided in cdk.json's `git_commit_hashes` element)
+            11th param: codebase_root_folder :str => SubFolder within which to find the various "subprojects".
                             Example-Values: "devops/"  "Operations/"
-            13th param: sub_projects :dict (Dictionary).
+            12th param: sub_projects :dict (Dictionary).
                             Example: The subprojects under `devops/` folder-tree :-
                             { ### sub-FolderName & StackName
                                 'cleanup-stacks':   f"{constants.CDK_APP_NAME}-{THIS_COMPONENT}-{tier}-CleanupStacks",
@@ -195,23 +194,40 @@ class MultiCdkSubProjectsPipeline(Construct):
             # within the folder f'./{subproj_name}', if there's a file 'template.yaml' set the variable "aws_sam_project" to true
             cdk_project :bool     = pathlib.Path(f'{codebase_root_folder}/{subproj_name}/cdk.json').exists();
             aws_sam_project :bool = pathlib.Path(f'{codebase_root_folder}/{subproj_name}/template.yaml').exists();
+            python_cdk_project :bool = pathlib.Path(f'{codebase_root_folder}/{subproj_name}/requirements.txt').exists();
             if not cdk_project and not aws_sam_project:
                 raise Exception(f"Neither 'cdk.json' nor 'template.yaml' found in {codebase_root_folder}/{subproj_name} !!!!")
 
             if cdk_project and not aws_sam_project:
 
-                # -ONLY- pure cdk-SYNTH actions within CodePipeline
-                a_build_action, a_build_output = common.cdk.StandardCodeBuild.standard_CodeBuildSynth_NodeJS(
-                    cdk_scope = self,
-                    tier = tier,
-                    codebase_root_folder = codebase_root_folder,
-                    subproj_name = subproj_name,
-                    cb_proj_name = f"{common_label}_{subproj_name}",
-                    source_artifact = my_source_artif,
-                    whether_to_use_adv_caching = constants_cdk.USE_ADVANCED_CODEBUILD_CACHE,
-                    my_pipeline_artifact_bkt = my_pipeline_v2.my_pipeline_artifact_bkt,
-                    my_pipeline_artifact_bkt_name = my_pipeline_v2.my_pipeline_artifact_bkt_name,
-                )
+                if not python_cdk_project:
+                    ### Purely JavaScript/TypeScript/NodeJS-based CDK-project
+                    # -ONLY- pure cdk-SYNTH actions within CodePipeline
+                    a_build_action, a_build_output = common.cdk.StandardCodeBuild.standard_CodeBuildDeploy_NodeJS(
+                        cdk_scope = self,
+                        tier = tier,
+                        codebase_root_folder = codebase_root_folder,
+                        subproj_name = subproj_name,
+                        cb_proj_name = f"{common_label}_{subproj_name}",
+                        source_artifact = my_source_artif,
+                        whether_to_use_adv_caching = constants_cdk.use_advanced_codebuild_cache( tier ),
+                        my_pipeline_artifact_bkt = my_pipeline_v2.my_pipeline_artifact_bkt,
+                        my_pipeline_artifact_bkt_name = my_pipeline_v2.my_pipeline_artifact_bkt_name,
+                    )
+                else:
+                    ### this is a Python-based CDK-project
+                    # -ONLY- pure cdk-SYNTH actions within CodePipeline
+                    a_build_action, a_build_output = common.cdk.StandardCodeBuild.standard_CodeBuildSynth_Python(
+                        cdk_scope = self,
+                        tier = tier,
+                        codebase_root_folder = codebase_root_folder,
+                        subproj_name = subproj_name,
+                        cb_proj_name = f"{common_label}_{subproj_name}",
+                        source_artifact = my_source_artif,
+                        whether_to_use_adv_caching = constants_cdk.use_advanced_codebuild_cache( tier ),
+                        my_pipeline_artifact_bkt = my_pipeline_v2.my_pipeline_artifact_bkt,
+                        my_pipeline_artifact_bkt_name = my_pipeline_v2.my_pipeline_artifact_bkt_name,
+                    )
 
                 build_stage_actions.append(a_build_action)
 
@@ -229,27 +245,27 @@ class MultiCdkSubProjectsPipeline(Construct):
                         stack_name   = subproj_stkname,
                         source_artifact = my_source_artif,
                         addl_env_vars = { },
-                        whether_to_use_adv_caching = constants_cdk.USE_ADVANCED_CODEBUILD_CACHE,
+                        whether_to_use_adv_caching = constants_cdk.use_advanced_codebuild_cache( tier ),
                         my_pipeline_artifact_bkt = my_pipeline_v2.my_pipeline_artifact_bkt,
                         my_pipeline_artifact_bkt_name = my_pipeline_v2.my_pipeline_artifact_bkt_name,
                     )
 
                     deploy_stage_actions.append(a_deploy_action)
 
-                if cdk_project and not aws_sam_project:
+                # if cdk_project and not aws_sam_project:
 
-                    a_template_path=a_build_output.at_path(f'{subproj_stkname}.template.json')
+                #     a_template_path=a_build_output.at_path(f'{subproj_stkname}.template.json')
 
-                    # Deploy action
-                    a_deploy_action = aws_codepipeline_actions.CloudFormationCreateUpdateStackAction(
-                        action_name = f'Deploy_{subproj_stkname}',
-                        template_path = a_template_path,
-                        stack_name = subproj_stkname,
-                        admin_permissions  = True,
-                        replace_on_failure = True,
-                    )
+                #     # Deploy action
+                #     a_deploy_action = aws_codepipeline_actions.CloudFormationCreateUpdateStackAction(
+                #         action_name = f'Deploy_{subproj_stkname}',
+                #         template_path = a_template_path,
+                #         stack_name = subproj_stkname,
+                #         admin_permissions  = True,
+                #         replace_on_failure = True,
+                #     )
 
-                    deploy_stage_actions.append(a_deploy_action)
+                #     deploy_stage_actions.append(a_deploy_action)
 
         # Finally, Add build and deploy stages to the CodePipeline
         my_pipeline_v2.add_stage(

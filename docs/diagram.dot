@@ -1,0 +1,742 @@
+digraph "Diagram" {
+  splines = "ortho";
+  pad = "1.0";
+  nodesep = "0.60";
+  ranksep = "0.75";
+  fontname = "Sans-Serif";
+  fontsize = "15";
+  dpi = "200";
+  rankdir = "BT";
+  compound = "true";
+  fontcolor = "#222222";
+  edge [
+    color = "#D5871488",
+    penwidth = 2,
+    arrowhead = "dot",
+    arrowtail = "dot",
+  ];
+  node [
+    shape = "box",
+    style = "rounded",
+    fixedsize = true,
+    width = 1.7,
+    height = 1.7,
+    labelloc = "c",
+    imagescale = true,
+    fontname = "Sans-Serif",
+    fontsize = 8,
+    margin = 8,
+  ];
+  subgraph "emFact-backend-pipeline-dev" {
+    subgraph "cluster-SubGraph.emFact-backend-pipeline-dev" {
+      graph [
+        label = "emFact-backend-pipeline-dev",
+        labelloc = "b",
+        labeljust = "l",
+        margin = "10",
+        fontsize = "16",
+        penwidth = "2",
+        pencolor = "#888888",
+        style = "filled,rounded",
+        fillcolor = "#e4e4e4",
+      ];
+      subgraph "cluster-SubGraph.emFact-backend-pipeline-dev" {
+        graph [
+          label = "emFact-backend-pipeline-dev",
+          labelloc = "b",
+          labeljust = "l",
+          margin = "10",
+          fontsize = "16",
+          penwidth = "2",
+          pencolor = "#888888",
+          style = "filled,rounded",
+          fillcolor = "#d6d6d6",
+        ];
+        "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Pipeline" [
+          label = " Pipeline",
+          fontsize = 12,
+          image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Developer- Tools/64/Arch_AWS-CodePipeline_64@5x.png",
+          imagescale = "true",
+          imagepos = "tc",
+          penwidth = "0",
+          shape = "node",
+          fixedsize = "true",
+          labelloc = "b",
+          width = 1.2,
+          height = 1.466,
+        ];
+        "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/UpdatePipeline/SelfMutation" [
+          label = " SelfMutation",
+          fontsize = 12,
+          image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Developer- Tools/64/Arch_Amazon-CodeBuild_64@5x.png",
+          imagescale = "true",
+          imagepos = "tc",
+          penwidth = "0",
+          shape = "node",
+          fixedsize = "true",
+          labelloc = "b",
+          width = 1.2,
+          height = 1.466,
+        ];
+        subgraph "cluster-SubGraph.Assets" {
+          graph [
+            label = "Assets",
+            labelloc = "b",
+            labeljust = "l",
+            margin = "10",
+            fontsize = "16",
+            penwidth = "2",
+            pencolor = "#888888",
+            style = "filled,rounded",
+            fillcolor = "#c7c7c7",
+          ];
+          "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/DockerRole" [
+            label = " DockerRole",
+            fontsize = 12,
+            image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Security-Identity-Compliance/64/Arch_AWS-Identity-and-Access-Management_64@5x.png",
+            imagescale = "true",
+            imagepos = "tc",
+            penwidth = "0",
+            shape = "node",
+            fixedsize = "true",
+            labelloc = "b",
+            width = 1.2,
+            height = 1.466,
+          ];
+          "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/DockerAsset1" [
+            label = " DockerAsset1",
+            fontsize = 12,
+            image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Developer- Tools/64/Arch_Amazon-CodeBuild_64@5x.png",
+            imagescale = "true",
+            imagepos = "tc",
+            penwidth = "0",
+            shape = "node",
+            fixedsize = "true",
+            labelloc = "b",
+            width = 1.2,
+            height = 1.466,
+          ];
+          "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/FileRole" [
+            label = " FileRole",
+            fontsize = 12,
+            image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Security-Identity-Compliance/64/Arch_AWS-Identity-and-Access-Management_64@5x.png",
+            imagescale = "true",
+            imagepos = "tc",
+            penwidth = "0",
+            shape = "node",
+            fixedsize = "true",
+            labelloc = "b",
+            width = 1.2,
+            height = 1.466,
+          ];
+          "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/FileAsset1" [
+            label = " FileAsset1",
+            fontsize = 12,
+            image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Developer- Tools/64/Arch_Amazon-CodeBuild_64@5x.png",
+            imagescale = "true",
+            imagepos = "tc",
+            penwidth = "0",
+            shape = "node",
+            fixedsize = "true",
+            labelloc = "b",
+            width = 1.2,
+            height = 1.466,
+          ];
+          "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/FileAsset2" [
+            label = " FileAsset2",
+            fontsize = 12,
+            image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Developer- Tools/64/Arch_Amazon-CodeBuild_64@5x.png",
+            imagescale = "true",
+            imagepos = "tc",
+            penwidth = "0",
+            shape = "node",
+            fixedsize = "true",
+            labelloc = "b",
+            width = 1.2,
+            height = 1.466,
+          ];
+          "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/FileAsset3" [
+            label = " FileAsset3",
+            fontsize = 12,
+            image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Developer- Tools/64/Arch_Amazon-CodeBuild_64@5x.png",
+            imagescale = "true",
+            imagepos = "tc",
+            penwidth = "0",
+            shape = "node",
+            fixedsize = "true",
+            labelloc = "b",
+            width = 1.2,
+            height = 1.466,
+          ];
+          "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/FileAsset4" [
+            label = " FileAsset4",
+            fontsize = 12,
+            image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Developer- Tools/64/Arch_Amazon-CodeBuild_64@5x.png",
+            imagescale = "true",
+            imagepos = "tc",
+            penwidth = "0",
+            shape = "node",
+            fixedsize = "true",
+            labelloc = "b",
+            width = 1.2,
+            height = 1.466,
+          ];
+        }
+      }
+      subgraph "cluster-SubGraph.emFact-backend-dev" {
+        graph [
+          label = "emFact-backend-dev",
+          labelloc = "b",
+          labeljust = "l",
+          margin = "10",
+          fontsize = "16",
+          penwidth = "2",
+          pencolor = "#888888",
+          style = "filled,rounded",
+          fillcolor = "#d6d6d6",
+        ];
+        subgraph "cluster-SubGraph.Stateful" {
+          graph [
+            label = "Stateful",
+            labelloc = "b",
+            labeljust = "l",
+            margin = "10",
+            fontsize = "16",
+            penwidth = "2",
+            pencolor = "#888888",
+            style = "filled,rounded",
+            fillcolor = "#c7c7c7",
+          ];
+          "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/AWS679f53fac002430cb0da5b7982bd2287" [
+            label = "\nAWS679f53fac002430cb0",
+            fontsize = 12,
+            image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Compute/64/Arch_AWS-Lambda_64@5x.png",
+            imagescale = "true",
+            imagepos = "tc",
+            penwidth = "0",
+            shape = "node",
+            fixedsize = "true",
+            labelloc = "b",
+            width = 2,
+            height = 2.4819999999999998,
+          ];
+          subgraph "cluster-SubGraph.vpc_db" {
+            graph [
+              label = "vpc_db",
+              labelloc = "b",
+              labeljust = "l",
+              margin = "10",
+              fontsize = "16",
+              penwidth = "2",
+              pencolor = "#888888",
+              style = "filled,rounded",
+              fillcolor = "#b9b9b9",
+            ];
+            "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/VPC" [
+              label = " VPC",
+              fontsize = 12,
+              image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Networking-Content/64/Arch_Amazon-Virtual-Private-Cloud_64@5x.png",
+              imagescale = "true",
+              imagepos = "tc",
+              penwidth = "0",
+              shape = "node",
+              fixedsize = "true",
+              labelloc = "b",
+              width = 2,
+              height = 2.266,
+            ];
+            "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/rds-security-group" [
+              label = " rds-security-group",
+              fontsize = 12,
+              image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/security_group.png",
+              imagescale = "true",
+              imagepos = "tc",
+              penwidth = "0",
+              shape = "node",
+              fixedsize = "true",
+              labelloc = "b",
+              width = 2,
+              height = 2.266,
+            ];
+            "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/emfact-db" [
+              label = " emfact-db",
+              fontsize = 12,
+              image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Database/64/Arch_Amazon-RDS_64@5x.png",
+              imagescale = "true",
+              imagepos = "tc",
+              penwidth = "0",
+              shape = "node",
+              fixedsize = "true",
+              labelloc = "b",
+              width = 2,
+              height = 2.266,
+            ];
+            "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/emfactUserSecret" [
+              label = " emfactUserSecret",
+              fontsize = 12,
+              image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Security-Identity-Compliance/64/Arch_AWS-Secrets-Manager_64@5x.png",
+              imagescale = "true",
+              imagepos = "tc",
+              penwidth = "0",
+              shape = "node",
+              fixedsize = "true",
+              labelloc = "b",
+              width = 1.2,
+              height = 1.466,
+            ];
+            "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/rds-subnet-group/Default" [
+              label = " RDS DBSubnetGroup\nDefault",
+              fontsize = 12,
+              image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Database/64/Arch_Amazon-RDS_64@5x.png",
+              imagescale = "true",
+              imagepos = "tc",
+              penwidth = "0",
+              shape = "node",
+              fixedsize = "true",
+              labelloc = "b",
+              width = 1.2,
+              height = 1.682,
+            ];
+            subgraph "cluster-SubGraph.RdsInit" {
+              graph [
+                label = "RdsInit",
+                labelloc = "b",
+                labeljust = "l",
+                margin = "10",
+                fontsize = "16",
+                penwidth = "2",
+                pencolor = "#888888",
+                style = "filled,rounded",
+                fillcolor = "#aaaaaa",
+              ];
+              "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/RdsInit/rdsInitLambda" [
+                label = " rdsInitLambda",
+                fontsize = 12,
+                image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Compute/64/Arch_AWS-Lambda_64@5x.png",
+                imagescale = "true",
+                imagepos = "tc",
+                penwidth = "0",
+                shape = "node",
+                fixedsize = "true",
+                labelloc = "b",
+                width = 2,
+                height = 2.266,
+              ];
+              "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/RdsInit/AwsCustomResourceRole" [
+                label = "\nAwsCustomResourceRole",
+                fontsize = 12,
+                image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Security-Identity-Compliance/64/Arch_AWS-Identity-and-Access-Management_64@5x.png",
+                imagescale = "true",
+                imagepos = "tc",
+                penwidth = "0",
+                shape = "node",
+                fixedsize = "true",
+                labelloc = "b",
+                width = 1.2,
+                height = 1.682,
+              ];
+              "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/RdsInit/AwsCustomResource" [
+                label = " AwsCustomResource",
+                fontsize = 12,
+                image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Management-Governance/64/Arch_AWS-CloudFormation_64@5x.png",
+                imagescale = "true",
+                imagepos = "tc",
+                penwidth = "0",
+                shape = "node",
+                fixedsize = "true",
+                labelloc = "b",
+                width = 1.2,
+                height = 1.466,
+              ];
+            }
+          }
+        }
+        subgraph "cluster-SubGraph.Stateless" {
+          graph [
+            label = "Stateless",
+            labelloc = "b",
+            labeljust = "l",
+            margin = "10",
+            fontsize = "16",
+            penwidth = "2",
+            pencolor = "#888888",
+            style = "filled,rounded",
+            fillcolor = "#c7c7c7",
+          ];
+          subgraph "cluster-SubGraph.dailETL" {
+            graph [
+              label = "dailETL",
+              labelloc = "b",
+              labeljust = "l",
+              margin = "10",
+              fontsize = "16",
+              penwidth = "2",
+              pencolor = "#888888",
+              style = "filled,rounded",
+              fillcolor = "#b9b9b9",
+            ];
+            "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/dailETL/dailyETLlambda" [
+              label = " dailyETLlambda",
+              fontsize = 12,
+              image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Compute/64/Arch_AWS-Lambda_64@5x.png",
+              imagescale = "true",
+              imagepos = "tc",
+              penwidth = "0",
+              shape = "node",
+              fixedsize = "true",
+              labelloc = "b",
+              width = 2,
+              height = 2.266,
+            ];
+            "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/dailETL/ncit_lambda" [
+              label = " ncit_lambda",
+              fontsize = 12,
+              image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Compute/64/Arch_AWS-Lambda_64@5x.png",
+              imagescale = "true",
+              imagepos = "tc",
+              penwidth = "0",
+              shape = "node",
+              fixedsize = "true",
+              labelloc = "b",
+              width = 2,
+              height = 2.266,
+            ];
+            "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/dailETL/dailyETL/EventsRule" [
+              label = " EventsRule",
+              fontsize = 12,
+              image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_App-Integration/Arch_64/Arch_Amazon-EventBridge_64@5x.png",
+              imagescale = "true",
+              imagepos = "tc",
+              penwidth = "0",
+              shape = "node",
+              fixedsize = "true",
+              labelloc = "b",
+              width = 1.2,
+              height = 1.466,
+            ];
+          }
+          subgraph "cluster-SubGraph.api" {
+            graph [
+              label = "api",
+              labelloc = "b",
+              labeljust = "l",
+              margin = "10",
+              fontsize = "16",
+              penwidth = "2",
+              pencolor = "#888888",
+              style = "filled,rounded",
+              fillcolor = "#b9b9b9",
+            ];
+            "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/emfact-api" [
+              label = " emfact-api",
+              fontsize = 12,
+              image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Networking-Content/64/Arch_Amazon-API-Gateway_64@5x.png",
+              imagescale = "true",
+              imagepos = "tc",
+              penwidth = "0",
+              shape = "node",
+              fixedsize = "true",
+              labelloc = "b",
+              width = 1.2,
+              height = 1.466,
+            ];
+            "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/get_filtering_criteria" [
+              label = " get filtering\ncriteria",
+              fontsize = 12,
+              image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Compute/64/Arch_AWS-Lambda_64@5x.png",
+              imagescale = "true",
+              imagepos = "tc",
+              penwidth = "0",
+              shape = "node",
+              fixedsize = "true",
+              labelloc = "b",
+              width = 2,
+              height = 2.4819999999999998,
+            ];
+            "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/post_search_and_match" [
+              label = "\npost_search_and_match",
+              fontsize = 12,
+              image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Compute/64/Arch_AWS-Lambda_64@5x.png",
+              imagescale = "true",
+              imagepos = "tc",
+              penwidth = "0",
+              shape = "node",
+              fixedsize = "true",
+              labelloc = "b",
+              width = 2,
+              height = 2.4819999999999998,
+            ];
+            "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/get_prior_therapy" [
+              label = " get_prior_therapy",
+              fontsize = 12,
+              image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Compute/64/Arch_AWS-Lambda_64@5x.png",
+              imagescale = "true",
+              imagepos = "tc",
+              penwidth = "0",
+              shape = "node",
+              fixedsize = "true",
+              labelloc = "b",
+              width = 2,
+              height = 2.266,
+            ];
+            "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/get_primary_cancer" [
+              label = " get_primary_cancer",
+              fontsize = 12,
+              image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Compute/64/Arch_AWS-Lambda_64@5x.png",
+              imagescale = "true",
+              imagepos = "tc",
+              penwidth = "0",
+              shape = "node",
+              fixedsize = "true",
+              labelloc = "b",
+              width = 2,
+              height = 2.266,
+            ];
+            "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/get_subtype_for_maintype" [
+              label = " get subtype for\nmaintype",
+              fontsize = 12,
+              image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Compute/64/Arch_AWS-Lambda_64@5x.png",
+              imagescale = "true",
+              imagepos = "tc",
+              penwidth = "0",
+              shape = "node",
+              fixedsize = "true",
+              labelloc = "b",
+              width = 2,
+              height = 2.4819999999999998,
+            ];
+            "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/get_stage_for_types" [
+              label = " get_stage_for_types",
+              fontsize = 12,
+              image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Compute/64/Arch_AWS-Lambda_64@5x.png",
+              imagescale = "true",
+              imagepos = "tc",
+              penwidth = "0",
+              shape = "node",
+              fixedsize = "true",
+              labelloc = "b",
+              width = 2,
+              height = 2.266,
+            ];
+            "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/get_biomarkers" [
+              label = " get_biomarkers",
+              fontsize = 12,
+              image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Compute/64/Arch_AWS-Lambda_64@5x.png",
+              imagescale = "true",
+              imagepos = "tc",
+              penwidth = "0",
+              shape = "node",
+              fixedsize = "true",
+              labelloc = "b",
+              width = 2,
+              height = 2.266,
+            ];
+            "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/get_column_info" [
+              label = " get_column_info",
+              fontsize = 12,
+              image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Compute/64/Arch_AWS-Lambda_64@5x.png",
+              imagescale = "true",
+              imagepos = "tc",
+              penwidth = "0",
+              shape = "node",
+              fixedsize = "true",
+              labelloc = "b",
+              width = 2,
+              height = 2.266,
+            ];
+            "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/post_ccodes_from_display_names" [
+              label = " post ccodes from\ndisplay names",
+              fontsize = 12,
+              image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Compute/64/Arch_AWS-Lambda_64@5x.png",
+              imagescale = "true",
+              imagepos = "tc",
+              penwidth = "0",
+              shape = "node",
+              fixedsize = "true",
+              labelloc = "b",
+              width = 2,
+              height = 2.4819999999999998,
+            ];
+            "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/post_studies_for_lat_lon_distance" [
+              label = " post studies for lat\nlon distance",
+              fontsize = 12,
+              image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Compute/64/Arch_AWS-Lambda_64@5x.png",
+              imagescale = "true",
+              imagepos = "tc",
+              penwidth = "0",
+              shape = "node",
+              fixedsize = "true",
+              labelloc = "b",
+              width = 2,
+              height = 2.4819999999999998,
+            ];
+            "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/get_org_families" [
+              label = " get_org_families",
+              fontsize = 12,
+              image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Compute/64/Arch_AWS-Lambda_64@5x.png",
+              imagescale = "true",
+              imagepos = "tc",
+              penwidth = "0",
+              shape = "node",
+              fixedsize = "true",
+              labelloc = "b",
+              width = 2,
+              height = 2.266,
+            ];
+            "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/post_report_data" [
+              label = " post_report_data",
+              fontsize = 12,
+              image = "/opt/homebrew/lib/node_modules/cdk-dia/icons/aws/Service/Arch_Compute/64/Arch_AWS-Lambda_64@5x.png",
+              imagescale = "true",
+              imagepos = "tc",
+              penwidth = "0",
+              shape = "node",
+              fixedsize = "true",
+              labelloc = "b",
+              width = 2,
+              height = 2.266,
+            ];
+          }
+        }
+      }
+    }
+  }
+  "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Pipeline" -> "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/UpdatePipeline/SelfMutation" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Pipeline" -> "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/DockerAsset1" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Pipeline" -> "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/FileAsset1" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Pipeline" -> "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/FileAsset2" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Pipeline" -> "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/FileAsset3" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Pipeline" -> "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/FileAsset4" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/DockerRole" -> "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Pipeline" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/DockerAsset1" -> "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Pipeline" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/DockerAsset1" -> "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/DockerRole" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/FileRole" -> "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Pipeline" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/FileAsset1" -> "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Pipeline" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/FileAsset1" -> "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/FileRole" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/FileAsset2" -> "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Pipeline" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/FileAsset2" -> "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/FileRole" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/FileAsset3" -> "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Pipeline" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/FileAsset3" -> "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/FileRole" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/FileAsset4" -> "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Pipeline" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/FileAsset4" -> "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Assets/FileRole" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/UpdatePipeline/SelfMutation" -> "emFact-backend-pipeline-dev/emFact-backend-pipeline-dev/Pipeline" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/rds-security-group" -> "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/VPC" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/rds-security-group" -> "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/emfact-db" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/emfact-db" -> "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/rds-security-group" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/emfact-db" -> "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/VPC" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/emfact-db" -> "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/rds-subnet-group/Default" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/emfactUserSecret" -> "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/emfact-db" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/RdsInit/rdsInitLambda" -> "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/emfact-db" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/RdsInit/rdsInitLambda" -> "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/emfactUserSecret" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/RdsInit/rdsInitLambda" -> "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/VPC" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/RdsInit/rdsInitLambda" -> "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/rds-security-group" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/RdsInit/AwsCustomResource" -> "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/RdsInit/AwsCustomResourceRole" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/rds-subnet-group/Default" -> "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/VPC" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/AWS679f53fac002430cb0da5b7982bd2287" -> "emFact-backend-pipeline-dev/emFact-backend-dev/Stateful/vpc_db/RdsInit/AwsCustomResourceRole" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/dailETL/dailyETLlambda" -> "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/dailETL/dailyETL/EventsRule" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/dailETL/dailyETL/EventsRule" -> "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/dailETL/dailyETLlambda" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/emfact-api" -> "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/get_filtering_criteria" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/emfact-api" -> "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/post_search_and_match" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/emfact-api" -> "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/get_prior_therapy" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/emfact-api" -> "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/get_primary_cancer" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/emfact-api" -> "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/get_subtype_for_maintype" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/emfact-api" -> "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/get_stage_for_types" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/emfact-api" -> "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/get_biomarkers" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/emfact-api" -> "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/get_column_info" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/emfact-api" -> "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/post_ccodes_from_display_names" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/emfact-api" -> "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/post_studies_for_lat_lon_distance" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/emfact-api" -> "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/get_org_families" [
+    dir = "both",
+  ];
+  "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/emfact-api" -> "emFact-backend-pipeline-dev/emFact-backend-dev/Stateless/api/post_report_data" [
+    dir = "both",
+  ];
+}

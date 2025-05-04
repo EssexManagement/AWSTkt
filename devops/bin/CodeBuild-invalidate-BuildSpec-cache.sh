@@ -8,7 +8,7 @@ AWSPROFILE="$2"
 AWSREGION="$3"
 
 ComponentName="backend"
-CDKAppName="FACT"
+CDKAppName="CTF"
 
 DEBUG="true"
 DEBUG="false"

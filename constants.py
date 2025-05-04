@@ -1,50 +1,45 @@
 import pathlib
 import traceback
 
-ENTERPRISE_NAME = "EssexMgmt"
-HUMAN_FRIENDLY_APP_NAME = "AWS-Ticket"
+ENTERPRISE_NAME = "NIH-NCI"
+HUMAN_FRIENDLY_APP_NAME = "CancerTrialsFinder"
 # -- HUMAN_FRIENDLY_APP_VERSION  .. do NOT define here. Do it in cdk.json instead.
-CDK_APP_NAME = "AWSTkt"
-CDK_COMPONENT_NAME = "backend"
+CDK_APP_NAME = "CTF"
+
+CDK_BACKEND_COMPONENT_NAME  = "backend"
+CDK_FRONTEND_COMPONENT_NAME = "frontend"
+CDK_DEVOPS_COMPONENT_NAME   = "devops"
+CDK_OPERATIONS_COMPONENT_NAME   = "operations"
+# CDK_COMPONENT_NAME = CDK_BACKEND_COMPONENT_NAME ### For legacy reasons.
+
 
 WEBSITE_DOMAIN_PREFIX = "www"              ### becomes "{WEBSITE_DOMAIN_PREFIX}.{ENV}.<FACTDOMAIN>.com"
 ### !!! Attention !!! Keep the above line IN-SYNC with FRONTEND-Repo's `constants.py`
 
+ACCT_PROD = "acct-prod"
+ACCT_NONPROD = "acct-nonprod"
 
 PROD_TIER = "prod"
+STAGE_TIER = "stage"
 UAT_TIER = "uat"
 INT_TIER = "int"
+TEST_TIER = "qa"
+QA_TIER = TEST_TIER
 DEV_TIER = "dev"
-STD_TIERS = [ PROD_TIER, UAT_TIER, INT_TIER, DEV_TIER, ]
+STD_TIERS = [ PROD_TIER, STAGE_TIER, UAT_TIER, QA_TIER, TEST_TIER, INT_TIER, DEV_TIER, ]
+ACCT_TIERS = [ ACCT_PROD, ACCT_NONPROD ]
 
 UPPER_TIERS = STD_TIERS.copy()
 UPPER_TIERS.remove( DEV_TIER )
 
 GIT_BRANCH_FOR_UPPER_TIERS = "main"
 
-ACCOUNT_ID = {
-    DEV_TIER:  "127516845550",
-    INT_TIER:  "127516845550",
-    UAT_TIER:  "668282225937",
-    PROD_TIER: "564062160093",
-}
-
-TIER_TO_AWSENV_MAPPING = {
-    "dev": "DEVINT",
-    "int": "DEVINT",
-    "uat": "UAT",
-    "prod": "PROD",
-
-    "test": "NONPROD",
-    "stage": "PROD",
-    "prod": "PROD",
-}
-
 ### ----------------------------------------------------------------
-CLINICALTRIALSAPI_KEY_UNPUBLISHEDNAME = f"{CDK_APP_NAME}/prod/clinicaltrialsapi.cancer.gov"
+CLINICALTRIALSAPI_KEY_UNPUBLISHEDNAME = f"{HUMAN_FRIENDLY_APP_NAME}/prod/clinicaltrialsapi.cancer.gov"
 
-# API_KEY_UNPUBLISHED_NAME = f"{CDK_APP_NAME}/{CDK_COMPONENT_NAME}/api"
 API_KEY_UNPUBLISHED_NAME = "emfact@essexmanagement" ###  -- ORIGINAL !!!
+
+RDS_APPLN_USER_NAME = "emfact_user"
 
 ### ----------------------------------------------------------------
 ### CDK related.  Breaking up a large stack of Lambdas into smaller stacks.
@@ -65,50 +60,65 @@ COGNITO_USER_GROUP = 'CCDI'
 PROJ_ROOT_FLDR_PATH = pathlib.Path(__file__).parent.resolve().absolute()
 
 ### ----------------------------------------------------------------
-""" Standardized naming for Git-Branches """
-def get_git_branch( tier :str ) -> str:
-    if tier in UPPER_TIERS:
-        return GIT_BRANCH_FOR_UPPER_TIERS
-    else:
-        return tier
+# """ Standardized naming for Git-Branches """
+# def get_git_branch( tier :str ) -> str:
+#     if tier in UPPER_TIERS:
+#         return GIT_BRANCH_FOR_UPPER_TIERS
+#     else:
+#         return tier
 
 ### ----------------------------------------------------------------
-""" Standardized naming for AWS-Environments a.k.a. AWS-PROFILES """
-def get_aws_env( tier :str ) -> str:
-    if tier in TIER_TO_AWSENV_MAPPING:
-        return TIER_TO_AWSENV_MAPPING[tier]
-    else:
-        return "DEVINT"
-    # if tier in [ DEV_TIER, INT_TIER ]:
-    #     return "DEVINT"
-    # elif tier in [ UAT_TIER ]:
-    #     return "UAT"
-    # elif tier in [ PROD_TIER ]:
-    #     return "PROD"
-    # # elif tier in [ PROD_TIER, UAT_TIER ]:
-    # #     return "PROD"
-    # else:
-    #     return "DEVINT"
-    #     # traceback.print_exc()
-    #     # raise ValueError(f"Invalid tier: {tier}")
 
-### ----------------------------------------------------------------
+
+
+DefaultITSupportEmailAddress = "nci-cancer-trials-finder-awsadmins@mail.nih.gov"  ### Can be a single/simple-string (one-email) or a LIST of email-addresses
+
+
+
 ### Attention: This represents an AWS-SES "Verified-emailaddress" --- for use by Cognito User-Pool's FROM-addr and REPLY-TO-addr.
-def get_COGNITO_FROM_EMAIL( tier :str ) -> str:
-    if tier == PROD_TIER:
-        return "FACTSupport@mail.nih.gov"
-        # return "matchbox-test@nih.gov"
-    else:
-        return "FACTSupport@mail.nih.gov"
-        # return"emfact@essexmanagement.com"  ### old.
+def get_COGNITO_FROM_EMAIL( tier :str, aws_env :str ) -> str:
 
-### ----------------------------------------------------------------
-def get_COGNITO_REPLY_TO_EMAIL( tier :str ) -> str:
-    if tier == PROD_TIER:
-        return "FACTSupport@mail.nih.gov"
-        # return "matchbox@nih.gov"
+    if aws_env == "CTF-nonprod" or aws_env == "CTF-prod": ### !!! NCI's CloudOne
+            if tier == PROD_TIER:
+                return "FACTSupport@mail.nih.gov"
+            else:
+                return "FACTSupport@mail.nih.gov"
+
+    elif aws_env == "DEVINT" or aws_env == "PROD": ### !!! CRRI-Cloud
+            if tier == PROD_TIER:
+                return "FACTSupport@mail.nih.gov" # return "matchbox-test@nih.gov"
+            else:
+                return "FACTSupport@mail.nih.gov"
+
+    # elif aws_env == "EssexCloud-DEV" or aws_env == "EssexCloud-PROD":
+    #         if tier == PROD_TIER:
+    #             return"emfact@essexmanagement.com"  ### old.
+    #         else:
+    #             return"USeetamraju@emmes.com"  ### Sarma
     else:
-        return "FACTSupport@mail.nih.gov"
-        # return"emfact@essexmanagement.com"  ### old.
+        raise ValueError(f"Invalid aws_env: '{aws_env}'")
+
+### --------------------------
+def get_COGNITO_REPLY_TO_EMAIL( tier :str, aws_env :str ) -> str:
+
+    if aws_env == "CTF-nonprod" or aws_env == "CTF-prod": ### !!! NCI's CloudOne
+            if tier == PROD_TIER:
+                return "FACTSupport@mail.nih.gov"
+            else:
+                return "FACTSupport@mail.nih.gov"
+
+    elif aws_env == "DEVINT" or aws_env == "PROD": ### !!! CRRI-Cloud
+            if tier == PROD_TIER:
+                return "FACTSupport@mail.nih.gov" # return "matchbox@nih.gov"
+            else:
+                return "FACTSupport@mail.nih.gov"
+
+    # elif aws_env == "EssexCloud-DEV" or aws_env == "EssexCloud-PROD":
+    #         if tier == PROD_TIER:
+    #             return"emfact@essexmanagement.com"  ### old.
+    #         else:
+    #             return"USeetamraju@emmes.com"  ### Sarma's email
+    else:
+        raise ValueError(f"Invalid aws_env: '{aws_env}'")
 
 ### EoF

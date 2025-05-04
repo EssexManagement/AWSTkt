@@ -46,7 +46,8 @@ TIER="dev|int|stage|prod"
 AWSPROFILE=....
 AWSREGION=.....
 
-\rm -rf .aws-sam/ node_modules/ package-lock.json
+\rm -rf package-lock.json
+\rm -rf node_modules/ cdk.out/
 npm i --include-dev
 
 npx cdk synth --context TIER="${TIER}" --quiet --profile ${AWSPROFILE} --region ${AWSREGION}

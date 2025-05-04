@@ -22,7 +22,7 @@ echo "CodePipelineS3BktName = '${CodePipelineS3BktName}'"
 
 
 ENTERPRISE_NAME="NIH-NCI"
-CDKAppName="FACT"
+CDKAppName="CTF"
 ComponentName="backend"
 
 MaxCacheAge=30 ### hours
@@ -147,7 +147,7 @@ uploadAndTagNewS3Obj() {
     echo "uploadAndTagNewS3Obj(): FullS3ObjectKey (Final) = '${FullS3ObjectKey}'"
 
     ### Upload and then Tag the s3-object.
-    aws s3 cp ${myFilePath} s3://${CodePipelineS3BktName}/${FullS3ObjectKey} ;
+    aws s3 cp --no-progress ${myFilePath} s3://${CodePipelineS3BktName}/${FullS3ObjectKey} ;
 
     TIMESTAMP=$(date +%s)
     echo "Tagging S3-object w/ TIMESTAMP = '${TIMESTAMP}'"
@@ -204,12 +204,12 @@ for ddd in ${Fldrs2bArchivedBeforeCaching[@]}; do
         if [ "${realPath}x" == "x" ]; then
             ### Symbolic-Link does -NOT- exist.  But, the file "ddd" itself may be a REAL but simple file
             (   cd ${subProjFolderPath}/ ;
-                aws s3 cp s3://${CodePipelineS3BktName}/${FullS3ObjectKey} ${myFilePath} ;   ### Download
+                aws s3 cp --no-progress s3://${CodePipelineS3BktName}/${FullS3ObjectKey} ${myFilePath} ;   ### Download
                 tar -xf "${myFilePath}" ; ### will create ${subProjFolderPath}/${ddd}/
             )
         else
             (   cd ${subProjFolderPath}/ ;
-                aws s3 cp s3://${CodePipelineS3BktName}/${FullS3ObjectKey} ${myFilePath} ;   ### Download
+                aws s3 cp --no-progress s3://${CodePipelineS3BktName}/${FullS3ObjectKey} ${myFilePath} ;   ### Download
                 tar -xf $( readlink "${myFilePath}" ) ; ### will create ${subProjFolderPath}/${ddd}/  .. use readlink to decode Linux-SymLink
             )
         fi
