@@ -24,9 +24,6 @@ class MyUserPool(Construct):
         super().__init__(scope, id_)
         stk = Stack.of(self)
 
-        # tier = self.node.try_get_context("tier")
-        # git_branch = constants.get_git_branch( tier=tier )
-        # aws_env = tier if tier in constants.STD_TIERS else constants.DEV_TIER ### ["dev", "int", "uat", "prod"]:
         print( f"tier = '{tier}' within "+ __file__ )
         print( f"git_branch = '{git_branch}' within "+ __file__ )
         print( f"aws_env = '{aws_env}' within "+ __file__ )
@@ -35,19 +32,18 @@ class MyUserPool(Construct):
         root_domain :str  = self.node.try_get_context("root_domain")
         print( f"root_domain = '{root_domain}' within "+ __file__ )
 
-        frontend_domains :any =  self.node.try_get_context("frontend_domain")[root_domain]
-        print( f"frontend_domains = '{frontend_domains}' within "+ __file__ )
-
-        frontend_domain  :str =  frontend_domains[tier]
-        print (f"frontend_domain = '{frontend_domain}' within "+ __file__ )
-        frontend_domain = frontend_domain.format( constants.WEBSITE_DOMAIN_PREFIX )
-        print (f"frontend_domain (formatted) = '{frontend_domain}' within "+ __file__ )
+        _, frontend_domain, _ = CdkDotJson_util.lkp_website_details( scope, tier )
 
         web_acl_arn = CdkDotJson_util.lkp_waf_acl_for_cognito( self, effective_tier )
         print( f"COGNITO's WAF-ACL arn = '{web_acl_arn}'")
 
+        from_emailaddr = constants.get_COGNITO_FROM_EMAIL( tier=tier, aws_env=aws_env )
+        replyto_emailaddr = constants.get_COGNITO_REPLY_TO_EMAIL( tier=tier, aws_env=aws_env )
+        print( f"COGNITO's from_emailaddr = '{from_emailaddr}'")
+        print( f"COGNITO's replyto_emailaddr = '{replyto_emailaddr}'")
+
         user_pool: cognito.IUserPool = cognito.UserPool( scope=self,
-            id=f"{constants.CDK_APP_NAME}-{constants.CDK_COMPONENT_NAME}-{tier}",
+            id=f"{constants.CDK_APP_NAME}-{constants.CDK_BACKEND_COMPONENT_NAME}-{tier}",
             # sign in
             sign_in_aliases=cognito.SignInAliases(username=True, email=True),
             # auto_verify=cognito.AutoVerifiedAttrs(email=True, phone=True),
@@ -82,17 +78,17 @@ class MyUserPool(Construct):
             ),
             # email
             email=cognito.UserPoolEmail.with_ses(
-                from_email=constants.get_COGNITO_FROM_EMAIL( tier=tier ),
+                from_email=from_emailaddr,
                 from_name=constants.CDK_APP_NAME +" support",
-                reply_to=constants.get_COGNITO_FROM_EMAIL( tier=tier ),
+                reply_to=replyto_emailaddr,
             ),
             user_invitation=cognito.UserInvitationConfig(
                 email_subject=constants.CDK_APP_NAME +" temporary password",
                 email_body="Your account for "+ constants.CDK_APP_NAME +" has been created.\n\n"+
                     "Your username is {username} and temporary password is {####} \n\n" +        ### ATTENTION !! THIS lines use '{}' in a DIFFERENT WAY!!!
                     "You will be required to change your password when you first login to "+ constants.CDK_APP_NAME +". \n\n" +
-                    "The "+ constants.CDK_APP_NAME +" app is available at https://"+ frontend_domain +"/ \n\n" +
-                    "If you have any questions, please send email to "+ constants.get_COGNITO_REPLY_TO_EMAIL( tier=tier ) +" \n\nThank you ! \n\n" +
+                    "The "+ constants.CDK_APP_NAME +" app is available at https://"+ (frontend_domain or "undefined-in-cdk.json") +"/ \n\n" +
+                    "If you have any questions, please send email to "+ replyto_emailaddr +" \n\nThank you ! \n\n" +
                     constants.CDK_APP_NAME +"Team",
                 sms_message="Your account for "+ constants.CDK_APP_NAME +" has been created.\nYour username is {username} and temporary password is {####} ",
             ),
@@ -101,7 +97,7 @@ class MyUserPool(Construct):
                 email_subject=constants.CDK_APP_NAME +" account request verification - Please take action!",
                 email_body="Hello,\nThank you for registering for "+ constants.HUMAN_FRIENDLY_APP_NAME + "." +
                         "To use our site, please use the link below to verify your identity:\n{##Verify Email##} \n\n" +
-                        "If you cannot access the link or did not make this request, contact us at "+ constants.get_COGNITO_FROM_EMAIL(tier=tier) +"\n"+
+                        "If you cannot access the link or did not make this request, contact us at "+ from_emailaddr +"\n"+
                         "Thank you ! \nThe "+ constants.HUMAN_FRIENDLY_APP_NAME +" Support team\n",
             ),
             account_recovery=cognito.AccountRecovery.EMAIL_ONLY,
@@ -134,16 +130,14 @@ class MyUserPool(Construct):
 
         # domain_prefix=f"{constants.CDK_APP_NAME}-{tier}".lower()
         # domain_prefix=f"{constants.CDK_APP_NAME}-{stage}".lower()
-        domain_prefix=frontend_domain.lower().replace(".", "-")
+        domain_prefix = frontend_domain.lower().replace(".", "-") if frontend_domain else None
         ### It must be unique GLOBALLY as: https://{domain_prefix}.auth.us-east-1.amazoncognito.com
 
         self.user_pool_domain: cognito.IUserPoolDomain = user_pool.add_domain(
             "cognito-domain",
-            cognito_domain=cognito.CognitoDomainOptions(
-                domain_prefix=domain_prefix
-            ),
+            cognito_domain=cognito.CognitoDomainOptions( domain_prefix=domain_prefix ),
             # cognito_domain=cognito.CustomDomainOptions()
-        )
+        ) if domain_prefix else None
 
         # API App Client
 
@@ -171,11 +165,11 @@ class MyUserPool(Construct):
                 resource_arn = user_pool.user_pool_arn,
             )
             wafaclass.add_dependency(user_pool.node.default_child)
-            wafaclass.add_dependency(self.user_pool_domain.node.default_child)
+            if self.user_pool_domain: wafaclass.add_dependency(self.user_pool_domain.node.default_child)
 
         # # create a new Lambda function using aws_lambda_python_alpha that is based on the file at: ./src/cognito_custom_msg_handler.py
         # lambda_file_name = "cognito_custom_msg_handler"
-        # lambda_name = f"{constants.CDK_APP_NAME}-{constants.CDK_COMPONENT_NAME}-{tier}-{lambda_file_name}"
+        # lambda_name = f"{APP_NAME}-{COMPONENT_NAME}-{tier}-{lambda_file_name}"
 
         # cog_lambda = StandardLambda(
         #     scope=self, vpc=None, sg_lambda=None, real_tier=tier
