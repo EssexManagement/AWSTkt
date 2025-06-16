@@ -1,16 +1,8 @@
-// import * as https from 'https';
-////    lambda-to-handle-itops-user-input-to-service-catalog-item@1.0.0 build
-////    npx esbuild --bundle index.ts --entry-names=index --minify --target=ES2020 --sourcemap --keep-names --format=cjs --sources-content=true --tree-shaking=true --outdir=dist
-////
-////    ✘ [ERROR] Could not resolve "https"
-////        index.ts:1:23:
-////          1 │ import * as https from 'https';
-////            ╵                        ~~~~~~~
-////    The package "https" wasn't found on the file system but is built into node.
-////    Are you trying to bundle for `node`?
-////    You can use "--platform=node" to do that, which will remove this error.
-
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn';
+
+import * as constants from "./constants";
+
+import { CloudFormationResponse, sendResponse } from "@/common/CloudFormation-utils";
 
 //// ...................................................................
 
@@ -20,16 +12,39 @@ import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn';
  *  ..  to SFn-INVOCATION (to be SENT via `StepFunctionInputParams` below).
  */
 interface LambdaInputThatDefinesInputJsonToSFn {
+    /** "Tier" is a free-form text field */
     Tier: string;
+    /** `"AwsEnv" is picklist/dropdown with just 2 values "acct-nonprod" and "acct-prod" */
     AwsEnv: string;
-    OtherTierExists: boolean;
+    /** `"OtherTierExists" is picklist/dropdown with just 2 values "yes" and "No" */
+    OtherTierExists: string;
+    /** "DatabaseChange" is a picklist/dropdown whose values are listed inside private-variable named "DatabaseChange_List" */
+    DatabaseChange: string;
     DeploymentReason: string;
     DestructionScope?: string;
+    /** meant for stringified JSON -- optional; Currently NOT in use */
     Body?: string;
-    AccountId?: string;
-    Region?: string;
-    ServiceTimeout?: string, // example: "3600",
+    /** (Manually specified) Explicit input provided by CloudFormation-service when invoking this Lambda. */
+    AccountId ?: string;
+    /** (Manually specified) Explicit input provided by CloudFormation-service when invoking this Lambda. */
+    Region ?: string;
+    /** example: "arn:aws:lambda:??:??:function:CTF-Ops-validate_SvcCtlg-inputs" */
+    ServiceToken: string,
+    /** Standard input provided by CloudFormation-service when invoking this Lambda. */
+    ServiceTimeout ?: string, // example: "3600",
 }
+
+/**
+ * Ensure this matches the `AllowedValues` for the CloudFormation-param `4xxDatabaseChange.
+ * See `operations/CDK/ServiceCatalogItem/lib/ServiceCatalogItem-Deployer.template.yaml`
+ */
+const DatabaseChange_List = [
+    "NO changes to RDS",
+    "Simply Reload CTAPI data",
+
+    "New Tier",
+    "Wipe entire Database, and Reload everything",
+]
 
 /**
  * This represents ANY valid JSON-input, that's passed as ..
@@ -38,150 +53,83 @@ interface LambdaInputThatDefinesInputJsonToSFn {
 interface StepFunctionInputParams {
     Tier: string;
     aws_env: string;
-    'run-rds-init'?: boolean;
-    runRdsInit?: boolean;
-    'skip-SchemaTableInitialization'?: boolean;
-    'destroy-app-stacks-only'?: boolean;
-    DestroyAppStacksOnly?: boolean;
-    'destroy-all-stacks-NOT-pipelines'?: boolean;
-    DestroyAppStacksNOTPipelines?: boolean;
-    'destroy-all-stacks-incl-pipeline-stacks'?: boolean;
-    DestroyAppStacksInclPipelineStacks?: boolean;
+
+    "run-rds-init"  ?: boolean;
+    "runRdsInit"    ?: boolean;
+    "skip-SchemaTableInitialization" ?: boolean;
+
+    "skip-sfn-after-backend-deploy" ?: boolean;
+    "skipSFnAfterBackendDeploy" ?: boolean;
+
+    "destroy-app-stacks-only"  ?: boolean;
+    DestroyAppStacksOnly  ?: boolean;
+    "destroy-all-stacks-NOT-pipelines"  ?: boolean;
+    DestroyAppStacksNOTPipelines  ?: boolean;
+    "destroy-all-stacks-incl-pipeline-stacks"  ?: boolean;
+    DestroyAppStacksInclPipelineStacks  ?: boolean;
+
     /** `body` as STRINGIFIED-JSON .. In case we need to pass in COMPLEX-inputs -- in the future -- to the StepFunction */
     body?: string;
 }
 
 interface CloudFormationCustomResourceEvent {
-    RequestType: 'Create' | 'Update' | 'Delete';
-    RequestId: string, // "b44fecc5-9929-4aa1-a4f4-8b4f3230aa3f",
-    ResponseURL: string, // example: "https://cloudformation-custom-resource-response-useast??.s3.amazonaws.com/arn%3Aaws%3Acloudformation%3Aus-east??%3A???%3Astack/SC-???-pp-???/??%7CStepFunctionExecutor%7C????X-Amz-Security-Token=???%3D%3D&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=2025???&X-Amz-SignedHeaders=host&X-Amz-Expires=7200&X-Amz-Credential=ASI%2Fus-east??%2Fs3%2Faws4_request&X-Amz-Signature=???",
-    ResourceProperties: LambdaInputThatDefinesInputJsonToSFn;
+    RequestType: "Create" | "Update" | "Delete";
     ServiceToken: string,           // An ARN. Example: "arn:aws:lambda:??:??:function:CTF-Ops-Invoke_<StenFnName>",
+    ResponseURL: string, // example: "https://cloudformation-custom-resource-response-useast??.s3.amazonaws.com/arn%3Aaws%3Acloudformation%3Aus-east??%3A???%3Astack/SC-???-pp-???/??%7CStepFunctionExecutor%7C????X-Amz-Security-Token=???%3D%3D&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=2025???&X-Amz-SignedHeaders=host&X-Amz-Expires=7200&X-Amz-Credential=ASI%2Fus-east??%2Fs3%2Faws4_request&X-Amz-Signature=???",
     StackId: string,                // Stack! Example: "arn:aws:cloudformation:us-east??:??:stack/SC-??-pp-??/??",
-    ResourceType: string,           // Name of Custom-Resource within CFT-Template.  Example: "Custom::StepFunctionExecutor"
+    RequestId: string, // "b44fecc5-9929-4aa1-a4f4-8b4f3230aa3f",
     LogicalResourceId: string,      // Simple-String-variant of `ResourceType` (above).  Example: "StepFunctionExecutor",
+    PhysicalResourceId: string;     // Example: SC-924221118260-pp-spare5lnvly3q-StepFunctionExecutor-1RWZZ3CPMWLS1
+    ResourceType: string,           // Name of Custom-Resource within CFT-Template.  Example: "Custom::StepFunctionExecutor"
     // ServiceTimeout: string,      // "3600",
+    ResourceProperties: LambdaInputThatDefinesInputJsonToSFn;
 }
 
-interface CloudFormationResponse {
-    Status: 'SUCCESS' | 'FAILED';
-    Reason: string;
-    StackId: string;
-    RequestId: string;
-    LogicalResourceId: string;
-    Data?: Record<string, any>;
-    // PhysicalResourceId: string;
-}
-
-// interface HandlerResponse {
-//     PhysicalResourceId: string;
-//     Data?: {
-//         ExecutionArn: string;
-//     };
-// }
-
-//// ...................................................................
-
-const sendResponse = async (event: any, response: CloudFormationResponse): Promise<void> => {
-    const responseBody = JSON.stringify(response);
-    const responseUrl = new URL(event.ResponseURL);
-    // const parsedUrl = url.parse(event.ResponseURL);
-
-    const result = await fetch(responseUrl, {
-        method: 'PUT',
-        body: responseBody,
-        headers: {
-            'Content-Type': '',
-            'Content-Length': responseBody.length.toString()
-        }
-    });
-    console.log('Available properties:', Object.keys(result));
-    console.log( "http's response: Ok? "+ result?.ok +"  & status-code: "+ result?.status +" & textual-response: ");
-    console.log( result?.body );
-
-    if (!result.ok) {
-        throw new Error(`HTTP ${result.status}: ${result.statusText}`);
-    }
-    console.log( 'Successfully sent response to '+ responseUrl.toString() );
-
-    //// Following code needs `import http` module!!!
-    // const requestOptions = {
-    //     hostname: responseUrl.hostname,
-    //     port: 443,
-    //     path: responseUrl.pathname + responseUrl.search,
-    //     method: 'PUT',
-    //     headers: {
-    //         'Content-Type': '',
-    //         'Content-Length': responseBody.length
-    //     }
-    // };
-    // return new Promise((resolve, reject) => {
-    //     const request = https.request(requestOptions, (response) => {
-    //         let responseData = '';
-    //         response.on('data', (chunk) => {
-    //             responseData += chunk;
-    //         });
-
-    //         response.on('end', () => {
-    //             if (response.statusCode && response.statusCode >= 400) {
-    //                 reject(new Error(`HTTP ${response.statusCode}: ${responseData}`));
-    //             } else {
-    //                 resolve(responseData);
-    //             }
-    //         });
-    //     });
-
-    //     request.on('error', (error) => {
-    //         console.log('Error sending response:', error);
-    //         reject(error);
-    //     });
-
-    //     request.write(responseBody);
-    //     request.end();
-    // });
-};
-
-//// ...................................................................
+// =============================================================================================
+// ..............................................................................................
+// ==============================================================================================
 
 export const handler = async (event: CloudFormationCustomResourceEvent): Promise<CloudFormationResponse> => {
 
-    console.log('Event:');
+    console.log("Event:");
     console.log( event );
-    // console.log('Event:', JSON.stringify(event, null, 2));
-    console.log('Environment-Variables passed to this Lambda');
-    console.log( process.env )
+    // console.log("Event:", JSON.stringify(event, null, 2));
+    // console.log("Environment-Variables passed to this Lambda");
+    // console.log( process.env )
 
     //// ----------------------------------
     const sfnInputJson :LambdaInputThatDefinesInputJsonToSFn = event.ResourceProperties;
     //// Extract key inputs from Input-JSON
     const tier = sfnInputJson.Tier;
     const awsEnv = sfnInputJson.AwsEnv;
-    const otherTierExists  = sfnInputJson.OtherTierExists == true;
+    const otherTierExists  = (sfnInputJson.OtherTierExists == "Yes");
+    const databaseChange   = sfnInputJson.DatabaseChange;
     const deploymentReason = sfnInputJson.DeploymentReason;
     const destructionScope = sfnInputJson.DestructionScope;
 
     const body = undefined;
-    // const body = sfnInputJson.Body || '';
+    // const body = sfnInputJson.Body || "";
 
     //// ----------------------------------
-    const stepFunctionName = `CTF-devops-${tier}-sfn-1ClickEnd2End`;
-    console.log( `StepFnName='${stepFunctionName}` )
+    const stepFunctionName = `${constants.CDK_APP_NAME}-${constants.CDK_DEVOPS_COMPONENT_NAME}-${tier}-sfn-1ClickEnd2End`;
+    console.log( `StepFnName='${stepFunctionName}'` )
 
     //// ###############################################################
     console.log( `ServiceCatalogItem ACTION = '${event.RequestType}'`)
     if (event.RequestType == 'Delete') {
         const respJson :CloudFormationResponse = {
             Status: 'SUCCESS',
-            Reason: 'Delete request SKIPPED. Do Nothing.',
+            Reason: "Delete request SKIPPED. Do Nothing.",
             StackId: event.StackId,
             RequestId: event.RequestId,
-            // PhysicalResourceId: event.RequestId,
+            PhysicalResourceId: event.PhysicalResourceId ?? event.RequestType+"-"+event.RequestId,
             LogicalResourceId: event.LogicalResourceId,
             Data: {
                 sfnInputJson: sfnInputJson,
             }
         };
-        await sendResponse(event, respJson )
+        console.log( respJson )
+        await sendResponse(event, respJson ); //// Send a message to CloudFormation's CustomResource
         return respJson;
     }
 
@@ -192,8 +140,8 @@ export const handler = async (event: CloudFormationCustomResourceEvent): Promise
         "aws_env": awsEnv
     };
 
-    //// Scenario 1: New AWS-Account with no other Tiers
-    if (!otherTierExists) {
+    //// Scenario 1: New AWS-Account with -NO- other Tiers
+    if (  !  otherTierExists) {
         inputParams = {
             ...inputParams,
             "run-rds-init": true,
@@ -213,14 +161,14 @@ export const handler = async (event: CloudFormationCustomResourceEvent): Promise
         };
     }
     //// Scenario 3: Update existing Tier - no issues
-    else if (deploymentReason === 'EXISTING Tier needs an update deployed. No issues exist.') {
+    else if (deploymentReason === "EXISTING Tier needs an update deployed. No issues exist.") {
         inputParams = {
             ...inputParams,
             "skip-SchemaTableInitialization": true,
         };
     }
     //// Scenario 4: Update existing Tier - has some issues
-    else if (deploymentReason === 'EXISTING Tier has some issues') {
+    else if (deploymentReason === "EXISTING Tier has some issues") {
         inputParams = {
             ...inputParams,
             "destroy-app-stacks-only": true,
@@ -229,10 +177,12 @@ export const handler = async (event: CloudFormationCustomResourceEvent): Promise
         };
     }
     // Scenario 5 & 6: Fatal problems
-    else if (deploymentReason === 'EXISTING Tier has FATAL-problems') {
+    else if ( (deploymentReason === "EXISTING Tier has FATAL-problems") ||
+              (deploymentReason === "EXISTING Tier not needed, as git-branch is PR-Merged")
+    ) {
         //// Scenarios 5 & 6
 
-        if (destructionScope === 'Destroy & Re-deploy ALL Stacks') {
+        if (destructionScope === "Destroy but .. RE-deploy ALL Stacks") {
             //// Scenario 5
             inputParams = {
                 ...inputParams,
@@ -243,7 +193,7 @@ export const handler = async (event: CloudFormationCustomResourceEvent): Promise
                 "skip-SchemaTableInitialization": false,
                 "body": body || '{ "force_update": "1" }',
             };
-        } else if (destructionScope === 'Wipe out every single Stack') {
+        } else if (destructionScope === "Just WIPEOUT everything incl. Pipelines") {
             //// Scenario 6
             inputParams = {
                 ...inputParams,
@@ -253,6 +203,20 @@ export const handler = async (event: CloudFormationCustomResourceEvent): Promise
         }
     }
 
+    if (DatabaseChange_List.indexOf(databaseChange) < 2) {
+        /// do NOT invoke the `post-backend-deploy` stepfunc AFTER backend-pipeline is success.
+        inputParams = {
+            ...inputParams,
+            "skip-sfn-after-backend-deploy": true,
+            "skipSFnAfterBackendDeploy": true,
+        };
+        delete inputParams["run-rds-init"];
+        delete inputParams["runRdsInit"];
+    } else {
+        delete inputParams["skip-sfn-after-backend-deploy"];
+        delete inputParams["skipSFnAfterBackendDeploy"];
+    }
+
     //// ----------------------------------
     // Construct the StepFunction ARN
     const accountId = process.env.AWS_ACCOUNT_ID ?? sfnInputJson.AccountId;
@@ -260,7 +224,9 @@ export const handler = async (event: CloudFormationCustomResourceEvent): Promise
     const partition = process.env.AWS_PARTITION ?? 'aws';
 
     const stepFunctionArn = `arn:${partition}:states:${region}:${accountId}:stateMachine:${stepFunctionName}`;
-    console.log(`Invoking StepFunction: ${stepFunctionArn} .. with JSON-input:`);
+    //// SECURITY: Code Scanning Alert: HIGH --> Below Line: logs sensitive data returned by `process.env` as clear text.
+    // console.log(`Invoking StepFunction: ${stepFunctionArn} .. with JSON-input:`);
+    console.log(`Invoking StepFunction: with JSON-input:`);
     console.log(inputParams);
     // console.log(`With input: ${JSON.stringify(inputParams, null, 2)}`);
 
@@ -295,14 +261,15 @@ export const handler = async (event: CloudFormationCustomResourceEvent): Promise
             Reason: 'CREATE - SvcCatalog Product-LAUNCH started for '+ event.ResourceType,
             StackId: event.StackId,
             RequestId: event.RequestId,
-            // PhysicalResourceId: event.RequestId,
+            PhysicalResourceId: event.PhysicalResourceId ?? event.RequestType+"-"+event.RequestId,
             LogicalResourceId: event.LogicalResourceId,
             Data: {
                 ExecutionArn: result.executionArn!,
                 sfnInputJson: sfnInputJson,
             }
         };
-        await sendResponse(event, respJson )
+        console.log( respJson )
+        await sendResponse(event, respJson ); //// Send a message to CloudFormation's CustomResource
         return respJson;
     } catch (error) {
         //// print stacktrace
@@ -314,7 +281,7 @@ export const handler = async (event: CloudFormationCustomResourceEvent): Promise
             console.error( error.message )
             s = error.message
         } else {
-            s = new String(error)
+            s = JSON.stringify(error)
         }
         // throw error;
         const respJson :CloudFormationResponse = {
@@ -322,14 +289,15 @@ export const handler = async (event: CloudFormationCustomResourceEvent): Promise
             Reason: 'INTERNAL FAILURE - SvcCatalog Product-LAUNCH for '+ event.ResourceType,
             StackId: event.StackId,
             RequestId: event.RequestId,
-            // PhysicalResourceId: event.RequestId,
+            PhysicalResourceId: event.PhysicalResourceId ?? event.RequestType+"-"+event.RequestId,
             LogicalResourceId: event.LogicalResourceId,
             Data: {
                 sfnInputJson: sfnInputJson,
                 internalErrorMsg: s,
             }
         };
-        await sendResponse(event, respJson )
+        console.log( respJson )
+        await sendResponse(event, respJson ); //// Send a message to CloudFormation's CustomResource
         return respJson;
     }
 };

@@ -128,10 +128,10 @@ def add_tags( a_construct :Construct, tier :str, aws_env :str, git_branch :str, 
     Tags.of(a_construct).add(key="ResourceName",  value=generic_rsrc_name)                              ### CBIIT
     Tags.of(a_construct).add(key="aws_env",  value=aws_env)
     Tags.of(a_construct).add(key="git_branch", value=git_branch)
-    if tier in constants.STD_TIERS:
+    Tags.of(a_construct).add(key="CreatedBy", value=support_email)                                  ### CBIIT
+    if tier in constants.UPPER_TIERS:
         Tags.of(a_construct).add(key="BUILD", value=constants_cdk.BUILD_KICKOFF_TIMESTAMP_STR)
         Tags.of(a_construct).add(key="CreateDate", value=constants_cdk.BUILD_KICKOFF_TIMESTAMP_STR)     ### CBIIT
-        Tags.of(a_construct).add(key="CreatedBy", value=support_email)                                  ### CBIIT
     if gr:
         Tags.of(a_construct).add(key="SOURCE", value = gr)
         Tags.of(a_construct).add(key="repo",   value = gr)

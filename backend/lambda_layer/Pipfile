@@ -1,0 +1,36 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+
+aws-cdk-lib = "*"
+constructs = "*"
+"aws-cdk.aws-lambda-python-alpha" = "*"
+aws-cdk-aws-lambda-python-alpha = "*"
+cdk-ecr-deployment = "*"
+aws-cdk-asset-awscli-v1 = "*"
+aws-cdk-asset-kubectl-v20 = "*"
+aws-cdk-asset-node-proxy-agent-v6 = "*"
+aws-cdk-cloud-assembly-schema = "*"
+
+typeguard = "*"
+typing-extensions = "*"
+jsonschema = "*"
+jsonschema-specifications = "*"
+pytz = "*"
+python-dateutil = "*"
+requests = "*"
+
+docker = "*"
+cdk-nag = "*"
+boto3 = "*"
+regex = "*"
+
+commentjson = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.12"

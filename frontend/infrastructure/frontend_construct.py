@@ -1,5 +1,6 @@
 """frontend construct."""
 
+from typing import Optional
 from os import path, makedirs
 import re
 
@@ -11,6 +12,7 @@ from aws_cdk import (
     Duration,
     RemovalPolicy,
     aws_kms,
+    aws_certificatemanager,
     aws_s3_deployment as s3_deployment,
     aws_s3,
     aws_logs,
@@ -48,17 +50,18 @@ class Frontend(Construct):
         id_: str,
         tier :str,
         aws_env :str,
-        git_branch :str,
-        api_domain: str,
-        root_domain :str,
-        frontend_domain_name: str,
-        public_api_FQDN :str,
+        frontend_domain_name: Optional[str],
+        acm_ssl_cert_arn :Optional[str],
+        public_api_FQDN :Optional[str],
+        # root_domain :str,
     ) -> None:
         """_summary_
 
         Args:
             scope (StackLayer): _description_
             id_ (str): _description_
+
+            For DEVELOPER-tiers, the last 3 params are allowed to be `None`: frontend_domain_name, acm_ssl_cert_arn, public_api_FQDN
         """
         super().__init__(scope, id_)
         stk = Stack.of(self)
@@ -67,7 +70,6 @@ class Frontend(Construct):
         effective_tier = tier if tier in constants.STD_TIERS else constants.DEV_TIER ### ["dev", "int", "uat", "prod"]
         print( f"tier='{tier}' within "+ __file__ )
         print( f"aws_env='{aws_env}' within "+ __file__ )
-        print( f"git_branch='{git_branch}' within "+ __file__ )
 
         ### ----------------------------------------------------
         cloudfront_georestrictions = self.node.try_get_context("frontend_domain")["cloudfront_georestrictions"]
@@ -88,7 +90,7 @@ class Frontend(Construct):
 
         encryption_key_arn = CdkDotJson_util.lkp_cdk_json_for_kms_key( scope, tier, None, CdkDotJson_util.AwsServiceNamesForKmsKeys.s3 )
         print( f"encryption_key_arn = '{encryption_key_arn}'" )
-        if encryption_key_arn.find('alias/aws/s3') >= 0:
+        if not encryption_key_arn or ( encryption_key_arn and encryption_key_arn.find('alias/aws/s3') >= 0):
             encryption_key = None
         else:
             encryption_key = aws_kms.Key.from_key_arn(scope=scope, id="KmsKeyLkp", key_arn=encryption_key_arn)
@@ -244,7 +246,8 @@ class Frontend(Construct):
             cloudfront_s3.s3_logging_bucket.apply_removal_policy(RemovalPolicy.DESTROY)
         if cloudfront_s3.cloud_front_logging_bucket:
             cloudfront_s3.cloud_front_logging_bucket.apply_removal_policy(RemovalPolicy.DESTROY)
-        cloudfront_s3.cloud_front_logging_bucket_access_log_bucket.apply_removal_policy( RemovalPolicy.DESTROY )
+        if cloudfront_s3.cloud_front_logging_bucket_access_log_bucket:
+            cloudfront_s3.cloud_front_logging_bucket_access_log_bucket.apply_removal_policy( RemovalPolicy.DESTROY )
 
         dump_construct_tree( children_constructs=cloudfront_s3.node.children )
         ### Make sure CustomResource to auto-delete objects completes successfully, before destruction of bucket starts.
@@ -259,14 +262,17 @@ class Frontend(Construct):
 
         ### Fix CloudFormation STACK-ERROR -> Bucket cannot have ACLs set with ObjectOwnership's BucketOwnerEnforced setting
         ### Fix cfn-lint ERROR -> E3045 A bucket with AccessControl set should also have OwnershipControl configured
-        cloudfront_s3.cloud_front_logging_bucket._object_ownership = aws_s3.ObjectOwnership.OBJECT_WRITER
+        if cloudfront_s3.cloud_front_logging_bucket:
+            cloudfront_s3.cloud_front_logging_bucket._object_ownership = aws_s3.ObjectOwnership.OBJECT_WRITER
         # cloudfront_s3.cloud_front_logging_bucket_access_log_bucket._object_ownership = aws_s3.ObjectOwnership.OBJECT_WRITER
 
         distribution: aws_cloudfront.Distribution = (
             cloudfront_s3.cloud_front_web_distribution
         )
-        cfn_distribution: aws_cloudfront.CfnDistribution = distribution.node.default_child
+        cfn_distribution: aws_cloudfront.CfnDistribution = distribution.node.default_child # type: ignore
         Tags.of(cft_node).add(key="ResourceName", value=stk.stack_name+'-CloudFrontDistr-'+Names.unique_id(scope))
+        ### override the "description" property of `cfn_distribution` to "XYZ"
+        cfn_distribution.add_property_override(property_path="DistributionConfig.Comment", value=f"{constants.CDK_APP_NAME}-{tier} = {frontend_domain_name}")
 
         loggrp: aws_logs.ILogGroup = get_log_grp( scope=scope,
             tier = tier,
@@ -295,41 +301,6 @@ class Frontend(Construct):
             retain_on_delete=False,  # default to true
             log_group=loggrp,
             # log_retention=logs.RetentionDays.FIVE_DAYS,       ### [WARNING] aws-cdk-lib.aws_s3_deployment.BucketDeploymentProps#logRetention is deprecated.
-        )
-
-        ### ------ API as 2nd Origin -----
-        api_origin = aws_cloudfront_origins.HttpOrigin(api_domain, origin_path="/prod")
-
-        api_cache_policy = aws_cloudfront.CachePolicy(
-            self,
-            "apiCachePolicy"+tier,
-            cache_policy_name=stk.stack_name+'-'+stk.region,
-            comment="API Cache Policy for "+tier,
-            query_string_behavior=aws_cloudfront.CacheQueryStringBehavior.all(),
-            default_ttl=Duration.minutes(5),
-            max_ttl=Duration.hours(1),
-            header_behavior=aws_cloudfront.CacheHeaderBehavior.allow_list("Authorization"),
-            # cookie_behavior=aws_cloudfront.CacheCookieBehavior.all(),
-        )
-        api_cache_policy.apply_removal_policy( RemovalPolicy.DESTROY )
-
-        origin_request_policy = aws_cloudfront.OriginRequestPolicy(
-            self,
-            "request_policy",
-            origin_request_policy_name = f"{stk.stack_name}-{stk.region}-OriginRequestPolicy",  ### Limited to [a-zA-Z_-]+
-            comment = f"{constants.CDK_APP_NAME} SPA Origin-Request-Policy for "+tier,
-            header_behavior=aws_cloudfront.OriginRequestHeaderBehavior.allow_list("Accept"),
-        )
-
-        distribution.add_behavior(
-            path_pattern="/api/v1/*",
-            origin=api_origin,
-            allowed_methods=aws_cloudfront.AllowedMethods.ALLOW_ALL,
-            cached_methods=aws_cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
-            cache_policy=api_cache_policy,
-            origin_request_policy=origin_request_policy,
-            response_headers_policy=response_headers_policy,
-            viewer_protocol_policy=aws_cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         )
 
         ### ------------------------
@@ -371,44 +342,57 @@ class Frontend(Construct):
         #     # )
         #     # wafaclass.add_dependency(cfn_distribution)
 
-        custom_error_response = [
-            {
-                "ErrorCachingMinTTL": 10,
-                "ErrorCode": 403,
-                "ResponseCode": 200,
-                "ResponsePagePath": "/index.html",
-            }
-        ]
+        ### ------------------------
+        # custom_error_response = [
+        #     {
+        #         "ErrorCachingMinTTL": 10,
+        #         "ErrorCode": 403,
+        #         "ResponseCode": 200,
+        #         "ResponsePagePath": "/index.html",
+        #     }
+        # ]
 
-        cfn_distribution.add_override( "Properties.DistributionConfig.CustomErrorResponses",   custom_error_response, )
-        cfn_distribution.add_property_override(property_path="DistributionConfig.Comment", value=f"{constants.CDK_APP_NAME}-{tier}")
+        # cfn_distribution.add_override( "Properties.DistributionConfig.CustomErrorResponses",   custom_error_response, )
 
         ### ------------------------
         autogen_cloudfront_domain :str = distribution.distribution_domain_name
         print( f"autogen_cloudfront_domain = '{autogen_cloudfront_domain}'" )
-
-        rt53_hosted_domain_name :str = re.sub( pattern="[a-zA-Z0-9]+\.", repl="", string=frontend_domain_name, count=1, )
-        print( f"rt53_hosted_domain_name   = '{rt53_hosted_domain_name}'" )
-
-        # hosted_zone = route53.HostedZone.from_lookup( self, "HostZone",
-        #     domain_name=rt53_hosted_domain_name,
-        #     private_zone=False,
-        # )
 
         ###___ if tier in constants.GIT_STD_BRANCHES:
         ###___     frontend_domain_name = f"{constants.WEBSITE_DOMAIN_PREFIX}.{domain_name}"
         ###___ else:  ### developer specific tier
         ###___     frontend_domain_name = f"{tier}.{domain_name}"
 
-        # certificate = acm.Certificate( scope=self, id="Certificate",
-        #     domain_name=frontend_domain_name,
-        #     validation=acm.CertificateValidation.from_dns(hosted_zone=hosted_zone),
+        ### Use "None" for Enterprise-hosted DNS framework.  --NO-- role for ERt.53 at all.
+        hosted_zone = None
+        aws_cert_validation = None
+        ### !! Uncomment the following if the Domain is HOSTED on a Rt.53 HostedZone
+        # rt53_hosted_domain_name :str = re.sub( pattern="[a-zA-Z0-9]+\.", repl="", string=frontend_domain_name, count=1, )
+        # print( f"rt53_hosted_domain_name   = '{rt53_hosted_domain_name}'" )
+        # hosted_zone = route53.HostedZone.from_lookup( self, "HostZone",
+        #     domain_name=rt53_hosted_domain_name,
+        #     private_zone=False,
         # )
-        # Tags.of(certificate).add(key="ResourceName", value="ACMCert-"+frontend_domain_name)
-        # # certificate = acm.DnsValidatedCertificate( ### Deprecated. Replaced by acm.Certificate()
-        # #     hosted_zone=hosted_zone,
-        # #     # domain_name=f"*.{domain_name}",  ### <<------ <<------ <<-------
-        # # )
+        # aws_cert_validation = aws_certificatemanager.CertificateValidation.from_dns(hosted_zone=hosted_zone)
+
+        certificate : aws_certificatemanager.ICertificate | None = None
+        if acm_ssl_cert_arn:
+            ### the SSL-Cert is specified somewhere (like inside cdk.json)
+            certificate = aws_certificatemanager.Certificate.from_certificate_arn( scope=self, id="Certificate",
+                                certificate_arn = acm_ssl_cert_arn,
+                    )
+            # # certificate = acm.DnsValidatedCertificate( ### Deprecated. Replaced by acm.Certificate()
+            # #     hosted_zone=hosted_zone,
+            # #     # domain_name=f"*.{domain_name}",  ### <<------ <<------ <<-------
+            # # )
+        else:
+            if frontend_domain_name:
+                certificate = aws_certificatemanager.Certificate( scope=self, id="Certificate",
+                                domain_name = frontend_domain_name,
+                                validation = aws_cert_validation,
+                            )
+        if frontend_domain_name and certificate:
+            Tags.of(certificate).add(key="ResourceName", value="ACMCert-"+frontend_domain_name)
 
         # viewer_certificate = aws_cloudfront.ViewerCertificate.from_acm_certificate(
         #     certificate=certificate, aliases=[frontend_domain_name]
@@ -425,14 +409,16 @@ class Frontend(Construct):
         # Tags.of(certificate).add(key="ResourceName", value="DNSCNAME-"+frontend_domain_name)
 
         # ### Cloudformation reference: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-distributionconfig.html#cfn-cloudfront-distribution-distributionconfig-aliases
-        # cfn_distribution.add_override( "Properties.DistributionConfig.Aliases", [ frontend_domain_name ], )
-        # cfn_distribution.add_override( "Properties.DistributionConfig.ViewerCertificate.AcmCertificateArn", certificate.certificate_arn, )
-        # cfn_distribution.add_override( "Properties.DistributionConfig.ViewerCertificate.SslSupportMethod", "sni-only", )
-        # cfn_distribution.add_override( "Properties.DistributionConfig.ViewerCertificate.MinimumProtocolVersion", "TLSv1.2_2021", )
+        if frontend_domain_name and certificate:
+            cfn_distribution.add_override( "Properties.DistributionConfig.Aliases", [ frontend_domain_name ], )
+            cfn_distribution.add_override( "Properties.DistributionConfig.ViewerCertificate.AcmCertificateArn", certificate.certificate_arn, )
+            cfn_distribution.add_override( "Properties.DistributionConfig.ViewerCertificate.SslSupportMethod", "sni-only", )
+            cfn_distribution.add_override( "Properties.DistributionConfig.ViewerCertificate.MinimumProtocolVersion", "TLSv1.2_2021", )
 
-        self.frontend_url = "https://"+ frontend_domain_name + "/" ### Attention: CloudFront requires the TRAILING '/' character!
+        self.frontend_url = "https://"+ (frontend_domain_name or "Undefined-in-cdk.json") + "/" ### Attention: CloudFront requires the TRAILING '/' character!
         self.cloudfront_s3 = cloudfront_s3
         self.distribution = distribution
+        self.frontend_bucket = cloudfront_s3.s3_bucket
         self.cf_bkt_deploy = cf_bkt_deploy
         # self.viewer_cert = viewer_certificate
 

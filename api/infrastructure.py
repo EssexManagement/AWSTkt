@@ -1,5 +1,7 @@
 from pathlib import Path
 from typing import Optional
+import re
+
 from constructs import Construct
 
 from aws_cdk import (
@@ -80,7 +82,7 @@ class Api(Construct):
             data_trace_enabled=True,
             logging_level=aws_apigateway.MethodLoggingLevel.INFO,
             metrics_enabled=True,
-            access_log_destination=aws_apigateway.LogGroupLogDestination(loggrp),
+            access_log_destination=aws_apigateway.LogGroupLogDestination(loggrp), # type: ignore
             access_log_format=aws_apigateway.AccessLogFormat.json_with_standard_fields(
                 caller=True,
                 http_method=True,
@@ -97,8 +99,8 @@ class Api(Construct):
         )
 
         ### APIGW & the only RESTAPI constructor -----------------------------------------
-        description = CdkDotJson_util.lkp_website_details( scope, tier )
-        description=f"This service serves {constants.HUMAN_FRIENDLY_APP_NAME} at {description} -- created by Stack: {stk.stack_name}."
+        _, fqdn, _ = CdkDotJson_util.lkp_website_details( scope, tier )
+        description=f"This service serves {constants.HUMAN_FRIENDLY_APP_NAME} at {fqdn} -- created by Stack: {stk.stack_name}."
         self.api = aws_apigateway.RestApi( self, "emfact-api",
             rest_api_name = f"{stk.stack_name}-emfact-api",
             description = description,
@@ -114,7 +116,7 @@ class Api(Construct):
         ### Security & Audit-Compliance configuration -------------------------
         if datadog_destination:
             aws_logs.SubscriptionFilter( scope=self, id="_logs-subscfilter_"+ loggrp.node.id,                           ### https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_logs/SubscriptionFilter.html
-                destination = datadog_destination,
+                destination = datadog_destination, # type: ignore
                 log_group = loggrp,
                 filter_pattern = aws_logs.FilterPattern.all_events(),
                 # filter_name= automatically genereated if NOT specified
@@ -131,8 +133,8 @@ class Api(Construct):
                 web_acl_arn=web_acl_arn,
                 resource_arn=apigw_stage_arn,
             )
-            wafaclass.add_dependency(self.api.node.default_child)
-            wafaclass.add_dependency(self.api.deployment_stage.node.default_child)
+            wafaclass.add_dependency(self.api.node.default_child) # type: ignore
+            wafaclass.add_dependency(self.api.deployment_stage.node.default_child) # type: ignore
 
         ### common authorizer for all Lambdas ------------------------------------
         self.my_authorizer = aws_apigateway.CognitoUserPoolsAuthorizer( self, "emFactAuthorizer",
@@ -165,12 +167,45 @@ class Api(Construct):
         a_lambda :dict
         for a_lambda in lambda_configs.list:
 
+            index :str = config.LambdaConfigs.get_lambda_index( a_lambda ) # type: ignore
             handler = config.LambdaConfigs.get_handler(a_lambda)
-
-            http_method :Optional[str] = config.LambdaConfigs.get_http_method(a_lambda)
+            entry   = config.LambdaConfigs.get_lambda_entry( a_lambda )
             apigw_res_path :Optional[str] = config.LambdaConfigs.get_apigw_path(a_lambda)
-            function_name = aws_names.gen_lambda_name( tier=tier, simple_lambda_name=handler )
+            simple_name = config.LambdaConfigs.get_simple_name(a_lambda)
+            print(f'simple_name={simple_name}:index={index}:apigw_res_path={apigw_res_path}:handler={handler}:entry={entry}')
+            # TODO: Should fix this more
+            # now the criteria for ETL Lambda is not having api_gw_path and having default handler name
+            """ SCENARIO:
+                When .. for this item, the name of the python-handler is the worldwide default (`lambda_handler`).
+                .. and the name of the PY-module is --NO-- good to be used as the Lambda's name (for whatever reason)
+                that's when you use the "simple-name" of a lambda (without CDK_APP_NAME and TIER) .. ..
+                It defaults to the value returned by `get_handler(item)` ONLY if that is a unique-value.
+                ELSE it next defaults to the value returned by `get_apigw_path(item)` which better be Not `None`.
+                Else, an exception is raised.
+            """
+            if not simple_name:
+                if (not handler or handler == config.DEFAULT_LAMBDA_HANDLER):
+                    if not apigw_res_path:
+                        simple_name = re.sub(r"\./", "_", index.replace(".py", ""))
+                        # raise Exception(f"get_simple_name() is not defined, when the Handler-method is the generic '{DEFAULT_LAMBDA_HANDLER}' for item = '{a_lambda}'")
+                    else:
+                        simple_name = apigw_res_path
+                else:
+                    if not apigw_res_path:
+                        simple_name = handler
+                    else:
+                        simple_name = apigw_res_path
 
+            # if not apigw_res_path and handler == DEFAULT_LAMBDA_HANDLER:
+            #     ### This is for ETL-Lambdas that can NOT be accessed via APIGW.
+            #     h = re.sub(r"\./", "_", index.replace(".py", ""))
+            #     function_name= aws_names.gen_lambda_name( tier=tier, simple_lambda_name = h )
+            # else:
+            #     function_name= aws_names.gen_lambda_name( tier=tier, simple_lambda_name=simple_name )
+            function_name= aws_names.gen_lambda_name( tier=tier, simple_lambda_name=simple_name )
+            http_method :Optional[str] = config.LambdaConfigs.get_http_method(a_lambda)
+
+            ### -------
             # for (simple_resource_name, http_method, handler_id, handler_file) in config.api_resources:
             print( f"INTEGRATING(with-APIGW) Lambda {function_name}: http-{http_method} --- inside Api(constructor) within "+ __file__ )
 
@@ -186,19 +221,20 @@ class Api(Construct):
                 # authorizer_id = None
 
             fn :aws_lambda.IFunction = aws_lambda.Function.from_function_name( scope=self,
-                    id="lkp-"+handler,
+                    id = "lkp-"+(handler if handler else "None"),
                     function_name=function_name,
             )
 
-            ### Integrate pre-existing/previously-deployed Lambda with APIGW
-            get_lambda_int_resource_method(
-                fn = fn,
-                api_resource = self.api_v1_resource,
-                resource_name = apigw_res_path,
-                method = http_method,
-                authorizer = self.my_authorizer if is_auth_needed else None,
-                # authorizer_id = self.my_authorizer.authorizer_id if self.my_authorizer else None,
-            )
+            if apigw_res_path:
+                ### Integrate pre-existing/previously-deployed Lambda with APIGW
+                get_lambda_int_resource_method(
+                    fn = fn,
+                    api_resource = self.api_v1_resource,
+                    resource_name = apigw_res_path,
+                    method = http_method,
+                    authorizer = self.my_authorizer if is_auth_needed else None, # type: ignore
+                    # authorizer_id = self.my_authorizer.authorizer_id if self.my_authorizer else None,
+                )
 
         self.public_api_FQDN = self.api.rest_api_id + f".execute-api.{stk.region}.{stk.url_suffix}"
         print( f"public_api_FQDN = '{self.public_api_FQDN}'")

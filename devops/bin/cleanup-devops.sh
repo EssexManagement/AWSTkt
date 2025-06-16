@@ -27,8 +27,9 @@ PYTHON_VERSION="3.12"
 SCRIPT_FOLDER="$(dirname ${BASH_SOURCE[0]})"
 SCRIPT_NAME="$(basename ${BASH_SOURCE[0]})"
 CWD="$(pwd)"
+# OPS_SCRIPT_FOLDER="$( \cd "${SCRIPT_FOLDER}/../../operations/bin"; pwd  )"
 
-# .  "${SCRIPT_FOLDER}/settings.sh"
+#   .   "${OPS_SCRIPT_FOLDER}/common-settings.sh"
 
 # if [ ! -z "${PROJECT_NAME+x}" ]; then
 #     KNOWN_PROJ_ITEMS=~/LocalDevelopment/etc/cfn-lint-ignore_${PROJECT_NAME}.txt

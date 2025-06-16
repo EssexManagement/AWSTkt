@@ -62,26 +62,27 @@ Files2bCompared=(
     # ./common/cdk/StandardCodeBuild.py
     # ./common/cdk/StandardCodePipeline.py
 
-    ./cdk_utils/
-    ./common/cdk/
+    ./cdk_utils
+
+    ./api/config.py
+    ./api/infrastructure*.py
+    ./api/*.sh
 
     ./cognito/infrastructure.py
     ./cognito/src/*.py
 
     ./backend/common_aws_resources_stack.py
-    ./backend/vpc_w_subnets.py
-    ./backend/database/
+    # ./backend/database/
+    ./backend/database/vpc_rds
+    ./backend/database/README*
+    ./backend/src
     ./backend/infra
-    ./backend/lambda_layer/
-    ./backend/sqs_cdk.py
-    # ./backend/database/vpc_rds/
-    # ./backend/database/vpc_rds/lambda/
-    # ./backend/database/rds_init/__init__.py
-    # ./backend/database/rds_init/README.md
-    # ./backend/database/rds_init/infrastructure.py
+    ./backend/lambda_layer
 
-    ./backend/etl/__init__.py
-    ./backend/etl/infrastructure.py
+    ./backend/common_aws_resources_stack.py
+
+    # ./backend/etl/__init__.py
+    # ./backend/etl/infrastructure.py
     # ./backend/etl/runtime/
     # ./backend/etl/runtime/connectors/
     # ./backend/etl/runtime/database
@@ -95,17 +96,8 @@ Files2bCompared=(
     # ./backend/etl/tests/unittests/
     # ./backend/etl/tests/unittests/test_utils/
     # ./backend/etl/scripts/
-    ./backend/common_aws_resources_stack.py
 
-    ./api/config.py
-    ./api/infrastructure*.py
-    ./api/*.sh
-
-    ./scripts/common-settings.sh
-
-    ./app_pipeline/__init__.py
-    ./app_pipeline/pipeline.py
-    ./app_pipeline/BackendStacks.py
+    ./app_pipeline/*.py
 
     ./devops
     # ./devops/pipeline.py
@@ -139,11 +131,16 @@ Files2bCompared=(
     # ./devops/cleanup-stacks/README.md
     # ./devops/cleanup-stacks/tsconfig.json
 
-    ./operations/bin/
-    ./operations/pipeline.py
-    ./operations/CloudFormation/*
+    ./frontend/README*
+    ./frontend/infrastructure
 
     ./docs/
+
+    ./operations/bin
+    ./operations/pipeline.py
+    ./operations/CloudFormation
+    ./operations/AWS-SAM
+    ./operations/CDK
 
 )
 
@@ -186,10 +183,13 @@ rm -rf "${TMPFILE11}" "${TMPFILE22}" "${TMPDIFFOUTP}"
 SCRIPT_FOLDER="$(dirname ${BASH_SOURCE[0]})"
 SCRIPT_NAME="$(basename ${BASH_SOURCE[0]})"
 CWD="$(pwd)"
+OPS_SCRIPT_FOLDER="$( \cd "${SCRIPT_FOLDER}/../../operations/bin"; pwd  )"
 
 ### .........................
 
-   .     ${SCRIPT_FOLDER}/common/sync-folder-utility-functions.sh
+    .     ${SCRIPT_FOLDER}/common/sync-folder-utility-functions.sh
+
+#   .   "${OPS_SCRIPT_FOLDER}/common-settings.sh"
 
     ### This above line re: `sync-folder-utility-functions.sh` .. requires BOTH `TMPFILE??` as well as `SCRIPT_FOLDER` variables to be defined!!
 

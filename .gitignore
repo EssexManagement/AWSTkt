@@ -1,3 +1,4 @@
+.DS_Store
 *.swp
 __pycache__
 .pytest_cache
@@ -12,15 +13,29 @@ __pycache__
 node_modules
 .vscode
 .aws-sam
+build/
+dist/
 
 # macOS
 .DS_Store
+.VSCodeCounter/
 
-# CDK asset staging directory
+# CDK
+cdk.context.json
 .cdk.staging
 cdk.out
 my-notes.md
-tmp
+tmp/
+
+json-export-of_*.json
 
 backend/lambda_layer/*/.cache
 backend/lambda_layer/*/.local
+backend/lambda_layer/weasy*/build/
+backend/lambda_layer/weasy*/**/*.zip
+
+tests/bdd_tests/node_modules/*
+tests/bdd_tests/package-lock.json
+tests/bdd_tests/chromedriver.log
+tests/bdd_tests/cucumber_results/*
+tests/bdd_tests/results/screenshots/*

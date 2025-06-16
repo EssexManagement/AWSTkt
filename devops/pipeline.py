@@ -108,7 +108,7 @@ class MultiCdkSubProjectsPipeline(Construct):
         pipeline_source_gitbranch :str,
         codebase_root_folder :str,
         sub_projects :dict,
-        codebase_ignore_paths :str,
+        codebase_ignore_paths :list[str],
         **kwargs
     ) -> None:
         """
@@ -188,8 +188,8 @@ class MultiCdkSubProjectsPipeline(Construct):
             #     simple_resource_name=subproj_name,
             # )
 
-            a_build_action :aws_codepipeline_actions.CodeBuildAction = None
-            a_build_output :codepipeline.Artifact = None
+            a_build_action :Optional[aws_codepipeline_actions.CodeBuildAction] = None
+            a_build_output :Optional[codepipeline.Artifact] = None
 
             # within the folder f'./{subproj_name}', if there's a file 'template.yaml' set the variable "aws_sam_project" to true
             cdk_project :bool     = pathlib.Path(f'{codebase_root_folder}/{subproj_name}/cdk.json').exists();
@@ -202,7 +202,6 @@ class MultiCdkSubProjectsPipeline(Construct):
 
                 if not python_cdk_project:
                     ### Purely JavaScript/TypeScript/NodeJS-based CDK-project
-                    # -ONLY- pure cdk-SYNTH actions within CodePipeline
                     a_build_action, a_build_output = common.cdk.StandardCodeBuild.standard_CodeBuildDeploy_NodeJS(
                         cdk_scope = self,
                         tier = tier,
@@ -210,9 +209,10 @@ class MultiCdkSubProjectsPipeline(Construct):
                         subproj_name = subproj_name,
                         cb_proj_name = f"{common_label}_{subproj_name}",
                         source_artifact = my_source_artif,
+                        whether_to_switch_git_commithash = (tier   not   in constants.STD_TIERS), ### True for developer-branches/ticket-tiers only
                         whether_to_use_adv_caching = constants_cdk.use_advanced_codebuild_cache( tier ),
-                        my_pipeline_artifact_bkt = my_pipeline_v2.my_pipeline_artifact_bkt,
-                        my_pipeline_artifact_bkt_name = my_pipeline_v2.my_pipeline_artifact_bkt_name,
+                        my_pipeline_artifact_bkt = my_pipeline_v2.my_pipeline_artifact_bkt, # type: ignore
+                        my_pipeline_artifact_bkt_name = my_pipeline_v2.my_pipeline_artifact_bkt_name, # type: ignore
                     )
                 else:
                     ### this is a Python-based CDK-project
@@ -224,9 +224,10 @@ class MultiCdkSubProjectsPipeline(Construct):
                         subproj_name = subproj_name,
                         cb_proj_name = f"{common_label}_{subproj_name}",
                         source_artifact = my_source_artif,
+                        whether_to_switch_git_commithash = (tier   not   in constants.STD_TIERS), ### True for developer-branches/ticket-tiers only
                         whether_to_use_adv_caching = constants_cdk.use_advanced_codebuild_cache( tier ),
-                        my_pipeline_artifact_bkt = my_pipeline_v2.my_pipeline_artifact_bkt,
-                        my_pipeline_artifact_bkt_name = my_pipeline_v2.my_pipeline_artifact_bkt_name,
+                        my_pipeline_artifact_bkt = my_pipeline_v2.my_pipeline_artifact_bkt, # type: ignore
+                        my_pipeline_artifact_bkt_name = my_pipeline_v2.my_pipeline_artifact_bkt_name, # type: ignore
                     )
 
                 build_stage_actions.append(a_build_action)
@@ -245,9 +246,10 @@ class MultiCdkSubProjectsPipeline(Construct):
                         stack_name   = subproj_stkname,
                         source_artifact = my_source_artif,
                         addl_env_vars = { },
+                        whether_to_switch_git_commithash = (tier   not   in constants.STD_TIERS), ### True for developer-branches/ticket-tiers only
                         whether_to_use_adv_caching = constants_cdk.use_advanced_codebuild_cache( tier ),
-                        my_pipeline_artifact_bkt = my_pipeline_v2.my_pipeline_artifact_bkt,
-                        my_pipeline_artifact_bkt_name = my_pipeline_v2.my_pipeline_artifact_bkt_name,
+                        my_pipeline_artifact_bkt = my_pipeline_v2.my_pipeline_artifact_bkt, # type: ignore
+                        my_pipeline_artifact_bkt_name = my_pipeline_v2.my_pipeline_artifact_bkt_name, # type: ignore
                     )
 
                     deploy_stage_actions.append(a_deploy_action)

@@ -55,7 +55,7 @@ class Frontend2ndOrigin(Construct):
         # imported_api_url = Fn.import_value(f"{backend_stateless_stack}-PublicAPIGWUrl")
         # public_api_FQDN = Fn.parse_domain_name(distribution.distribution_domain_name)
 
-        if tier not in constants.UPPER_TIER_NAMES: ### Developer-branch tier
+        if tier not in constants.UPPER_TIERS: ### Developer-branch tier
             referrer_policy=cloudfront.HeadersReferrerPolicy.NO_REFERRER
         else:
             referrer_policy=cloudfront.HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN
@@ -81,7 +81,7 @@ class Frontend2ndOrigin(Construct):
         )
 
         ### ------- Cloudfront-Options ---------
-        if tier in constants.PROD_TIER_NAMES:
+        if tier in constants.PROD_TIER:
             ### Do NOT allow localhost-CORS within PROD/UAT tiers.
             my_cors_behavior = None
         else:
@@ -160,9 +160,10 @@ class Frontend2ndOrigin(Construct):
         # } if x_origin_verify_hdr_secret else None
 
         api_origin = origins.HttpOrigin(
-            domain_name=public_api_FQDN,
-            origin_path=f"/{self.tier}",
-            custom_headers=api_origin_custom_headers
+            domain_name = public_api_FQDN,
+            origin_path = f"/prod",
+            # origin_path = f"/{tier}",
+            custom_headers = api_origin_custom_headers
         )
 
         distribution.add_behavior(

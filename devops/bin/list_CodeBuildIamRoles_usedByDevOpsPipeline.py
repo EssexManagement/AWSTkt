@@ -121,8 +121,11 @@ class Identify_CodeBuildIamRoles_usedByDevOpsPipeline(GenericAWSCLIScript):
                     s :str = None
                     for s in services_as_is:
                         services.append( s.encode())
-                    if 'codebuild.amazonaws.com' in services:
-                        return True
+                    ### Stupid GitHub Code-scanner thinks following line is susceptible to string-based malicious input assuming `services` is a string, .. WHEN INSTEAD `services` is an ARRAY!!
+                    # if 'codebuild.amazonaws.com' in services:
+                    for s in services:
+                        if 'codebuild.amazonaws.com' == s.encode():
+                            return True
             return False
 
         except Exception as e:

@@ -1,15 +1,19 @@
 #!/bin/bash -f
 
-if [ $# -le 1 ]; then
-    echo "Usage: $0 <resource-name> <tag-command>"
-    echo "Example: $0 ec2   create-tags  --resources    ARN"
-    echo "Example: $0 sesv2 tag-resource --resource-arn ARN"
+if [ $# -le 5 ]; then
+    echo "Usage: $0 <AWS-CLI-Profile>  <Tier>  <resource-name> <tag-command>"
+    echo "Example: $0 CTF-nonprod-devops dev   secretsmanager   tag-resource  --secret-id    ${SecretId}"
+    echo "Example: $0 CTF-nonprod-devops dev   ec2   create-tags  --resources    ${ARN}"
+    echo "Example: $0 CTF-nonprod-devops dev   tag-resource --resource-arn ${ARN}"
     exit 1
 fi
 
-AWSPROFILE="CTF-nonprod-devops";
+##__ AWSPROFILE="CTF-nonprod-devops";
+AWSPROFILE="$1"
 AWSREGION="us-east-1";
-TIER="dev";
+TIER="$2";
+shift
+shift
 
 Tags=(
     "Key"="application","Value"="CTF"
@@ -29,12 +33,28 @@ Tags=(
     "Key"="VERSION","Value"="main"
 )
 
+TagTags=()
+for kvpair in ${Tags[@]}; do
+    tagsPair=${kvpair}
+    tagsPair=$( echo ${tagsPair} | sed -e 's|"*Key"*=|TagKey=|' )
+    tagsPair=$( echo ${tagsPair} | sed -e 's|"*Value"*=|TagValue=|' )
+    # tagsPair=$( echo ${tagsPair} | tr "," " " )
+    TagTags+=( "${tagsPair}" )
+done
+
+# echo "${TagTags[@]}"
+
 echo; echo;
 echo \
 aws $* --tags ${Tags[@]} --profile ${AWSPROFILE} --region ${AWSREGION}
 echo;
+echo "AWS-Service is = '$1'"; echo;
 read -p "Proceed? >>" ANS
 
-aws $* --tags ${Tags[@]} --profile ${AWSPROFILE} --region ${AWSREGION}
+if [ "$1" == "kms" ];  then
+    aws $* --tags ${TagTags[@]} --profile ${AWSPROFILE} --region ${AWSREGION}
+else
+    aws $* --tags ${Tags[@]} --profile ${AWSPROFILE} --region ${AWSREGION}
+fi
 
 ### EoScript

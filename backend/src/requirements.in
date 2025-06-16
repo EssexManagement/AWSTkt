@@ -1,0 +1,10 @@
+# python -m pip install --upgrade pip
+# python -m pip install pip-tools
+# python -m piptools compile --quiet requirements.in  ### --resolver=backtracking
+# python -m piptools sync
+
+# botocore==1.34.136
+# boto3==1.34.136
+# PyYAML==6.0.1  ### This is already in the psycopg3-pandas Lambda Layer
+
+### EoF

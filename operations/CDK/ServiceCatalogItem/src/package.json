@@ -1,0 +1,14 @@
+{
+    "name": "parent-folder-to-multiple-subprojects__npm-run-build",
+    "version": "1.0.0",
+    "description": "A GENERIC parent-project that will automatically run `npm run build` on MULTIPLE subfolders.  Makes for simplified way for CodeBuild to build + cdk-deploy",
+    "author": "Sarma Seetamraju",
+    "license": "MIT",
+    "scripts": {
+        "build": "./do-npm-run-build-for-subfolders.sh"
+    },
+    "dependencies": {
+    },
+    "devDependencies": {
+    }
+}

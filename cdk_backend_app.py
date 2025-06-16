@@ -152,7 +152,7 @@ app.synth()
 
 # Backend Constructs
 from backend.infra.cdk_tests.test_cdk_backend_stk import test_backend_cdk_synth
-test_backend_cdk_synth(app)
+test_backend_cdk_synth(app, tier, aws_env, git_branch)
 
 # ETL constructs
 # from backend.infrastructure.cdk_tests.test_cdk_etl_stk import test_etl_cdk_synth

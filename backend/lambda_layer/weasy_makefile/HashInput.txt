@@ -1,0 +1,375 @@
+# Use Ubuntu latest as base image
+FROM ubuntu:latest
+
+# Install necessary build tools, dependencies, and Docker
+RUN apt-get update && apt-get install -y \
+    make \
+    build-essential \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    gnupg \
+    lsb-release \
+    && rm -rf /var/lib/apt/lists/* \
+    # Add Docker's official GPG key
+    && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
+    # Add Docker repository
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null \
+    # Install Docker CLI
+    && apt-get update \
+    && apt-get install -y docker-ce-cli \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set the working directory
+WORKDIR /app
+
+# First, create the build directory
+RUN mkdir -p build
+
+# Copy only specific files&folders, excluding `build/`
+COPY Dockerfile Makefile README.md lambda_layer_weasy.py requirements.txt ./
+COPY fonts/ ./fonts/
+COPY weasyprint/ ./weasyprint/
+
+# Run the make command with specified parameters
+CMD ["make", "CPU_ARCH=x86_64", "RUNTIME=3.12"]
+from pathlib import Path
+from aws_cdk import aws_lambda
+
+import constants
+import common.cdk.constants_cdk as constants_cdk
+from common.cdk.standard_lambda import LambdaLayerOption
+from common.cdk.StandardLambdaLayer import LambdaLayerProps
+
+pyver = constants_cdk.LAMBDA_PYTHON_RUNTIME_VER_STR
+cpustr = aws_lambda.Architecture.X86_64.name
+
+props = LambdaLayerProps(
+    lambda_layer_id = "weasy",
+    lambda_layer_fldr = Path(__file__).parent,
+    # lambda_layer_fldr = constants.PROJ_ROOT_FLDR_PATH / 'api/lambda_layer/psycopg',
+    lambda_layer_sizing_option = LambdaLayerOption.LARGER_ZIP_FILE_FASTER_COLDSTART,
+
+    cpu_arch = [ aws_lambda.Architecture.X86_64 ],   ### Python does NOT check.  So, make sure this is a list/ARRAY!
+    builder_cmd = f"make CPU_ARCH={cpustr} RUNTIME={pyver}",
+    lambda_layer_zipfilename = f"layer-weasyprint-{pyver}-{cpustr}.zip",
+    # lambda_layer_zipfilename = f"layer-weasyprint-3.12-x86_64.zip",
+)
+
+### EoF
+CPU_ARCH ?= x86_64
+RUNTIME ?= 3.12
+TEST_FILENAME ?= report.pdf
+
+PLATFORM = linux/${CPU_ARCH}
+# PLATFORM ?= linux/amd64  ### Did Not work for NCCR-on-CloudOne
+# PLATFORM ?= linux/arm64  ### Did Not work for NCCR-on-CloudOne; `make` failed on GH-Actions
+DOCKER_RUN=docker run --rm --platform=${PLATFORM}
+LAMBDALAYER_NAME = weasyprint
+LAMBDALAYER_ZIP_FILENAME = layer-${LAMBDALAYER_NAME}-${RUNTIME}-${CPU_ARCH}
+
+### Define the default target
+.DEFAULT_GOAL := all
+# .DEFAULT_GOAL := build/${LAMBDALAYER_ZIP_FILENAME}.zip
+# .DEFAULT_GOAL := build/weasyprint-layer-python$(RUNTIME).zip
+
+.PHONY: stack.deploy.weasyprint clean test.start.container test.print.report all didSomethingChange
+
+# all: build/${LAMBDALAYER_ZIP_FILENAME}.zip
+# all: build/weasyprint-layer-python$(RUNTIME).zip
+all: didSomethingChange
+
+### Target to check for changes
+didSomethingChange:
+	./did-something-change.sh; \
+	if [ $$? -eq 0 ]; then \
+		$(MAKE) build/${LAMBDALAYER_ZIP_FILENAME}.zip CPU_ARCH=${CPU_ARCH} RUNTIME=${RUNTIME}; \
+	else \
+		exit 11; \
+	fi
+
+# build/weasyprint-layer-python$(RUNTIME).zip: weasyprint/layer_builder.sh
+build/${LAMBDALAYER_ZIP_FILENAME}.zip: weasyprint/layer_builder.sh \
+    build/fonts-${LAMBDALAYER_ZIP_FILENAME}.zip \
+    | _build
+	${DOCKER_RUN} \
+	    -v `pwd`/weasyprint:/out \
+			--entrypoint "/out/layer_builder.sh" \
+	    -t public.ecr.aws/lambda/python:${RUNTIME} ${CPU_ARCH}
+	mv -f ./weasyprint/layer.zip ./build/${LAMBDALAYER_ZIP_FILENAME}-no-fonts.zip
+	cd build && rm -rf ./opt && mkdir opt \
+	    && unzip fonts-${LAMBDALAYER_ZIP_FILENAME}.zip -d opt \
+	    && unzip ${LAMBDALAYER_ZIP_FILENAME}-no-fonts.zip -d opt \
+	    && cd opt && zip -r9 ../${LAMBDALAYER_ZIP_FILENAME}.zip .
+
+# mv -f ./weasyprint/layer.zip ./build/weasyprint-layer-python${RUNTIME}-no-fonts.zip
+
+# && unzip weasyprint-layer-python${RUNTIME}-no-fonts.zip -d opt \
+# && cd opt && zip -r9 ../weasyprint-layer-python${RUNTIME}.zip .
+
+build/fonts-${LAMBDALAYER_ZIP_FILENAME}.zip: fonts/layer_builder.sh | _build
+	${DOCKER_RUN} \
+	    -v `pwd`/fonts:/out \
+	    --entrypoint "/out/layer_builder.sh" \
+	    -t public.ecr.aws/lambda/python:${RUNTIME} ${CPU_ARCH}
+	mv -f ./fonts/layer.zip $@
+
+stack.diff:
+	cd cdk-stacks && npm install && npm run build
+	cdk diff --app ./cdk-stacks/bin/app.js --stack PrintStack --parameters uploadBucketName=${BUCKET}
+
+stack.deploy:
+	cd cdk-stacks && npm install && npm run build
+	cdk deploy --app ./cdk-stacks/bin/app.js --stack PrintStack --parameters uploadBucketName=${BUCKET}
+
+# test.start.container: build/weasyprint-layer-python$(RUNTIME).zip
+test.start.container: build/${LAMBDALAYER_ZIP_FILENAME}.zip
+	${DOCKER_RUN} \
+	    -e GDK_PIXBUF_MODULE_FILE="/opt/lib/loaders.cache" \
+	    -e FONTCONFIG_PATH="/opt/fonts" \
+	    -e XDG_DATA_DIRS="/opt/lib" \
+	    -v `pwd`/weasyprint:/var/task \
+	    -v `pwd`/build/opt:/opt \
+			-p 9000:8080 \
+			public.ecr.aws/lambda/python:${RUNTIME} \
+	    test_makefile_lambda_function.lambda_handler
+
+test.print.report:
+	which jq
+	curl --fail -s -S -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" \
+		-d '{"return": "base64", "filename": "${TEST_FILENAME}", "url": "https://kotify.github.io/cloud-print-utils/samples/report/"}' \
+		| tail -1 | jq .body | tr -d '"' | base64 -d > ${TEST_FILENAME}
+	@echo "Check ./${TEST_FILENAME}, eg.: xdg-open ${TEST_FILENAME}"
+
+
+_build:
+	@mkdir -p build
+
+clean:
+	rm -rf ./build
+
+### EoF
+PLATFORM ?= linux/amd64
+ifeq ($(PLATFORM), linux/arm64)
+ RIE_BIN=aws-lambda-rie-arm64
+else
+ RIE_BIN=aws-lambda-rie
+endif
+
+${RIE_BIN}/aws-lambda-rie:
+	mkdir -p ./${RIE_BIN}
+	curl -Lo ./${RIE_BIN}/aws-lambda-rie https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/${RIE_BIN}
+	chmod +x ./${RIE_BIN}/aws-lambda-rie
+
+build:
+	docker build --tag lambda/weasyprint --platform=${PLATFORM} .
+
+run: build ${RIE_BIN}/aws-lambda-rie
+	docker run --rm -v `pwd`/${RIE_BIN}:/aws-lambda -p 9000:8080 \
+       --entrypoint "/aws-lambda/aws-lambda-rie" lambda/weasyprint \
+			 /usr/local/bin/python -m awslambdaric lambda_function.lambda_handler
+
+test:
+	curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" \
+		-d '{"return": "base64", "filename": "report.pdf", "url": "https://kotify.github.io/cloud-print-utils/samples/report/"}' \
+		| jq .body | tr -d '"' | base64 -d > report.pdf
+#!/bin/bash
+# Don't forget to set these env variables in aws lambda
+# GDK_PIXBUF_MODULE_FILE="/opt/lib/loaders.cache"
+# XDG_DATA_DIRS="/opt/lib"
+set -e
+
+echo "$0 : # of args = '$#'"
+echo "$0 : 1st cli arg = '$1'"
+
+if [ $# -ne 1 ]; then
+  CPU_ARCH="x86_64"
+  echo "$0 : !! NOT SPECIFIED .. CPU_ARCH !!! Defaulting to x86_64";
+else
+  CPU_ARCH=$1
+  echo "$0 : Building for '${CPU_ARCH}' ..";
+fi
+
+dnf install -y rpmdevtools
+cd /tmp
+
+### Attention: Do -NOT- download latest versions automatically.
+### Freeze the version#s, as shown 20-lines below.
+# dnf download cairo
+# dnf download gdk-pixbuf2
+# dnf download libffi
+# dnf download pango
+# dnf download expat
+# dnf download libmount
+# dnf download libuuid
+# dnf download libblkid
+# dnf download glib2
+# dnf download libthai
+# dnf download fribidi
+# dnf download harfbuzz
+# dnf download libdatrie
+# dnf download freetype
+# dnf download graphite2
+# dnf download libbrotli
+# dnf download libpng
+# dnf download fontconfig
+
+printf "%.0s^" {1..120}; echo ''
+
+dnf download cairo-1.17.6-2.amzn2023.0.1.${CPU_ARCH}
+dnf download gdk-pixbuf2-2.42.10-1.amzn2023.0.1.${CPU_ARCH}
+dnf download libffi-3.4.4-1.amzn2023.0.1.${CPU_ARCH}
+dnf download pango-1.48.10-1.amzn2023.0.3.${CPU_ARCH}
+dnf download expat-2.5.0-1.amzn2023.0.4.${CPU_ARCH}
+dnf download libmount-2.37.4-1.amzn2023.0.4.${CPU_ARCH}
+dnf download libuuid-2.37.4-1.amzn2023.0.4.${CPU_ARCH}
+dnf download libblkid-2.37.4-1.amzn2023.0.4.${CPU_ARCH}
+dnf download glib2-2.74.7-689.amzn2023.0.2.${CPU_ARCH}
+dnf download libthai-0.1.28-6.amzn2023.0.2.${CPU_ARCH}
+dnf download fribidi-1.0.11-3.amzn2023.0.2.${CPU_ARCH}
+dnf download harfbuzz-7.0.0-2.amzn2023.0.1.${CPU_ARCH}
+dnf download libdatrie-0.2.13-1.amzn2023.0.2.${CPU_ARCH}
+dnf download freetype-2.13.0-2.amzn2023.0.1.${CPU_ARCH}
+dnf download graphite2-1.3.14-7.amzn2023.0.2.${CPU_ARCH}
+dnf download libbrotli-1.0.9-4.amzn2023.0.2.${CPU_ARCH}
+dnf download libpng-2:1.6.37-10.amzn2023.0.6.${CPU_ARCH}
+dnf download fontconfig-2.13.94-2.amzn2023.0.2.${CPU_ARCH}
+
+printf "%.0s_" {1..120}; echo ''
+
+# pixbuf need mime database
+# https://www.linuxtopia.org/online_books/linux_desktop_guides/gnome_2.14_admin_guide/mimetypes-database.html
+dnf download shared-mime-info
+
+rpmdev-extract -- *rpm
+
+mkdir /opt/lib
+cp -P -r /tmp/*/usr/lib64/* /opt/lib
+for f in $(find /tmp  -type f  -name 'lib*.so*'); do
+  cp "$f" /opt/lib/$(python -c "import re; print(re.match(r'^(.*.so.\d+).*$', '$(basename $f)').groups()[0])");
+done
+# pixbuf need list loaders cache
+# https://developer.gnome.org/gdk-pixbuf/stable/gdk-pixbuf-query-loaders.html
+PIXBUF_BIN=$(find /tmp -name gdk-pixbuf-query-loaders-64)
+GDK_PIXBUF_MODULEDIR=$(find /opt/lib/gdk-pixbuf-2.0/ -name loaders)
+export GDK_PIXBUF_MODULEDIR
+$PIXBUF_BIN > /opt/lib/loaders.cache
+
+RUNTIME=$(grep AWS_EXECUTION_ENV "$LAMBDA_RUNTIME_DIR/bootstrap" | cut -d _ -f 5)
+export RUNTIME
+mkdir -p "/opt/python"
+python -m pip install --platform manylinux2014_x86_64 --only-binary=:all: "weasyprint" -t "/opt/python"
+### Note: The following error, requires use of above option "--only-binary=:all:"
+### ERROR: When restricting platform and interpreter constraints using --python-version, --platform, --abi, or --implementation, either --no-deps must be set, or --only-binary=:all: must be set and --no-binary must not be set (or must be set to :none:).
+
+cd /opt
+zip -r9 /out/layer.zip lib/* python/*
+# WeasyPrint AWS Lambda
+
+## Native layer
+
+Build layer (from parent folder):
+
+    $ make build/weasyprint-layer-python3.12.zip
+
+    # to test your build run
+    $ make test.print.report
+
+Deploy layer:
+
+    $ aws lambda publish-layer-version \
+        --region <region> \
+        --layer-name <name> \
+        --zip-file fileb://build/weasyprint-layer-python3.12.zip
+
+Lambda must be configured with these env vars:
+
+    GDK_PIXBUF_MODULE_FILE="/opt/lib/loaders.cache"
+    FONTCONFIG_PATH="/opt/fonts"
+    XDG_DATA_DIRS="/opt/lib"
+
+## Docker Lambda
+
+Build layer:
+
+    $ make build
+
+Test layer:
+
+    $ make run
+
+    # in another terminal
+    $ make test
+    # result saved in report.pdf
+
+## Lambda Function
+
+Simple lambda function [provided](./lambda_function.py),
+it requires `BUCKET=<bucket name>` env variable if files stored on s3.
+
+Example payload to print pdf from url and return link to s3:
+
+    {"url": "https://kotify.github.io/cloud-print-utils/samples/report/", "filename": "/path/on/s3/report.pdf"}
+
+Example paylod to print pdf from html and css data and return pdf content encoded as base64:
+
+    {"html": "<html><h1>Header</h1></html>", "css": "h1 { color: red }", "filename": "report.pdf", "return": "base64"}
+#!/bin/bash
+# don't fortget to set FONTCONFIG_PATH="/opt/fonts" in your lambda
+set -e
+
+dnf install -y rpmdevtools
+
+cd /tmp
+# download fonts
+dnf download dejavu-sans-fonts
+dnf download dejavu-serif-fonts
+dnf download dejavu-sans-mono-fonts
+
+rpmdev-extract -- *rpm
+
+mkdir /opt/fonts
+# dnf download urw-base35-nimbus-roman-fonts
+# find /tmp/*/usr/share/fonts -name '*.afm' -delete -o -name '*.t1' -delete
+cp -P -r /tmp/*/usr/share/fonts/* /opt/fonts
+
+cat > /opt/fonts/fonts.conf <<EOF
+<?xml version="1.0" ?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<fontconfig>
+  <dir>/opt/fonts/</dir>
+  <cachedir>/tmp/fonts-cache/</cachedir>
+
+  <match target="pattern">
+    <test qual="any" name="family">
+      <string>mono</string>
+    </test>
+    <edit name="family" mode="assign" binding="same">
+      <string>monospace</string>
+    </edit>
+  </match>
+
+  <match target="pattern">
+    <test qual="any" name="family">
+      <string>sans serif</string>
+    </test>
+    <edit name="family" mode="assign" binding="same">
+      <string>sans-serif</string>
+    </edit>
+  </match>
+
+  <match target="pattern">
+    <test qual="any" name="family">
+      <string>sans</string>
+    </test>
+    <edit name="family" mode="assign" binding="same">
+      <string>sans-serif</string>
+    </edit>
+  </match>
+
+  <config></config>
+</fontconfig>
+EOF
+
+cd /opt
+zip -r9 /out/layer.zip fonts/*

@@ -1,4 +1,4 @@
-from typing import Sequence, Optional, List
+from typing import Sequence, Optional, Union, List
 import os
 
 from constructs import Construct
@@ -44,8 +44,10 @@ def createStandardPipeline(
     codebase_root_folder :str,
     source_artifact: codepipeline.Artifact,
     codebase_folders_that_trigger_pipeline :Optional[list[str]] = None,
-    codebase_ignore_paths :Optional[list[str]] = [ "tmp" ],
+    codebase_ignore_paths :list[str] = [ "tmp" ],
                             ### REF: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitfilepathfiltercriteria.html
+    pipeline_variables :Optional[list[codepipeline.Variable]] = None,
+    trigger_for_any_gitbranch :bool = False,
     **kwargs
 ) -> codepipeline.Pipeline:
     """
@@ -73,6 +75,8 @@ def createStandardPipeline(
             This returned-pipeline will AUTOMATICALLY include a CodeStarConnectionsSourceAction
     """
 
+    effective_tier = tier if tier in constants.STD_TIERS else constants.DEV_TIER
+
     ### ATTENTION: We are -NOT- using GitHubSourceAction, since Triggers-for-GitHub are -NOT- supported via CloudFormation.
     ###             See more details near codepipeline.TriggerProps(..) and add_property_override(..)
     # my_source_action = aws_codepipeline_actions.GitHubSourceAction(
@@ -88,7 +92,7 @@ def createStandardPipeline(
         action_name='Source',
         owner=git_repo_org_name,
         repo=git_repo_name,
-        branch=pipeline_source_gitbranch,
+        branch = pipeline_source_gitbranch if not trigger_for_any_gitbranch else None,
         code_build_clone_output=True,
         output=source_artifact,
         connection_arn=codestar_connection_arn,
@@ -154,7 +158,7 @@ def createStandardPipeline(
         tier  = tier,
         bucket_name = my_pipeline_artifact_bkt_name,
         data_classification_type = data_classification_type,
-        lifecycle_rules = all_lifecycle_rules[S3_LIFECYCLE_RULES.SCRATCH.name],
+        lifecycle_rules = list(all_lifecycle_rules[S3_LIFECYCLE_RULES.SCRATCH.name]),
         removal_policy = RemovalPolicy.DESTROY,
     )
 
@@ -170,6 +174,7 @@ def createStandardPipeline(
         restart_execution_on_update = False,  ### Just cuz Pipeline was updated, does NOT mean App's code-base changed!
         cross_account_keys = False,
         artifact_bucket = my_pipeline_artifact_bkt,
+        variables = pipeline_variables,
     )
 
     ### Create policy to allow using CodeStar-connection
@@ -180,23 +185,50 @@ def createStandardPipeline(
     )
     my_pipeline.role.add_to_principal_policy( codestar_policy )
 
-    my_pipeline.my_pipeline_artifact_bkt      = my_pipeline_artifact_bkt
-    my_pipeline.my_pipeline_artifact_bkt_name = my_pipeline_artifact_bkt_name
+    my_pipeline.my_pipeline_artifact_bkt      = my_pipeline_artifact_bkt # type: ignore
+    my_pipeline.my_pipeline_artifact_bkt_name = my_pipeline_artifact_bkt_name # type: ignore
 
-    if tier == constants.DEV_TIER or tier == constants.INT_TIER:
-        # Convert the my_pipeline variable to another variable of raw CloudFormation Resource-Type of "AWS::CodePipeline::Pipeline"
-        myPipelineRawCfn :codepipeline.CfnPipeline = my_pipeline.node.default_child
+    # Convert the my_pipeline variable to another variable of raw CloudFormation Resource-Type of "AWS::CodePipeline::Pipeline"
+    myPipelineRawCfn :codepipeline.CfnPipeline = my_pipeline.node.default_child # type: ignore
 
+    if effective_tier == constants.DEV_TIER:
         ### We need to MANUALLY ovveride mytriggers=[codepipeline.TriggerProps( ..)
         ### since (see above) .. .. .. WARNING: Git tags is the only supported event type!!!
+        ### https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitpushfilter.html
+        branch_trigger_1 = { "Includes": [ pipeline_source_gitbranch ] }
+        FilePaths_trigger_1 = {
+            "Includes": codebase_folders_that_trigger_pipeline,
+            "Excludes": codebase_ignore_paths,
+        }
+        branch_trigger_2 = None
+        FilePaths_trigger_2 = None
+        ### ---- 2nd set of trigger (optional)
+        if tier == constants.DEV_TIER and trigger_for_any_gitbranch:
+            ### This is EXCLUSIVELY for use by `dev` tier's Meta-pipeline !!!     Note: we're NOT checking `effective_tier`
+            ### https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitpushfilter.html
+            branch_trigger_2 = { "Includes": ["**"], "Excludes": ["main","master","test","stage","qa"] }  # Wildcard == all branches, except of course `main` git-branch!
+            FilePaths_trigger_2 = { "Includes": [ "cdk.json", "tests/**" ], }
+                    ### This "FilePaths" tricks CodePipeline's `SourceAction` to trigger ONLY for:
+                    ###   (1) new "valid-cdk" git-branches or ..
+                    ###   (2) whenever cdk.json changes for an EXISING git-branch.
+        ### ---- combine all push-triggers
+        push_trigger :list[dict[str, dict[str, dict[str, list[str]]] | dict[str, list[str]]]] = []
+        push_trigger = [{ "Branches": branch_trigger_1, "FilePaths": FilePaths_trigger_1 }]
+        if branch_trigger_2 and FilePaths_trigger_2:
+            push_trigger.append({ "Branches": branch_trigger_2, "FilePaths": FilePaths_trigger_2 })
+        ### ----------------
         myPipelineRawCfn.add_property_override("Triggers", [{
             "GitConfiguration": {
                 ### https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitconfiguration.html
-                "Push": [{"FilePaths": {
-                    ### https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitpushfilter.html
-                    "Includes": codebase_folders_that_trigger_pipeline,
-                    "Excludes": codebase_ignore_paths,
-                }}],
+            "Push": push_trigger,
+                # "Push": [{
+                #     "Branches": { "Includes": [ (pipeline_source_gitbranch if not trigger_for_any_gitbranch else "*") ] },
+                #     "FilePaths": ([{
+                #         ### https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-gitpushfilter.html
+                #         "Includes": codebase_folders_that_trigger_pipeline,
+                #         "Excludes": codebase_ignore_paths,
+                #     }] if not trigger_for_any_gitbranch else None),
+                # }],
                 "SourceActionName": my_source_action.action_properties.action_name,
             },
             "ProviderType": "CodeStarSourceConnection",

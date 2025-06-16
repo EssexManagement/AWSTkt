@@ -12,6 +12,7 @@ import * as cr from 'aws-cdk-lib/custom-resources';
 
 import * as constants from '@/constants';
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';
+import { StandardNodeJSLambdaConstruct } from "@/common/StandardNodeJSLambdaConstruct";
 
 // =============================================================================================
 // ..............................................................................................
@@ -33,78 +34,55 @@ constructor(scope: Construct,
     //// --------------------------------------------------
     //// pre-requisites and constants
     //// --------------------------------------------------
-    //// 1st create the Lambda that is invoked by the ServiceCatalogItem.
-    const lambdaSimpleName = 'Invoke_1ClickEnd2End_SFn';
-    const functionName = `${constants.CDK_APP_NAME}-Ops-${lambdaSimpleName}`;
-    const logsId = "logs-"+ lambdaSimpleName;
-    const myLogGrp = new cdk.aws_logs.LogGroup( this, logsId, {
-        // logGroupClass = cdk.aws_logs.LogGroupClass.STANDARD,
-        logGroupName: functionName,
-        // logGroupName: `${constants.CDK_APP_NAME}-Ops-CR-${lambdaSimpleName}`,
-        // logs.LogGroupClass.INFREQUENT_ACCESS Will --DENY-- features like Live Tail, metric extraction / Lambda insights, alarming,
-        // !! WARNING !! it will also --DENY-- Subscription filters / Export to S3 (that Standard log-class provides)
-        retention: RetentionDays.ONE_WEEK,
-        removalPolicy: RemovalPolicy.DESTROY,
-        // encryptionKey: encryption_key,
-    })
+    var lambdaSimpleName;
+    var functionName;
+    var myLogGrp;
+    var fldrContainingLambdaCode;
 
-    const fldrContainingLambdaCode = "./src/ServiceCatalogItemHandler/";
-    //// Create the lambda function that'll invoke the StepFunction
-    const invokeStepFunctionLambda = new aws_lambda_nodejs.NodejsFunction(this, lambdaSimpleName, {
+    //// -------------------------
+    //// create the Lambda that validates Lambda-Input.
+    lambdaSimpleName = 'validate_SvcCtlg-inputs';
+    fldrContainingLambdaCode = "./src/ServiceCatalogParamsValidator/";
+    functionName = `${constants.CDK_APP_NAME}-Ops-${lambdaSimpleName}`;
+    const invokeValidatorLambdaConstruct = new StandardNodeJSLambdaConstruct(this, "Std"+lambdaSimpleName, {
+        tier: tier,
+        git_branch :git_branch,
+        lambdaSimpleName: lambdaSimpleName,
+        fldrContainingLambdaCode: fldrContainingLambdaCode,
         functionName: functionName,
-        description: "CloudFormation custom-resource to invoke the '1-click-end-2-end' StepFunction with proper JSON input",
-        runtime: aws_lambda.Runtime.NODEJS_22_X,
-        logGroup: myLogGrp,
-        retryAttempts: 0,
-        projectRoot: fldrContainingLambdaCode,
-        entry: "index.js",
-        handler: 'index.handler',
-        code: aws_lambda.Code.fromAsset( fldrContainingLambdaCode +"dist/", {
-            displayName: 'to build+deploy InvokeStepFunction-Lambda in lib/cdk-service_catalog_item-stack.ts',
-            followSymlinks: cdk.SymlinkFollowMode.ALWAYS,
-            deployTime: true,
-        }),
-        timeout: cdk.Duration.minutes(5),
-        architecture: aws_lambda.Architecture.ARM_64,
-        // environment: {
-        //     //// ValidationError: AWS_REGION environment variable is reserved by the lambda runtime.
-        //     ////        It can --NOT-- be set manually. See https://docs.aws.amazon.com/lambda/latest/dg/configuration-envvars.html
-        //     'AWS_ACCOUNT_ID': cdk.Stack.of(this).account,
-        //     'AWS_REGION': cdk.Stack.of(this).region,
-        //     'AWS_PARTITION': cdk.Stack.of(this).partition,
-        // },
-        insightsVersion: aws_lambda.LambdaInsightsVersion.VERSION_1_0_333_0,
-        tracing: aws_lambda.Tracing.ACTIVE,
-        recursiveLoop: aws_lambda.RecursiveLoop.TERMINATE,
-        loggingFormat: aws_lambda.LoggingFormat.JSON,
-        //// ERROR: ValidationError: To use ApplicationLogLevel and/or SystemLogLevel you must set LoggingFormat to 'JSON', got 'Text'.
-        applicationLogLevelV2: cdk.aws_lambda.ApplicationLogLevel.INFO,
-        // snapStart: NOT valid for TypeScript-λs !!!!
-        runtimeManagementMode: aws_lambda.RuntimeManagementMode.AUTO, //// Automatically update to the most recent and secure runtime version!
-        // bundling: {
-        //     /// https://github.com/aws-powertools/powertools-lambda-typescript/blob/main/examples/app/cdk/example-stack.ts
-        //     //// "npx esbuild index.ts --bundle --minify --target=ES2022 --sourcemap --keep-names --format=esm --sources-content=true \
-        //     //// --tree-shaking=true --banner:js='import { createRequire } from \"module\";const require = createRequire(import.meta.url);' --platform=node --outfile=dist/index.js",
-        //     minify: true,
-        //     target: 'es2020',
-        //     sourceMap: false,
-        //     // keepNames: true,
-        //     // forceDockerBundling: true, //// <------------- May NOT work inside AWS-CodeBuild.
-        //     metafile: true,
-        //     // sourceMapMode: SourceMapMode.INLINE,
-        //     // tsconfig: './tsconfig.json',
-        //     format: aws_lambda_nodejs.OutputFormat.CJS,
-        //     sourcesContent: true,
-        //     // mainFields: ['module', 'main', 'index.ts', 'src/index.ts', './ServiceCatalogItemHandler.ts', './src/ServiceCatalogItemHandler.ts'], //// @default []
-        //     // externalModules: [], // we bundle all the dependencies
-        //     esbuildArgs: {
-        //         "--tree-shaking": "true",
-        //     },
-        //     banner: "import { createRequire } from 'module';const require = createRequire(import.meta.url);",
-        // },
+        description: "Validate the end-user's input provided when Provisioning a NEW Service-Catalog-Product",
+    })
+    //// Create the lambda function that'll invoke the StepFunction
+    const invokeInputValidatorLambda = invokeValidatorLambdaConstruct.myLambda;
+
+    // Create a custom resource provider to invoke our Lambda
+    const provider1 = new cr.Provider(this, 'InputValidationLambdaInvokeProvider', {
+        onEventHandler: invokeInputValidatorLambda,
     });
 
-    // Grant the Lambda permission to invoke StepFunctions
+    //// -------------------------
+    //// create the Lambda that is invoked by the ServiceCatalogItem.
+    lambdaSimpleName = 'Invoke_1ClickEnd2End_SFn';
+    fldrContainingLambdaCode = "./src/ServiceCatalogItemHandler/";
+    functionName = `${constants.CDK_APP_NAME}-Ops-${lambdaSimpleName}`;
+    const invokeStepFunctionLambdaConstruct = new StandardNodeJSLambdaConstruct(this, "Std"+lambdaSimpleName, {
+        tier: tier,
+        git_branch :git_branch,
+        lambdaSimpleName: lambdaSimpleName,
+        fldrContainingLambdaCode: fldrContainingLambdaCode,
+        functionName: functionName,
+        description: "CloudFormation custom-resource to invoke the '1-click-end-2-end' StepFunction with proper JSON input",
+    })
+    //// Create the lambda function that'll invoke the StepFunction
+    const invokeStepFunctionLambda = invokeStepFunctionLambdaConstruct.myLambda;
+
+    // Create a custom resource provider to invoke our Lambda
+    const provider2 = new cr.Provider(this, 'StepFunctionInvokeProvider', {
+        onEventHandler: invokeStepFunctionLambda,
+    });
+
+    //// -------------------------
+    //// Grant the 2nd Lambda permission .. .. to invoke a StepFunction
     const snfArnExpr = `arn:${cdk.Stack.of(this).partition}:states:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:stateMachine:CTF-devops-*`;
     console.log(`Granting This-Lambda, the permission to invoke StepFunctions: ${snfArnExpr}`);
     invokeStepFunctionLambda.addToRolePolicy(new aws_iam.PolicyStatement({
@@ -115,11 +93,6 @@ constructor(scope: Construct,
         ],
         resources: [ snfArnExpr ]
     }));
-
-    // Create a custom resource provider to invoke our Lambda
-    const provider = new cr.Provider(this, 'StepFunctionInvokeProvider', {
-        onEventHandler: invokeStepFunctionLambda
-    });
 
     //// --------------------------------------------------
     //// The ServiceCatalog-Item is implemented via a CloudFormation-Template.
@@ -142,10 +115,10 @@ constructor(scope: Construct,
 
     // Create the product
     const product = new aws_servicecatalog.CloudFormationProduct(this, 'DeploymentProduct', {
-        productName: 'Application Tier Deployment',
-        owner: 'Platform Team',
-        description: 'Product for deploying application tiers via StepFunction',
-        distributor: 'IT Operations',
+        productName: 'CTF Tier-Deployment',
+        description: 'Deploying a NEW/Existing Tier for Cancer-Trials-Finder',
+        owner: 'Essex - Managed Service Provider reporting to subhashini.jagu@nih.gov',
+        distributor: 'Essex Cloud-Native DevOps-CoE',
         supportEmail: constants.DefaultITSupportEmailAddress,
         productVersions: [{
             productVersionName: 'v1',
@@ -162,10 +135,10 @@ constructor(scope: Construct,
 
     //// --------------------------------------------------
     // Create a portfolio inside the ServiceCatalog Console
-    const portfolio = new aws_servicecatalog.Portfolio(this, 'DeploymentPortfolio', {
-        displayName: 'Application Deployment Portfolio',
-        providerName: 'Platform Team',
-        description: 'Portfolio containing products for application deployment',
+    const portfolio = new aws_servicecatalog.Portfolio(this, 'CTFDeployPortfolio', {
+        displayName: 'Cancer-Trials-Finder Ops Portfolio',
+        providerName: 'Essex Cloud-Native DevOps-CoE',
+        description: 'Portfolio of products for Cancer-Trials-Finder',
     });
 
 
@@ -185,26 +158,25 @@ constructor(scope: Construct,
     const consoleDevopsUserRoleName = consoleRolesDetails["DevOpsUser"][tier];
     const consoleAdminUserRoleName  = consoleRolesDetails["AdminUser"][tier];
     const consolePowerUserRoleName  = consoleRolesDetails["PowerUser"][tier];
-    const consoleDevOpsUser = aws_iam.Role.fromRoleName( this, "consoleIamDevOpsUser", consoleDevopsUserRoleName )
-    const consolePowerUser  = aws_iam.Role.fromRoleName( this, "consoleIamPowerUser",  consolePowerUserRoleName )
-    const consoleAdminUser  = aws_iam.Role.fromRoleName( this, "consoleIamAdminUser",  consoleAdminUserRoleName )
+    const consoleDevOpsUser = consoleDevopsUserRoleName ? aws_iam.Role.fromRoleName( this, "consoleIamDevOpsUser", consoleDevopsUserRoleName ) : undefined;
+    const consolePowerUser  = consolePowerUserRoleName  ? aws_iam.Role.fromRoleName( this, "consoleIamPowerUser",  consolePowerUserRoleName )  : undefined;
+    const consoleAdminUser  = consoleAdminUserRoleName  ? aws_iam.Role.fromRoleName( this, "consoleIamAdminUser",  consoleAdminUserRoleName )  : undefined;
 
     // Grant access to these above console-uisers
-    portfolio.giveAccessToRole(consoleDevOpsUser);
-    portfolio.giveAccessToRole(consolePowerUser);
-    portfolio.giveAccessToRole(consoleAdminUser);
+    if (consoleDevOpsUser) portfolio.giveAccessToRole(consoleDevOpsUser);
+    if (consolePowerUser)  portfolio.giveAccessToRole(consolePowerUser);
+    if (consoleAdminUser)  portfolio.giveAccessToRole(consoleAdminUser);
 
-    //// --------------------------------------------------
-    // Output the Portfolio and Product IDs
-    new cdk.CfnOutput(this, 'PortfolioId', {
-        value: portfolio.portfolioId,
-        description: 'The ID of the Service Catalog Portfolio'
-    });
-
-    new cdk.CfnOutput(this, 'ProductId', {
-        value: product.productId,
-        description: 'The ID of the Service Catalog Product'
-    });
+    // //// --------------------------------------------------
+    // //// Why Output the Portfolio & Product IDs? ServiceCatalog-Items are to be used by Humans!!
+    // new cdk.CfnOutput(this, 'PortfolioId', {
+    //     value: portfolio.portfolioId,
+    //     description: 'The ID of the Service Catalog Portfolio'
+    // });
+    // new cdk.CfnOutput(this, 'ProductId', {
+    //     value: product.productId,
+    //     description: 'The ID of the Service Catalog Product'
+    // });
 
 }} // end of constructor & Class
 //// EoF

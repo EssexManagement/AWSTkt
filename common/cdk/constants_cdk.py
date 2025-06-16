@@ -1,3 +1,4 @@
+from __future__ import annotations
 import pytz
 from datetime import datetime
 from typing import Optional
@@ -9,6 +10,7 @@ from aws_cdk import (
     RemovalPolicy,
     aws_logs,
     aws_lambda,
+    aws_ec2,
     aws_rds,
     aws_codebuild,
 )
@@ -43,16 +45,15 @@ BUILD_KICKOFF_TIMESTAMP_LOCAL_STR = localized_now.strftime('%Y-%m-%dT%H:%M:%S')
 TIER_TO_AWSENV_MAPPING = {
 
     ### CloudOne
-    constants.ACCT_PROD:  "CTF-prod",
-    constants.ACCT_NONPROD: "CTF-nonprod",
-    constants.PROD_TIER:  "CTF-prod",
-    constants.STAGE_TIER: "CTF-prod",
-    constants.TEST_TIER:  "CTF-nonprod",
-    constants.QA_TIER:    "CTF-nonprod",
-    constants.DEV_TIER:   "CTF-nonprod",
+    constants.ACCT_PROD:  constants.ACCT_PROD,
+    constants.ACCT_NONPROD: constants.ACCT_NONPROD,
 
-    ### CloudOne - DEVELOPER-Tiers ONLY
-    "sarma": "CTF-nonprod",
+    constants.PROD_TIER:  constants.ACCT_PROD,
+    constants.STAGE_TIER: constants.ACCT_PROD,
+    constants.TEST_TIER:  constants.ACCT_NONPROD,
+    constants.QA_TIER:    constants.ACCT_NONPROD,
+    constants.DEV_TIER:   constants.ACCT_NONPROD,
+    ### DEVELOPER-Tiers ONLY .. are handled within `get_aws_env()` function BELOW.
 
     ### CRRI-Cloud
     # constants.DEV_TIER: "DEVINT",
@@ -73,11 +74,11 @@ SUBNET_NAMES_LOOKUP = {
     ### Format: key = aws_env
     ### Format: value = { TIER: [ list of -NAMES- of subnets ],   .. ..  }
 
-    "CTF-nonprod": {
+    "acct-nonprod": {
         "dev": [ constants.DEV_TIER  ],
         # "qa":  [ constants.QA_TIER ]
     },
-    "CTF-prod": {
+    "acct-prod": {
         "stage": [ constants.STAGE_TIER ],
         "prod":  [ constants.PROD_TIER  ]
     },
@@ -85,7 +86,44 @@ SUBNET_NAMES_LOOKUP = {
     # "EssexCloud-DEV": [ constants.DEV_TIER,  constants.TEST_TIER ],
 }
 
+class VpcInfo():
+    vpc_name: Optional[str];
+    vpc_id: Optional[str];
+    vpc_con: Optional[aws_ec2.IVpc];
+    subnet_selection: Optional[aws_ec2.SubnetSelection];
+    subnet_ids: Optional[list[str]];
+    security_groups: Optional[list[aws_ec2.ISecurityGroup]];
+    security_group_ids: Optional[list[str]];
+    def __init__(self,
+        vpc_name :Optional[str] = None,
+        vpc_id :Optional[str] = None,
+        vpc_con :Optional[aws_ec2.IVpc] = None,
+        subnet_selection :Optional[aws_ec2.SubnetSelection] = None,
+        subnet_ids :Optional[list[str]] = None,
+        security_groups :Optional[list[aws_ec2.ISecurityGroup]] = None,
+        security_group_ids :Optional[list[str]] = None,
+    ):
+        self.vpc_name = vpc_name
+        self.vpc_id = vpc_id
+        self.vpc_con = vpc_con
+        self.subnet_selection = subnet_selection
+        self.subnet_ids = subnet_ids
+        self.security_groups = security_groups
+        self.security_group_ids = security_group_ids
 
+    def clone(self) -> VpcInfo:
+        retval = VpcInfo(
+            vpc_name=self.vpc_name,
+            vpc_id=self.vpc_id,
+            vpc_con=self.vpc_con,
+            subnet_selection=self.subnet_selection,
+            subnet_ids=self.subnet_ids,
+            security_groups=self.security_groups,
+            security_group_ids=self.security_group_ids,
+        )
+        return retval
+
+### ---------------------------------------------------------------------------------
 
 DEFAULT_CPU_ARCH         = aws_lambda.Architecture.ARM_64
 DEFAULT_CPU_ARCH_NAMESTR = aws_lambda.Architecture.ARM_64.name
@@ -135,7 +173,7 @@ def get_aws_env( tier :str ) -> str:
     if tier in TIER_TO_AWSENV_MAPPING:
         return TIER_TO_AWSENV_MAPPING[tier]
     else:
-        return "DEVINT"
+        return constants.ACCT_NONPROD  ### Typically, all developer-tiers
     # if tier in [ DEV_TIER, INT_TIER ]:
     #     return "DEVINT"
     # elif tier in [ UAT_TIER ]:
@@ -153,9 +191,9 @@ def get_aws_env( tier :str ) -> str:
 
 """Return the CW-Logs Retention based on the Tier/Environment """
 def get_LOG_RETENTION(
-    construct :Optional[Construct],
+    construct :Construct,
     tier :str,
-    aws_env :str = None
+    aws_env :Optional[str] = None
 ) -> aws_logs.RetentionDays:
     if tier in constants.STD_TIERS:
         dys = construct.node.try_get_context("retention")["log-retention"][tier]
@@ -175,7 +213,7 @@ def get_stateful_removal_policy(
     tier :str,
     construct :Optional[Construct] = None,
     aws_env :Optional[str] = None,
-) -> aws_logs.RetentionDays:
+) -> RemovalPolicy:
     if tier == constants.PROD_TIER or tier == constants.UAT_TIER:
         return RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE
     else:

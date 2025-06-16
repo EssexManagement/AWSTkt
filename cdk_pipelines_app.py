@@ -129,6 +129,31 @@ if tier == constants.DEV_TIER or tier not in constants.STD_TIERS:
         tier=tier,
         git_branch=git_branch,
         aws_env=aws_env,
+        whether_to_switch_git_commithash = True,
+                    ### !!! Attention !!!
+                    ### For all developer-tiers, must be `True`.  See also `newtier-pipeline` below.
+                    ### FYI: the meta-pipeline for -OTHER- developer-tiers should ONLY trigger for that git-branch!!
+        env=env ### kwargs
+    )
+
+    add_tags( a_construct=stk, tier=tier, aws_env=aws_env, git_branch=pipeline_source_gitbranch )
+
+### Next a pipeline to handle NEW git-branches (new developer-tiers)
+if tier == constants.DEV_TIER: ### Only for DEV-tier
+    cdk_component_name=f"newtier-pipeline"
+    stack_id = aws_names.gen_awsresource_name_prefix( tier=tier, cdk_component_name=cdk_component_name )
+
+    stk = MetaPipelineUpdatesOtherPipelinesStack(
+        scope=app,
+        stack_id=stack_id,
+        tier=tier,
+        # tier = tmp_tier, ### TODO either --> constants.ACCT_NONPROD or constants.ACCT_PROD
+        git_branch=git_branch,
+        aws_env=aws_env,
+        whether_to_switch_git_commithash = False,
+                    ### Attention: only for `dev` TIER, this should be `false`, so that `dev` tier's meta-pipeline will CREATE new tiers.
+                    ###                 But, at the same time, the meta-pipeline for -OTHER- developer-tiers should NOT do that!!
+                    ### `False` will allow New-Git-Branches to also trigger (and thereby have their own NEW Pipelines!)
         env=env ### kwargs
     )
 

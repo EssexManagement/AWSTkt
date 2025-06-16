@@ -6,80 +6,112 @@
       ],
       "exclude": [
           "README.md",
+          "docs",
+          "tests",
           "cdk*.json",
           "requirements*.txt",
           "source.bat",
           "**/__init__.py",
           "**/__pycache__",
-          "tests"
+          ".git",
+          ".venv",
+          "cdk.out",
+          "node_modules"
       ]
   },
   "context": {
     "git-source": {
-        "providerType":  "GitLab",
+        "providerType":  "GitHub",
         "Comment-re-providerType": "https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codestarconnections-connection.html#cfn-codestarconnections-connection-providertype",
 
         "git_token_ref": "AWSTkt/dev/git-token",
         "codestar-connection": {
             "HOWTO-via-AWS-CLI": "aws codestar-connections create-connection --connection-name \"FACTrial-GitHub-V2\" --provider-type \"GitHub\"  --profile ${AWSPROFILE} --region ${AWSREGION}",
             "VERIFY-via-AWS-CLI": "aws codestar-connections list-connections --max-results 50  --profile ${AWSPROFILE} --region ${AWSREGION}",
-            "CTF-nonprod": {
+            "acct-nonprod": {
                 "name": "CloudOneNP-ClinicalTrialFinder",
-                "arn": "arn:aws:codeconnections:us-east-1:924221118260:connection/d2aa22c6-a877-4533-be46-b7b9bdf16126"
+                "arn": "arn:aws:codeconnections:{}:{}:connection/d2aa22c6-a877-4533-be46-b7b9bdf16126"
             },
-            "CTF-prod": {
-                "name": "CloudOneP-ClinicalTrialFinder",
-                "arn": "???"
+            "acct-prod": {
+                "name": "CloudOneProd-ClinicalTrialFinder",
+                "arn": "arn:aws:codeconnections:{}:{}:connection/fe48e727-e777-4b67-ad2d-96694b9c1c47"
             }
         },
         "git_commit_hashes" : {
             "acct-nonprod" : "main",
             "acct-prod" : "main",
-            "matt": "matt",
-            "sarma" : "sarma",
             "dev" : "dev",
             "int" : "main",
             "test" : "main",
             "uat" : "v2.0.5.1",
-            "stage" : "v3.0.0",
-            "prod" : "v3.0.0"
+            "stage" : "v3.4.3",
+            "prod" : "v3.4.3"
         }
     },
     "vpc" : {
-        "CTF-nonprod" : {
+        "acct-nonprod" : {
             "dev": {
                 "vpc-id":  "vpc-04ad892f26893e05f",
                 "vpc-cidr":  "100.64.8.0/22",
-                "route-table": "rtb-0d8c4f4a4c78caa7a",
                 "subnets": [
                     { "az": "us-east-1a", "subnet-cidr": "100.64.8.0/24",   "subnet-id": "subnet-01894f24ee8d82f58" },
                     { "az": "us-east-1b", "subnet-cidr": "100.64.10.0/24",  "subnet-id": "subnet-0b8a32a3c6e31c724" }
                 ],
-                "VPCEndPts-SG": ["sg-004bcbda95ced2a30"]
-            }
-        },
-        "CTF-nonprod-BACKUP" : {
+                "VPCEndPts-SG": [ "sg-004bcbda95ced2a30" ]
+            },
             "test": {
                 "vpc-id": "vpc-0278e9432c57072dd",
                 "vpc-cidr": "100.64.12.0/22",
-                "route-table": "rtb-069738f9af3c5a79d",
                 "subnets": [
-                    { "az": "us-east-1a", "subnet-cidr": "100.64.12.0/24",  "subnet-id": "subnet-?????" },
-                    { "az": "us-east-1b", "subnet-cidr": "100.64.14.0/24",  "subnet-id": "subnet-?????" }
+                    { "az": "us-east-1a", "subnet-cidr": "100.64.12.0/24",  "subnet-id": "subnet-0ddf67617142d837c" },
+                    { "az": "us-east-1b", "subnet-cidr": "100.64.13.0/24",  "subnet-id": "subnet-0e943b5183090101c" }
                 ],
-                "VPCEndPts-SG": false
+                "VPCEndPts-SG": [ "sg-01b18563ef561f79b" ]
+            }
+        },
+        "acct-prod" : {
+            "stage": {
+                "vpc-id":  "vpc-0d91daf23986e175a",
+                "vpc-cidr":  "100.64.240.0/22",
+                "route-table": "rtb-037202de8bc80bfab",
+                "subnets": [
+                    { "az": "us-east-1a", "subnet-cidr": "100.64.240.0/23",   "subnet-id": "subnet-0b97f91dc0013b26b" },
+                    { "az": "us-east-1b", "subnet-cidr": "100.64.242.0/23",  "subnet-id": "subnet-0848af0f4b7bb3736" }
+                ],
+                "VPCEndPts-SG": [ "sg-0737ea8ed3c5235f8" ]
+            },
+            "prod": {
+                "vpc-id": "vpc-086cc60d0e597b5df",
+                "vpc-cidr": "100.64.244.0/22",
+                "route-table": "rtb-060b86bd269081308",
+                "subnets": [
+                    { "az": "us-east-1a", "subnet-cidr": "100.64.246.0/23",  "subnet-id": "subnet-0e16bf914ad38f419" },
+                    { "az": "us-east-1b", "subnet-cidr": "100.64.244.0/23",  "subnet-id": "subnet-02f5a880f8e9f5583" }
+                ],
+                "VPCEndPts-SG": [ "sg-09c8e933992881bdc" ]
             }
         }
     },
     "security": {
         "WAF-ACL": {
             "global": {
-                "comment": "CloudOne-CTF Prod vs. Non-Prod aws-accounts",
-                "dev": "arn:aws:wafv2:us-east-1:924221118260:global/webacl/FMManagedWebACLV2-C1-WAF-LOG4J-WAF-POLICY-1743089710566-GLOBAL/c8c5a55a-a6b5-47c4-b838-5b8229d638ce"
+                "comment": "In case you want to use the Firewall-Manager managed CBIIT-owned (or other pre-created) WAF-ACL",
+                "disabled-acct-nonprod": "arn:aws:wafv2:{}:{}:global/webacl/FMManagedWebACLV2-C1-WAF-LOG4J-WAF-POLICY-1743089710566-GLOBAL/c8c5a55a-a6b5-47c4-b838-5b8229d638ce"
             },
             "regional": {
-                "comment": "CloudOne-CTF Prod vs. Non-Prod aws-accounts",
-                "dev": "arn:aws:wafv2:us-east-1:924221118260:regional/webacl/FMManagedWebACLV2-C1-WAF-LOG4J-WAF-POLICY-1743089710566/6720a87d-daba-43b9-8b25-441b67bd6775"
+                "comment": "In case you want to use the Firewall-Manager managed CBIIT-owned (or other pre-created) WAF-ACL",
+                "disabled-acct-nonprod": "arn:aws:wafv2:{}:{}:regional/webacl/FMManagedWebACLV2-C1-WAF-LOG4J-WAF-POLICY-1743089710566/6720a87d-daba-43b9-8b25-441b67bd6775",
+                "disabled-acct-prod": "arn:aws:wafv2:{}:{}:regional/webacl/FMManagedWebACLV2-C1-WAF-LOG4J-WAF-POLICY-1746124077430/5be1ed8f-ea3a-4072-9dd4-688907bf07e4"
+            }
+        },
+        "WAF-IPSets": {
+            "AllowNIHWhitelistIPs": {
+                "acct-nonprod": "arn:aws:wafv2:{}:{}:global/ipset/dev_NIHWhiteListIPSet/9a22b985-e187-463a-821c-ff0d22a18e1d",
+                "acct-prod":    "arn:aws:wafv2:{}:{}:global/ipset/stage_NIHWhiteListIPSet/9caedfe3-dd87-4216-addc-55534e026da4"
+            },
+            "NATGWs": {
+                "acct-nonprod": "arn:aws:wafv2:{}:{}:global/ipset/NATGWs/73259d4e-1f47-49aa-a593-34ca4d7ee517",
+                "acct-prod":    "arn:aws:wafv2:{}:{}:global/ipset/NATGWs/0966b2f6-3e2a-4c29-b780-c4460b8e3de7"
             }
         },
         "kms": {
@@ -89,34 +121,24 @@
                 "stage": "arn:aws:kms:{}:{}:alias/stage/common",
                 "prod":  "arn:aws:kms:{}:{}:alias/prod/common"
             },
-            "secretsmanager":{
-                "dev":   "arn:aws:kms:{}:{}:alias/aws/secretsmanager",
-                "test":  "arn:aws:kms:{}:{}:alias/aws/secretsmanager",
-                "stage": "arn:aws:kms:{}:{}:alias/aws/secretsmanager",
-                "prod":  "arn:aws:kms:{}:{}:alias/aws/secretsmanager"
-            },
-            "s3":{
-                "dev":   "arn:aws:kms:{}:{}:alias/aws/s3",
-                "test":  "arn:aws:kms:{}:{}:alias/aws/s3",
-                "stage": "arn:aws:kms:{}:{}:alias/aws/s3",
-                "prod":  "arn:aws:kms:{}:{}:alias/aws/s3"
-            },
-            "rds":{
-                "dev":   "arn:aws:kms:{}:{}:alias/aws/rds",
-                "test":  "arn:aws:kms:{}:{}:alias/aws/rds",
-                "stage": "arn:aws:kms:{}:{}:alias/aws/rds",
-                "prod":  "arn:aws:kms:{}:{}:alias/aws/rds"
-            }
+            "secretsmanager":   { "default":  "arn:aws:kms:{}:{}:alias/aws/secretsmanager" },
+            "s3":   { "default":  "arn:aws:kms:{}:{}:alias/aws/s3"  },
+            "rds":  { "default":  "arn:aws:kms:{}:{}:alias/aws/rds" },
+            "sns":  { "default":  "arn:aws:kms:{}:{}:alias/aws/sns" },
+            "sqs":  { "default":  "arn:aws:kms:{}:{}:alias/aws/sqs" }
         },
         "std-console-sso-roles": {
             "DevOpsUser": {
-                "acct-nonprod": "AWSReservedSSO_NCIAWSDevOpsUserAccess_bbed7858ce9dcb72"
+                "acct-nonprod": "AWSReservedSSO_NCIAWSDevOpsUserAccess_bbed7858ce9dcb72",
+                "acct-prod":    "AWSReservedSSO_NCIAWSDevOpsUserAccess_f7f4c811eaa0fe63"
             },
             "PowerUser":  {
-                "acct-nonprod": "AWSReservedSSO_NCIAWSPowerUserAccess_b8929064e5912818"
+                "acct-nonprod": "AWSReservedSSO_NCIAWSPowerUserAccess_b8929064e5912818",
+                "acct-prod": null
             },
             "AdminUser":  {
-                "acct-nonprod": "AWSReservedSSO_NCIAWSAdministratorAccess_9e5ed493ce7dc498"
+                "acct-nonprod": "AWSReservedSSO_NCIAWSAdministratorAccess_9e5ed493ce7dc498",
+                "acct-prod":    "AWSReservedSSO_NCIAWSAdministratorAccess_91223b6ccbf95320"
             }
         }
     },
@@ -124,45 +146,51 @@
     "CRRI-root_domain": "FACTrial.com",
     "EssexCloud-root_domain": "em-fact.com",
     "frontend_domain" : {
-        "cloudfront_georestrictions": ["US"],
+        "cloudfront_georestrictions": ["US","CA"],
         "cancertrialsfinder.cancer.gov": {
-            "dev":   "cancertrialsfinder-dev.cancer.gov",
-            "test":  "cancertrialsfinder-test.cancer.gov",
-            "stage": "cancertrialsfinder-stage.cancer.gov",
-            "prod":  "cancertrialsfinder-pilot.cancer.gov",
-            "main" : "not-allowed.such.fqdn"
+            "dev":   { "DISABLED-FQDN": "cancertrialsfinder-dev.cancer.gov",  "AWS-ACM-ssl-cert": "arn:aws:acm:{}:{}:certificate/09e374a4-ea28-4077-8a84-668dd2a19683" },
+            "test":  { "FQDN": "cancertrialsfinder-test.cancer.gov",  "AWS-ACM-ssl-cert": "arn:aws:acm:{}:{}:certificate/4e17d160-3f14-47a4-b39a-00ba95cc0b88" },
+            "stage": { "FQDN": "cancertrialsfinder-stage.cancer.gov", "AWS-ACM-ssl-cert": "arn:aws:acm:{}:{}:certificate/68efa2be-3d41-4a02-96db-cc0a2c8b4593" },
+            "prod":  { "FQDN": "cancertrialsfinder.cancer.gov", "AWS-ACM-ssl-cert": "arn:aws:acm:{}:{}:certificate/7df5fb4a-795a-46ba-b159-4b9a7711eda4" },
+            "main" : { "FQDN": "this-tier-is-NOT-allowed.such.fqdn",  "AWS-ACM-ssl-cert": "main-can-NOT-be-a-deployment-tier" }
         }
     },
     "PostgreSQL-Engine-Version": {
         "!Attention!": "the major-version specified -BELOW- .. .. is converted to EXACT-ENGINE-Version within common/cdk/constants_cdk.py",
         "dev": "16",
+        "test": "16",
         "int": "16",
         "uat": "16",
+        "stage": "16",
         "prod": "16",
         "developer": "16"
     },
     "retention": {
         "db_backup_retention": {
             "dev" : 35,
+            "test": 35,
             "int": 35,
             "uat": 35,
+            "stage": 35,
             "prod": 35
         },
         "log-retention":{
             "comment": "ALLOWED-Values are attributes of Python-AWS-CDK aws_logs.RetentionDays CLASS. See https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_logs/RetentionDays.html#aws_cdk.aws_logs.RetentionDays",
             "dev" : "ONE_YEAR",
+            "test": "ONE_YEAR",
             "int": "ONE_YEAR",
             "uat": "ONE_YEAR",
+            "stage": "ONE_YEAR",
             "prod": "ONE_YEAR"
         }
     },
     "s3_access_logging_bucket": {},
     "etl_cron" : {
-        "matt" : {"hour" : "13", "minute" : "0"},
-        "sarma" : {"hour" : "13", "minute" : "0"},
         "dev" : {"hour" : "13", "minute" : "0"},
+        "test" : {"hour" : "13", "minute" : "15"},
         "int" : {"hour" : "13", "minute" : "15"},
         "uat" : {"hour" : "13", "minute" : "30"},
+        "stage" : {"hour" : "13", "minute" : "30"},
         "prod" : {"hour" : "13", "minute" : "45"}
     },
     "LambdaInsights": "arn:aws:lambda:us-east-1:580247275435:layer:LambdaInsightsExtension:16",

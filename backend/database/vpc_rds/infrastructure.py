@@ -49,6 +49,39 @@ class SqlDatabaseConstruct(Construct):
     def rds_security_group(self) -> aws_ec2.ISecurityGroup:
         return self._rds_security_group
 
+    ### ------------------------------------------------------------------------
+    @staticmethod
+    def get_engine_ver_as_str(
+        cdk_scope :Construct,
+        tier :str,
+    ) -> str:
+        """
+            returns the Postgres-Engine-version# as specified in `cdk.json`
+        """
+        engine_ver_as_string :str = cdk_scope.node.try_get_context("PostgreSQL-Engine-Version")
+        print(f"engine_ver_as_string (json) = {engine_ver_as_string}")
+        engine_ver_as_string = engine_ver_as_string[ tier if tier in constants.STD_TIERS else "developer" ]
+        print(f"engine_ver_as_string (plain-string)= '{engine_ver_as_string}'")
+        assert engine_ver_as_string is not None, f"cdk.json is missing 'PostgreSQL-Engine-Version'"
+        return engine_ver_as_string
+
+    @staticmethod
+    def get_rds_cluster_identifier(
+        stateful_stack_name :Stack,
+        engine_ver_as_string :str,
+    ) -> str:
+        """
+            Standardizes the  RDS-Aurora-V2 cluster's identifier.
+
+            !!!WARNING!!!
+
+            The 1st parameter must ONLY be the StateFUL-stack's name!
+
+            --NOT-- any stack!
+        """
+        return f"{stateful_stack_name}-AuroraV2-PG-{engine_ver_as_string}"
+
+    ### ------------------------------------------------------------------------
     def __init__(self, scope: Construct, id_: str,
             tier :str,
             aws_env :str,
@@ -64,17 +97,13 @@ class SqlDatabaseConstruct(Construct):
         default_database_name = "essex_emfact"
         serverless_aurorav2_max_capacity = 128  # MAX 256
 
-        engine_ver_as_string :str = self.node.try_get_context("PostgreSQL-Engine-Version")
-        print(f"engine_ver_as_string (json) = {engine_ver_as_string}")
-        engine_ver_as_string = engine_ver_as_string[ tier if tier in constants.STD_TIERS else "developer" ]
-        print(f"engine_ver_as_string (plain-string)= '{engine_ver_as_string}'")
-        assert engine_ver_as_string is not None, f"cdk.json is missing 'PostgreSQL-Engine-Version'"
+        engine_ver_as_string = self.get_engine_ver_as_str( scope, tier )
 
         ### Convert the string-format version of Postgres into an Enum of type aws_rds.AuroraPostgresEngineVersion.VER_??_??
         engine_version_id :str = constants_cdk.ENGINE_VERSION_LOOKUP[ engine_ver_as_string ]
         print( f"engine_version_id = '{engine_version_id}'" )
 
-        cluster_identifier = f"{stk.stack_name}-AuroraV2-PG-{engine_ver_as_string}"
+        cluster_identifier = SqlDatabaseConstruct.get_rds_cluster_identifier( stk.stack_name, engine_ver_as_string )
 
         if tier in constants.STD_TIERS:
             db_backup_retention = scope.node.try_get_context("retention")["db_backup_retention"][ tier ]
@@ -90,8 +119,8 @@ class SqlDatabaseConstruct(Construct):
         acct_wide_vpc_details :dict[str,dict[str, Union[str,list[dict[str,str]]]]];
         vpc_details_for_tier :dict[str, Union[str,list[dict[str,str]]]];
         [ acct_wide_vpc_details, vpc_details_for_tier ] = CdkDotJson_util.get_cdk_json_vpc_details( scope, aws_env, tier )
-        sg_for_vpc_endpts :Optional[list[str]] = vpc_details_for_tier["VPCEndPts-SG"]
-        print( f"vpc_endpts = '{sg_for_vpc_endpts}'")
+        SG_IDs_for_vpc_endpts :Optional[list[str]] = vpc_details_for_tier["VPCEndPts-SG"]
+        print( f"SGs for vpc_endpts = '{SG_IDs_for_vpc_endpts}'")
 
         ### ------------------------------------------
 
@@ -118,8 +147,8 @@ class SqlDatabaseConstruct(Construct):
         self.rds_subnet_group.apply_removal_policy( removal_policy )
 
         sg_list_for_all_lambdas :list[aws_ec2.ISecurityGroup] = [self.rds_security_group]
-        if sg_for_vpc_endpts:
-            for sgid in sg_for_vpc_endpts:
+        if SG_IDs_for_vpc_endpts:
+            for sgid in SG_IDs_for_vpc_endpts:
                 sg_con = aws_ec2.SecurityGroup.from_lookup_by_id( scope=self, id="lkpSg-"+sgid, security_group_id=sgid )
                 if sg_con:
                     sg_list_for_all_lambdas.append( sg_con )
@@ -163,13 +192,20 @@ class SqlDatabaseConstruct(Construct):
         #     ),
         # )
 
-        encryption_key_arn = CdkDotJson_util.lkp_cdk_json_for_kms_key( scope, tier, None, CdkDotJson_util.AwsServiceNamesForKmsKeys.rds )
+        rds_encryption_key_arn = CdkDotJson_util.lkp_cdk_json_for_kms_key( scope, tier, None, CdkDotJson_util.AwsServiceNamesForKmsKeys.rds )
+        print( f"rds_encryption_key_arn = '{rds_encryption_key_arn}'" )
+        rds_encryption_key = aws_kms.Key.from_key_arn(scope=scope, id="KmsKeyLkp-rds", key_arn=rds_encryption_key_arn)
+
+        secret_encryption_key_arn = CdkDotJson_util.lkp_cdk_json_for_kms_key( scope, tier, None, CdkDotJson_util.AwsServiceNamesForKmsKeys.secretsmanager )
+        print( f"secret_encryption_key_arn = '{secret_encryption_key_arn}'" )
+        secret_encryption_key = aws_kms.Key.from_key_arn(scope=scope, id="KmsKeyLkp-secrets", key_arn=secret_encryption_key_arn)
+
         ### Use Credentials.fromGeneratedSecret with custom username
         admin_credentials = aws_rds.Credentials.from_generated_secret(
             username = "aurorav2_pgsql",  ### MasterUsername: MUST match pattern ^[a-zA-Z]{1}[a-zA-Z0-9_]*$]
             secret_name = f"{stk.stack_name}-AuroraV2-PGv16-AdminUser",
             exclude_characters = get_RDS_password_exclude_pattern_adminuser(),
-            encryption_key = aws_kms.Key.from_key_arn(scope=scope, id="KmsKeyLkp", key_arn=encryption_key_arn),
+            encryption_key = secret_encryption_key,
         )
 
         ### RuntimeError: Error: Cannot apply RemovalPolicy: no child or not a CfnResource. Apply the removal policy on the CfnResource directly.
@@ -210,6 +246,7 @@ class SqlDatabaseConstruct(Construct):
             # network_type=aws_rds.NetworkType.IPV4,
             # enable_local_write_forwarding = True, ## Whether read-replicas can forward write-operations to the writer-nstance. Only be enabled for MySQL 3.04+ or PostgreSQL 16.4+
             storage_encrypted = True,
+            storage_encryption_key = rds_encryption_key,
             backup = aws_rds.BackupProps( retention=db_backup_retention ),
             copy_tags_to_snapshot = True,
             deletion_protection = True if tier == constants.PROD_TIER else False,
@@ -259,7 +296,7 @@ class SqlDatabaseConstruct(Construct):
         #     self,
         #     id="AuroraV2-PGSQL",
         #     default_database_name = default_database_name,
-        #     cluster_identifier = f"{stk.stack_name}-AuroraV2-PG-{engine_ver_as_string}",
+        #     cluster_identifier = SqlDatabaseConstruct.get_rds_cluster_identifier( stk, engine_ver_as_string ),
         #     engine = aws_rds.DatabaseClusterEngine.aurora_postgres(version=engine_version_id),
         #     enable_data_api = True, ### Default = False
         #     ### In V1-Aurora, we have to EXPLICITY provide the secret.  Not so for V2!
@@ -337,6 +374,7 @@ class SqlDatabaseConstruct(Construct):
             secret_name = f"{stk.stack_name}/{constants.RDS_APPLN_USER_NAME}",
             master_secret = self.db.secret,
             exclude_characters = get_RDS_password_exclude_pattern_alphanum_only(),
+            encryption_key = secret_encryption_key,
         )
         self.emfact_user_hush.apply_removal_policy( removal_policy )
         emfact_user_hush_attached :aws_secretsmanager.ISecret = self.emfact_user_hush.attach( self.db )

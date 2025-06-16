@@ -28,14 +28,27 @@ AWSREGION="us-east-1"
 ### ===============================================================================
 
 ### start-time should be current-timezone (so that, when working late beyond 7pm ET, we avoid the problem that UTC is already in "tomorrow").
+### start-time should be current-timezone (so that, when working late beyond 7pm ET, we avoid the problem that UTC is already in "tomorrow").
+### start-time should be current-timezone (so that, when working late beyond 7pm ET, we avoid the problem that UTC is already in "tomorrow").
+### start-time should be current-timezone (so that, when working late beyond 7pm ET, we avoid the problem that UTC is already in "tomorrow").
+### start-time should be current-timezone (so that, when working late beyond 7pm ET, we avoid the problem that UTC is already in "tomorrow").
+
 ### end-time should be in UTC (per best practices)
-START_TIMESTAMP="$( date +'%Y-%m-%d' ) 00:00:00"
+### end-time should be in UTC (per best practices)
+### end-time should be in UTC (per best practices)
+### end-time should be in UTC (per best practices)
+### end-time should be in UTC (per best practices)
+
+# START_TIMESTAMP="$( date +'%Y-%m-%d' ) 00:00:00"
+START_TIMESTAMP="$( TZ='America/New_York' date +'%Y-%m-%d' ) 05:00:00"   ### MacOS only.
+echo "START_TIMESTAMP='${START_TIMESTAMP}'"
 END_TIMESTAMP=$( date -u +'%Y-%m-%d %H:%M:%S' )
-echo "START_TIMESTAMP='${START_TIMESTAMP}' and END_TIMESTAMP='${END_TIMESTAMP}'"
+echo "END_TIMESTAMP='${END_TIMESTAMP}'"
 
 # NOW=$( date  +'%Y-%m-%dT%H:%M:%SZ' )
 # echo "NOW='${NOW}'"
 
+### --- now convert human-readable timestamps -into-> secs since epoch ----
 #__ START_TIMESTAMP=$( date -u -d "${START_TIMESTAMP}" +%s000 ) ### Linux only
 START_TIMESTAMP=$( date -j -u -f "%Y-%m-%d %H:%M:%S" "${START_TIMESTAMP}" "+%s000" ) ### MacOS only
 echo "START_TIMESTAMP='${START_TIMESTAMP}'"
@@ -43,6 +56,7 @@ echo "START_TIMESTAMP='${START_TIMESTAMP}'"
 #__ END_TIMESTAMP=$( date -u -d "${END_TIMESTAMP}" +%s000 ) ### Linux only
 END_TIMESTAMP=$( date -j -u -f "%Y-%m-%d %H:%M:%S" "${END_TIMESTAMP}" "+%s000" ) ### MacOS only
 echo "END_TIMESTAMP='${END_TIMESTAMP}'"
+echo "START_TIMESTAMP='${START_TIMESTAMP}' and END_TIMESTAMP='${END_TIMESTAMP}'"
 
 # echo "S3BKT='${S3BKT}'"
 
@@ -75,7 +89,8 @@ CWD="$(pwd)"
 #     --from "${START_TIMESTAMP}" \
 #     --to   "${END_TIMESTAMP}" \
 #     --destination "${S3BKT}" \
-#     --destination-prefix "CWLogs-exports_${NOW}"
+#     --destination-prefix "CWLogs-exports_${NOW}"  \
+#     --profile ${AWSPROFILE} --region ${AWSREGION}
 
 set -e
 
@@ -86,15 +101,17 @@ CWLogsQueryId=$(
         --log-group-name "${LOG_GROUP_NAME}" \
         --start-time "${START_TIMESTAMP}" \
         --end-time "${END_TIMESTAMP}" \
-        --query-string "fields @timestamp, @message | sort @timestamp asc" |
-    jq .queryId --raw-output
+        --query-string "fields @timestamp, @message | sort @timestamp asc" \
+        --profile ${AWSPROFILE} --region ${AWSREGION}           \
+    | jq .queryId --raw-output
 )
 set +x
 echo "CWLogsQueryId='${CWLogsQueryId}'"
 
 ### Get results using the query ID from above command
 set -x
-aws logs get-query-results --query-id "${CWLogsQueryId}" > "${TMPFILE11}"
+aws logs get-query-results --query-id "${CWLogsQueryId}" \
+    --profile ${AWSPROFILE} --region ${AWSREGION} > "${TMPFILE11}"
 set +x
 
 ### Pure JSON - but compact.

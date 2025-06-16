@@ -1,0 +1,4 @@
+2c2
+<   "app": "npx ts-node --prefer-ts-exts bin/cdk_app.ts",
+---
+>   "app": "npx ts-node --prefer-ts-exts bin/cleanup-failed_stacks.ts",

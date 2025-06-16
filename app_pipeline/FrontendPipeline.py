@@ -1,3 +1,4 @@
+from typing import Optional
 import os
 from aws_cdk import (
     Stack,
@@ -46,7 +47,7 @@ class FrontendAppDeployPipelineStack(Stack):
         pipeline_name = stack_id    ### perhaps it can be named better?
         stk_prefix = aws_names.gen_awsresource_name_prefix( tier=tier, cdk_component_name=constants.CDK_FRONTEND_COMPONENT_NAME )
         # stk_prefix = f"{constants.CDK_APP_NAME}-{constants.CDK_COMPONENT_NAME}-{tier}"
-        codebuild_projname = "Appln_CDKSynth"
+        codebuild_projname = "FEBuild_CDKDeploy"
 
         ### -----------------------------------
         _ , git_repo_name , git_repo_org_name = CdkDotJson_util.lkp_gitrepo_details(cdk_scope=self)
@@ -111,8 +112,8 @@ class FrontendAppDeployPipelineStack(Stack):
 
         ### -----------------------------------
 
-        a_build_action :aws_codepipeline_actions.CodeBuildAction = None
-        a_build_output :codepipeline.Artifact = None
+        a_build_action :Optional[aws_codepipeline_actions.CodeBuildAction] = None
+        a_build_output :Optional[codepipeline.Artifact] = None
 
         # Build action within CodePipeline
         a_build_action, a_build_output = common.cdk.StandardCodeBuild.standard_CodeBuildSynthDeploy_FrontendPythonCDK(
@@ -125,8 +126,8 @@ class FrontendAppDeployPipelineStack(Stack):
             cdk_app_pyfile  = "cdk_frontend_app.py",
             frontend_vuejs_rootfolder="frontend/ui",
             whether_to_use_adv_caching = constants_cdk.use_advanced_codebuild_cache( tier ),
-            my_pipeline_artifact_bkt = my_pipeline_v2.my_pipeline_artifact_bkt,
-            my_pipeline_artifact_bkt_name = my_pipeline_v2.my_pipeline_artifact_bkt_name,
+            my_pipeline_artifact_bkt = my_pipeline_v2.my_pipeline_artifact_bkt, # type: ignore
+            my_pipeline_artifact_bkt_name = my_pipeline_v2.my_pipeline_artifact_bkt_name, # type: ignore
         )
 
         # a_template_path=a_build_output.at_path(f'{stk_prefix}.template.json')

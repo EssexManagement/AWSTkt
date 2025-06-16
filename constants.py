@@ -10,6 +10,7 @@ CDK_BACKEND_COMPONENT_NAME  = "backend"
 CDK_FRONTEND_COMPONENT_NAME = "frontend"
 CDK_DEVOPS_COMPONENT_NAME   = "devops"
 CDK_OPERATIONS_COMPONENT_NAME   = "operations"
+CDK_BDD_COMPONENT_NAME      = "BDD"
 # CDK_COMPONENT_NAME = CDK_BACKEND_COMPONENT_NAME ### For legacy reasons.
 
 
@@ -23,10 +24,11 @@ PROD_TIER = "prod"
 STAGE_TIER = "stage"
 UAT_TIER = "uat"
 INT_TIER = "int"
-TEST_TIER = "qa"
+TEST_TIER = "test"
 QA_TIER = TEST_TIER
 DEV_TIER = "dev"
 STD_TIERS = [ PROD_TIER, STAGE_TIER, UAT_TIER, QA_TIER, TEST_TIER, INT_TIER, DEV_TIER, ]
+PROD_TIERS = [ PROD_TIER, STAGE_TIER, UAT_TIER, ]
 ACCT_TIERS = [ ACCT_PROD, ACCT_NONPROD ]
 
 UPPER_TIERS = STD_TIERS.copy()
@@ -78,7 +80,7 @@ DefaultITSupportEmailAddress = "nci-cancer-trials-finder-awsadmins@mail.nih.gov"
 ### Attention: This represents an AWS-SES "Verified-emailaddress" --- for use by Cognito User-Pool's FROM-addr and REPLY-TO-addr.
 def get_COGNITO_FROM_EMAIL( tier :str, aws_env :str ) -> str:
 
-    if aws_env == "CTF-nonprod" or aws_env == "CTF-prod": ### !!! NCI's CloudOne
+    if aws_env == ACCT_NONPROD or aws_env == ACCT_PROD: ### !!! NCI's CloudOne
             if tier == PROD_TIER:
                 return "FACTSupport@mail.nih.gov"
             else:
@@ -101,7 +103,7 @@ def get_COGNITO_FROM_EMAIL( tier :str, aws_env :str ) -> str:
 ### --------------------------
 def get_COGNITO_REPLY_TO_EMAIL( tier :str, aws_env :str ) -> str:
 
-    if aws_env == "CTF-nonprod" or aws_env == "CTF-prod": ### !!! NCI's CloudOne
+    if aws_env == ACCT_NONPROD or aws_env == ACCT_PROD: ### !!! NCI's CloudOne
             if tier == PROD_TIER:
                 return "FACTSupport@mail.nih.gov"
             else:

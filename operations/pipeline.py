@@ -1,6 +1,7 @@
 import pathlib
 import json
 import sys
+from typing import Optional, Tuple, List, Dict, Any
 
 from constructs import Construct
 from aws_cdk import (
@@ -8,6 +9,8 @@ from aws_cdk import (
     RemovalPolicy,
     aws_codepipeline as codepipeline,
     aws_codepipeline_actions,
+    aws_cloudformation,
+    CfnCapabilities,
 )
 
 import constants
@@ -58,6 +61,7 @@ class OperationsPipelineStack(Stack):
             'deleteManyStacks': [ "StepFn-DeleteStacksInSequence", "StepFn-DeleteStacksInParallel" ],
             'cleanup-FailedStacks': [ "StepFn-CleanupFailedStacksInSequence", "StepFn-CleanupFailedStacksInParallel" ],
             'OperationsPrerequisites': [ 'AWSLandingZone', 'OperationsPrerequisites' ],
+            'ServiceCatalogItem': [ 'Ops-SvcCatalogItem-TierDeployer' ],
             # 'deleteManyStacks': [aws_names.gen_awsresource_name( simple_resource_name='deleteManyStacks', tier=tier, cdk_component_name=THIS_COMPONENT, )],
             # 'cleanup-FailedStacks': [aws_names.gen_awsresource_name( simple_resource_name='cleanup-FailedStacks', tier=tier, cdk_component_name=THIS_COMPONENT, )],
             # 'OperationsPrerequisites': [aws_names.gen_awsresource_name( simple_resource_name='OperationsPrerequisites', tier=tier, cdk_component_name=THIS_COMPONENT, )],
@@ -91,7 +95,7 @@ class OperationsPipelineStack(Stack):
 
         OperationsPipeline( scope=self,
             construct_id = "AWSSAMs",
-            pipeline_name = stack_id+"-SAM",       ### Difference between these 2 invocations of OperationsPipeline()
+            pipeline_name = stack_id+"-SAM-"+aws_env,       ### Difference between these 2 invocations of OperationsPipeline()
             tier = tier,
             aws_env = aws_env,
             git_branch = git_commit_hash,
@@ -106,7 +110,7 @@ class OperationsPipelineStack(Stack):
 
         OperationsPipeline( scope=self,
             construct_id="CDKs",
-            pipeline_name = stack_id+"-CDK",       ### Difference between these 2 invocations of OperationsPipeline()
+            pipeline_name = stack_id+"-CDK-"+aws_env,       ### Difference between these 2 invocations of OperationsPipeline()
             tier = tier,
             aws_env = aws_env,
             git_branch = git_commit_hash,
@@ -136,7 +140,7 @@ class OperationsPipeline(Construct):
         pipeline_source_gitbranch :str,
         codebase_root_folder :str,
         sub_projects :dict,
-        codebase_ignore_paths :str,
+        codebase_ignore_paths :list[str],
         **kwargs
     ) -> None:
         """
@@ -230,8 +234,8 @@ class OperationsPipeline(Construct):
             #     simple_resource_name=subproj_name,
             # )
 
-            a_build_action :aws_codepipeline_actions.CodeBuildAction = None
-            a_build_output :codepipeline.Artifact = None
+            a_build_action :Optional[aws_codepipeline_actions.CodeBuildAction] = None
+            a_build_output :Optional[codepipeline.Artifact] = None
 
             # within the folder f'./{subproj_name}', if there's a file 'template.yaml' set the variable "aws_sam_project" to true
             cdk_project :bool     = pathlib.Path(f'{codebase_root_folder}/{subproj_name}/cdk.json').exists();
@@ -243,18 +247,25 @@ class OperationsPipeline(Construct):
             if cdk_project and not aws_sam_project:
 
                 if not python_cdk_project:
+                    ### Check if there's a subfolder `./src` under `{subproj_stkname}/`
+                    ### If it exists, indicate to `StandardCodeBuild.standard_CodeBuildDeploy_NodeJS` that it needs to do `npm run build` inside that subfolder.
+                    if pathlib.Path(f'{codebase_root_folder}/{subproj_name}/src').exists():
+                        npm_app_rootfolder = "src"
+                    else:
+                        npm_app_rootfolder = None
+
                     ### Purely JavaScript/TypeScript/NodeJS-based CDK-project
-                    # -ONLY- pure cdk-SYNTH actions within CodePipeline
-                    a_build_action, a_build_output = StandardCodeBuild.standard_CodeBuildSynth_NodeJS(
+                    a_build_action, a_build_output = StandardCodeBuild.standard_CodeBuildDeploy_NodeJS(
                         cdk_scope = self,
                         tier = tier,
                         codebase_root_folder = codebase_root_folder,
                         subproj_name = subproj_name,
                         cb_proj_name = f"{common_label}_{subproj_name}",
                         source_artifact = my_source_artif,
+                        npm_app_rootfolder = npm_app_rootfolder,
                         whether_to_use_adv_caching = constants_cdk.use_advanced_codebuild_cache( tier ),
-                        my_pipeline_artifact_bkt = my_pipeline_v2.my_pipeline_artifact_bkt,
-                        my_pipeline_artifact_bkt_name = my_pipeline_v2.my_pipeline_artifact_bkt_name,
+                        my_pipeline_artifact_bkt = my_pipeline_v2.my_pipeline_artifact_bkt, # type: ignore
+                        my_pipeline_artifact_bkt_name = my_pipeline_v2.my_pipeline_artifact_bkt_name, # type: ignore
                     )
                 else:
                     ### this is a Python-based CDK-project
@@ -267,8 +278,8 @@ class OperationsPipeline(Construct):
                         cb_proj_name = f"{common_label}_{subproj_name}",
                         source_artifact = my_source_artif,
                         whether_to_use_adv_caching = constants_cdk.use_advanced_codebuild_cache( tier ),
-                        my_pipeline_artifact_bkt = my_pipeline_v2.my_pipeline_artifact_bkt,
-                        my_pipeline_artifact_bkt_name = my_pipeline_v2.my_pipeline_artifact_bkt_name,
+                        my_pipeline_artifact_bkt = my_pipeline_v2.my_pipeline_artifact_bkt, # type: ignore
+                        my_pipeline_artifact_bkt_name = my_pipeline_v2.my_pipeline_artifact_bkt_name, # type: ignore
                     )
 
                 build_stage_actions.append(a_build_action)
@@ -288,26 +299,32 @@ class OperationsPipeline(Construct):
                         source_artifact = my_source_artif,
                         addl_env_vars = { },
                         whether_to_use_adv_caching = constants_cdk.use_advanced_codebuild_cache( tier ),
-                        my_pipeline_artifact_bkt = my_pipeline_v2.my_pipeline_artifact_bkt,
-                        my_pipeline_artifact_bkt_name = my_pipeline_v2.my_pipeline_artifact_bkt_name,
+                        my_pipeline_artifact_bkt = my_pipeline_v2.my_pipeline_artifact_bkt, # type: ignore
+                        my_pipeline_artifact_bkt_name = my_pipeline_v2.my_pipeline_artifact_bkt_name, # type: ignore
                     )
 
                     deploy_stage_actions.append(a_deploy_action)
 
-                if cdk_project and not aws_sam_project:
+                # if cdk_project and not aws_sam_project:
 
-                    a_template_path=a_build_output.at_path(f'{subproj_stkname}.template.json')
+                #     a_template_path=a_build_output.at_path(f'{subproj_stkname}.template.json')
 
-                    # Deploy action
-                    a_deploy_action = aws_codepipeline_actions.CloudFormationCreateUpdateStackAction(
-                        action_name = f'Deploy_{subproj_stkname}',
-                        template_path = a_template_path,
-                        stack_name = subproj_stkname,
-                        admin_permissions  = True,
-                        replace_on_failure = True,
-                    )
+                #     # Deploy action
+                #     a_deploy_action = aws_codepipeline_actions.CloudFormationCreateUpdateStackAction(
+                #         action_name = f'Deploy_{subproj_stkname}',
+                #         template_path = a_template_path,
+                #         stack_name = subproj_stkname,
+                #         admin_permissions  = True,
+                #         replace_on_failure = True,
+                #         ### Important: Include this -- so that any ./cdk.out/asset.[0-9a-e]+/ folders are also available.
+                #         extra_inputs = [a_build_output] if a_build_output else None,
+                #         cfn_capabilities = [
+                #             CfnCapabilities.NAMED_IAM,
+                #             CfnCapabilities.AUTO_EXPAND,
+                #         ]
+                #     )
 
-                    deploy_stage_actions.append(a_deploy_action)
+                #     deploy_stage_actions.append(a_deploy_action)
 
         # Finally, Add build and deploy stages to the CodePipeline
         if build_stage_actions and len(build_stage_actions) > 0:

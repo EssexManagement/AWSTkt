@@ -1,4 +1,5 @@
 import os
+import subprocess
 import pathlib
 from typing import Optional, Dict, List
 import json
@@ -42,7 +43,7 @@ class LambdaLayersBuilderStacks(Stack):
         aws_env :str,
         git_branch :str,
         cpu_arch_list :List[aws_lambda.Architecture] = constants_cdk.CPU_ARCH_LIST,
-        layer_modules_list :list[any] = LAYER_MODULES,
+        layer_modules_list :list[LambdaLayerProps] = LAYER_MODULES,
         **kwargs,
     ) -> None:
         """ In a separate stack, create AWS-REsources needed across all other stacks.
@@ -69,10 +70,22 @@ class LambdaLayersBuilderStacks(Stack):
         ### -------- build the 𝜆-layers by CPU-ARCH -------
 
         for cpu_arch in cpu_arch_list:
+            print( f"\nChecking whether to build 𝜆-layers for {cpu_arch.name} .." )
 
             for layer in layer_modules_list:
 
-                self._create_lambda_layer( tier, cpu_arch, layer )
+                skip_for_cpu_arch = True;
+                print( "\n𝜆-layer "+ layer.lambda_layer_id, end=": " )
+                for larch in layer.cpu_arch:
+                    print( f"layer.cpu_arch = '{larch.name}'", end=' .. ' )
+                    if cpu_arch.name == larch.name:
+                        skip_for_cpu_arch = False
+                print( '' ) # end of line
+
+                if not skip_for_cpu_arch:
+                    self._create_lambda_layer( tier, cpu_arch, layer )
+                else:
+                    print( f"Lambda-Layer '{layer.lambda_layer_id}' .. is --NOT-- supported for CPU-Arch '{cpu_arch.name}'" )
 
         add_tags(self, tier=tier, aws_env=aws_env, git_branch=git_branch)
 
@@ -143,19 +156,43 @@ class LambdaLayersBuilderStacks(Stack):
         ### SOMETHING HAS CHANGED re: this 𝜆-Layer.  We must cdk-build + deploy a NEW VERSION of this 𝜆-LAYER.
         print( f"Lambda-Layer '{layer_id}' with CPU-Arch '{cpu_arch_str}' has CHANGED!!!  Old hash ='{lkp_lyr_hash}' --versus-- new hash = '{myasset_sha256_hash}'" )
 
-        if not my_lambdalayer_asset:
+        if layer.builder_cmd:
+            ### SCENARIO: if the `layer.lambda_layer_fldr` contains a `Makefile`, then simply run a shell to execute `make`, and then set my_lambdalayer_asset to the CDK-Asset pointed to the file "{layer.lambda_layer_fldr}/build/layer.zip" file
+            ###           or .. if the layer is built with a unique-shell command
+            pass
+        else:
+            ### SCENARIO: Else, we assume there's (instead) a `Pipfile` that will be used to create a Lambda-Layer Zip-file
+            # if the "Pipfile" modified-timestamp is more recent than that of "Pipefile.lock" throw an exception
+            FSUtils.assert_not_newer_than( myfile=pathlib.Path(f"{layer_fldr_path}/Pipfile"),         newer_than_this=pathlib.Path(f"{layer_fldr_path}/Pipfile.lock"),     ignore_missing_files=False )
+            FSUtils.assert_not_newer_than( myfile=pathlib.Path(f"{layer_fldr_path}/requirements.in"), newer_than_this=pathlib.Path(f"{layer_fldr_path}/requirements.txt"), ignore_missing_files=True )
 
-            util = LambdaLayerUtility(
-                lambda_layer_id = layer.lambda_layer_id,
-                lambda_layer_builder_script = None ### was: layer.LAMBDA_LAYER_BUILDER_SCRIPT,
-            )
-            my_lambdalayer_asset = util.build_lambda_layer_using_docker(
-                tier = tier,
-                cpu_arch_str = cpu_arch_str,
-                layer_fldr_path = layer_fldr_path,
-                layer_opt = layer_sizing_option,
-                # zipfile_simplename = layer_zipfilename,
-            )
+        if not my_lambdalayer_asset:
+            if layer.builder_cmd:
+                ### SCENARIO: if the `layer.lambda_layer_fldr` contains a `Makefile`, then simply run a shell to execute `make`, and then set my_lambdalayer_asset to the CDK-Asset pointed to the file "{layer.lambda_layer_fldr}/build/layer.zip" file
+                ###           or .. if the layer is built with a unique-shell command
+                process = subprocess.run(
+                    args = layer.builder_cmd,
+                    cwd = layer.lambda_layer_fldr,
+                    shell=True,
+                    check=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    universal_newlines=True
+                )
+                my_lambdalayer_asset = aws_lambda.AssetCode.from_asset( str(layer.lambda_layer_fldr / "build" / layer.lambda_layer_zipfilename) );
+            else:
+                ### SCENARIO: Else, we assume there's (instead) a `Pipfile` that will be used to create a Lambda-Layer Zip-file
+                util = LambdaLayerUtility(
+                    lambda_layer_id = layer.lambda_layer_id,
+                    lambda_layer_builder_script = None ### was: layer.LAMBDA_LAYER_BUILDER_SCRIPT,
+                )
+                my_lambdalayer_asset = util.build_lambda_layer_using_docker(
+                    tier = tier,
+                    cpu_arch_str = cpu_arch_str,
+                    layer_fldr_path = layer_fldr_path,
+                    layer_opt = layer_sizing_option,
+                    # zipfile_simplename = layer_zipfilename,
+                )
             config.LambdaConfigs.cache_lambda_layer_asset(
                 layer_name = layer_id,
                 cpu_arch_str = cpu_arch_str,
@@ -172,10 +209,6 @@ class LambdaLayersBuilderStacks(Stack):
             simple_lambdalayer_name = layer_id,
             cpu_arch_str = cpu_arch_str )
         print( f"Creating aws_lambda.LayerVersion(): {layer_version_name} .. via lookup-Key= '{layer_id}-{cpu_arch_str}' // {cpu_arch_str} // {layer_uniq_id} .." )
-
-        # if the "Pipfile" modified-timestamp is more recent than that of "Pipefile.lock" throw an exception
-        FSUtils.assert_not_newer_than( myfile=pathlib.Path(f"{layer_fldr_path}/Pipfile"),         newer_than_this=pathlib.Path(f"{layer_fldr_path}/Pipfile.lock"),     ignore_missing_files=False )
-        FSUtils.assert_not_newer_than( myfile=pathlib.Path(f"{layer_fldr_path}/requirements.in"), newer_than_this=pathlib.Path(f"{layer_fldr_path}/requirements.txt"), ignore_missing_files=True )
 
         my_lambda_layerversion = aws_lambda.LayerVersion(
             scope = self,

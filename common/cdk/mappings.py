@@ -29,10 +29,10 @@ class createCftMapping(object):
         if not hasattr(self, 'init_already_invoked'):
             datadogstreams_by_aws_acct = {
                 "CTF": { ### AWS-Account-wide configuration.  --NOT-- tier-specific configuration.
-                    "CTF-nonprod": None,
-                    "CTF-prod":    None,
-                    # "CTF-nonprod": "stream/DatadogLambdaLogStream",     ### arn:aws:kinesis:us-east-1:123456789012:stream/DatadogLambdaLogStream
-                    # "CTF-prod":    "stream/DatadogLambdaLogStream",     ### arn:aws:kinesis:us-east-1:123456789012:stream/DatadogLambdaLogStream
+                    "acct-nonprod": None,
+                    "acct-prod":    None,
+                    # "acct-nonprod": "stream/DatadogLambdaLogStream",     ### arn:aws:kinesis:us-east-1:123456789012:stream/DatadogLambdaLogStream
+                    # "acct-prod":    "stream/DatadogLambdaLogStream",     ### arn:aws:kinesis:us-east-1:123456789012:stream/DatadogLambdaLogStream
                 },
                 "FACT": { ### AWS-Account-wide configuration.  --NOT-- tier-specific configuration.
                     "devint": "stream/DatadogLambdaLogStream",          ### arn:aws:kinesis:us-east-1:123456789012:stream/DatadogLambdaLogStream
@@ -51,23 +51,23 @@ class createCftMapping(object):
                     mapping={
                         "dev":  {
                             "FACT": lkp["devint"] if "devint" in lkp else None,
-                            "CTF": lkp["CTF-nonprod"] if "CTF-nonprod" in lkp else None,
+                            "CTF": lkp["acct-nonprod"] if "acct-nonprod" in lkp else None,
                         },
                         "test":  {
-                            "CTF": lkp["CTF-nonprod"] if "CTF-nonprod" in lkp else None,
+                            "CTF": lkp["acct-nonprod"] if "acct-nonprod" in lkp else None,
                         },
                         "int":  {
                             "FACTrial": lkp["devint"] if "devint" in lkp else None,
                         },
                         "stage":  {
-                            "CTF": lkp["CTF-prod"] if "CTF-prod" in lkp else None,
+                            "CTF": lkp["acct-prod"] if "acct-prod" in lkp else None,
                         },
                         "uat":  {
                             "FACTrial": lkp["uat"] if "uat" in lkp else None,
                         },
                         # "perf": {},
                         "prod": {
-                            "CTF": lkp["CTF-prod"] if "CTF-prod" in lkp else None,
+                            "CTF": lkp["acct-prod"] if "acct-prod" in lkp else None,
                             "FACTrial": lkp["prod"] if "prod" in lkp else None,
                         },
                     }

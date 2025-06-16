@@ -30,11 +30,11 @@
                 "tracer"
             ],
             "hashes": [
-                "sha256:46919c50340c6ecb285f9738f1091aa8368b467c322d8e8a1c0550fff2857e25",
-                "sha256:78fa068b9ee21026f4214bd98031b6841f84ab0afb43e857d33bdf4f7592be48"
+                "sha256:08d5afab26d9628b78f029f3dcd8f28ec4dbc6af0c4b7278a2d64b4a392dd062",
+                "sha256:883bcd54357451dd2fa98daa47c2d692144c7cbbff8d596e0027e9c0dc8c37e0"
             ],
             "markers": "python_version >= '3.9' and python_full_version < '4.0.0'",
-            "version": "==3.6.0"
+            "version": "==3.5.0"
         },
         "aws-xray-sdk": {
             "hashes": [
@@ -47,11 +47,11 @@
         },
         "botocore": {
             "hashes": [
-                "sha256:7898d109affd9231c555e71fda88308c1da2db8d39e83d33eb8cb40ebf1ba82f",
-                "sha256:ddadafe460e91f11677720a2fcc3ea09c4abb914de2b000da7ba46b4c97da3d7"
+                "sha256:5ae1ed362c8ed908a6ced8cdd12b21e2196c100bc79f9e95c9c1fc7f9ea74f5a",
+                "sha256:86ed88beb4f244c96529435c868d3940073c2774116f0023fb7691f6e7053bd9"
             ],
             "markers": "python_version >= '3.8'",
-            "version": "==1.36.18"
+            "version": "==1.36.12"
         },
         "certifi": {
             "hashes": [

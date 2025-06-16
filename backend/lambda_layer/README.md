@@ -51,7 +51,9 @@ PYTHON_VERSION="3.12"
 LOCALDIR="/tmp/MyLambdaLayer"
 mkdir "${LOCALDIR}"
 
-pip install pipenv --user
+# pip install pipenv --user
+pip install pipenv
+
 pipenv lock --dev --python ${PYTHON_VERSION} --clear
 pipenv sync --dev
 # pipenv install --deploy --ignore-pipfile

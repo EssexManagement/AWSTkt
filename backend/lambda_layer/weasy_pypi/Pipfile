@@ -1,0 +1,22 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+
+weasyprint = "*"
+"fonttools[woff]" = "*"
+tinyhtml5 = "*"
+tinycss2 = "*"
+cssselect2 = "*"
+Pyphen = "*"
+Pillow = "*"
+pydyf = "*"
+cffi = "*"
+
+
+[dev-packages]
+
+[requires]
+python_version = "3.12"

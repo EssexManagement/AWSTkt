@@ -25,7 +25,10 @@ import common.cdk.constants_cdk as constants_cdk
 import common.cdk.aws_names as aws_names
 
 # from vpc_rds.vpc_stack import VpcStack
-from frontend.infrastructure import Frontend
+from frontend.infrastructure.frontend_construct import Frontend
+from frontend.infrastructure.frontend_2nd_origin import Frontend2ndOrigin
+from backend.infra.backend_security_construct import BackendWAFConstruct
+from frontend.infrastructure.fe_security_construct import FrontendWAFConstruct
 from observe.infrastructure import Monitoring
 
 
@@ -87,7 +90,6 @@ class Gen_AllFrontendApplicationStacks():
             f"{backend_cognito_stkname}-UserPoolDomain"
         )
         import_user_pool_id = Fn.import_value(f"{backend_cognito_stkname}-UserPoolID")
-        import_user_pool_id = Fn.import_value(f"{backend_cognito_stkname}-UserPoolID")
 
         # this_dir = pathlib.Path.dirname(__file__)
         # with open( this_dir / "frontend/ui/cognito_ids", "w+", encoding="utf-8") as build_fp:
@@ -96,16 +98,6 @@ class Gen_AllFrontendApplicationStacks():
         #     )
         #
         # system(f"cat {this_dir}/frontend/ui/cognito_ids")
-
-        root_domain, frontend_website_FQDN = cdk_utils.CdkDotJson_util.lkp_website_details( cdk_scope=scope, tier=tier )
-
-        # if tier == "prod":
-        #     domain_name = root_domain
-        # else:
-        #     if branch in constants.GIT_STD_BRANCHES:
-        #         domain_name = f"{tier}.{root_domain}"
-        #     else:  ### developer specific branch
-        #         domain_name = f"dev.{root_domain}"
 
         ### (dev|int|uat).<ROOTDOMAIN>.com   --versus--   production uses <ROOTDOMAIN>.com
         # print( f"!!!!!!! ATTENTION !!!!!!!! domain_name='{domain_name}' in "+ __file__ )
@@ -122,11 +114,17 @@ class Gen_AllFrontendApplicationStacks():
             aws_env=aws_env,
             git_branch=git_branch,
             stack_name=frontend_stkname,
-            root_domain=root_domain,
-            frontend_domain_name=frontend_website_FQDN,
             public_api_FQDN = api_domain, ### stateless_stack.api_construct.public_api_FQDN,
             **kwargs
         )
+
+        waf_con = FrontendWAFConstruct(
+            cdk_scope = frontend_stack,  ### <---- scope is the above stack.
+            construct_id = "waf",
+            tier = tier,
+        )
+        print(f"waf_con.waf_acl_arn = '{waf_con.waf_acl_arn}'")
+        waf_con.protect_cloudfront_w_waf( distribution = frontend_stack.frontend_construct.distribution )
 
         if tier in constants.STD_TIERS:
             ObserveStack(
@@ -141,7 +139,7 @@ class Gen_AllFrontendApplicationStacks():
                 ),
                 user_pool_id=import_user_pool_id,
                 user_pool_client_id=import_ui_client_id,
-                ui_domain_name=frontend_website_FQDN,
+                ui_domain_name = frontend_stack.frontend_website_FQDN,
                 # ui_domain_name=domain_name,
                 stack_name=f"{id_}-observe",  ### kwargs
                 **kwargs
@@ -161,8 +159,8 @@ class FrontendStack(Stack):
         aws_env :str,
         stack_name :str,
         api_domain: str,
-        root_domain :str,
-        frontend_domain_name :str,
+        # root_domain :str,
+        # frontend_domain_name :str,
         public_api_FQDN :str,
         **kwargs,
     ) -> None:
@@ -177,17 +175,42 @@ class FrontendStack(Stack):
         print( f"aws_env='{aws_env}' within FrontendStack: "+ __file__ )
         print( f"git_branch='{git_branch}' within FrontendStack: "+ __file__ )
 
+        root_domain, frontend_website_FQDN, acm_ssl_cert_arn = cdk_utils.CdkDotJson_util.lkp_website_details( cdk_scope=self, tier=tier )
+        self.frontend_website_FQDN = frontend_website_FQDN
+
+        # if tier == "prod":
+        #     domain_name = root_domain
+        # else:
+        #     if branch in constants.GIT_STD_BRANCHES:
+        #         domain_name = f"{tier}.{root_domain}"
+        #     else:  ### developer specific branch
+        #         domain_name = f"dev.{root_domain}"
+
         self.frontend_construct = Frontend(
             scope = self,
             id_ = "frontend",
             tier=tier,
             aws_env=aws_env,
-            git_branch=git_branch,
-            api_domain=api_domain,
-            root_domain=root_domain,
-            frontend_domain_name=frontend_domain_name,
+            frontend_domain_name = frontend_website_FQDN,
+            acm_ssl_cert_arn = acm_ssl_cert_arn,
             public_api_FQDN = public_api_FQDN,
+            # root_domain=root_domain,
         )
+
+        self.url = self.frontend_construct.frontend_url
+        # self.frontend_bucket = self.frontend_construct.frontend_bucket
+        # self.frontend_bucket = self.frontend_construct.cloudfront_s3.s3_bucket
+
+        Frontend2ndOrigin(
+            scope = self,
+            id_ = "2ndorig",
+            tier = tier,
+            distribution = self.frontend_construct.distribution,
+            public_api_FQDN = public_api_FQDN,
+            x_origin_verify_hdr_token_value = BackendWAFConstruct.x_origin_verify_hdr_token_value(),
+        )
+
+
 
         self._url = CfnOutput(
             self,

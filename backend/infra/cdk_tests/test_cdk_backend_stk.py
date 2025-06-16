@@ -1,10 +1,16 @@
-from aws_cdk import aws_sns as sns
 import aws_cdk as cdk
 from aws_cdk.assertions import Template, Match
 
-from app_pipeline.AllStacks import stk_refs
+import constants
 
-def test_backend_cdk_synth(app: cdk.App):
+from app_pipeline.BackendStacks import stk_refs
+
+def test_backend_cdk_synth(
+    app :cdk.App,
+    tier :str,
+    aws_env :str,
+    git_branch :str,
+):
 
     stk = stk_refs.stateful_stk
     stk = stk_refs.buckets_stk
@@ -17,10 +23,11 @@ def test_backend_cdk_synth(app: cdk.App):
         "AWS::S3::Bucket",
         {
             "Properties": {
-                "BucketName": Match.string_like_regexp("nih-nci-fact-backend-[a-zA-Z0-9-]+-session-results"),
+                "BucketName": Match.string_like_regexp( f"{constants.ENTERPRISE_NAME}-{constants.CDK_APP_NAME}-backend-{tier}-session-results".lower() ),
+                # "BucketName": Match.string_like_regexp( f"{constants.ENTERPRISE_NAME}-{constants.CDK_APP_NAME}-backend-[a-zA-Z0-9-]+-session-results".lower() ),
                 "LifecycleConfiguration": {
                     "Rules": Match.array_with([
-                        Match.object_like({"ExpirationInDays": Match.exact(1)}), ### We do NOT want the
+                        Match.object_like({"ExpirationInDays": Match.exact(365)}),
                     ])
                 },
                 # "LifecycleConfiguration": {
@@ -34,8 +41,20 @@ def test_backend_cdk_synth(app: cdk.App):
                 # },
             },
             "Metadata": {
-                "aws:cdk:path": Match.string_like_regexp("FACT-backend-[a-zA-Z0-9-]+/FACT-backend-[a-zA-Z0-9-]+-Buckets/buckets/Resource")
+                "aws:cdk:path": Match.string_like_regexp( f"{constants.CDK_APP_NAME}-backend-[a-zA-Z0-9-]+-Buckets/buckets/Resource" )
                 # "aws:cdk:path": "nccr-2567-stateful/data store/nccr_internal/Resource"
             },
         },
     )
+
+    # "etl-data-sets" bucket can Not have objects retained for > 1 day.
+    template.has_resource( "AWS::S3::Bucket", {
+        "Properties": {
+            "BucketName": Match.string_like_regexp( f"{constants.ENTERPRISE_NAME}-{constants.CDK_APP_NAME}-backend-{tier}-etl-data-sets".lower() ),
+            "LifecycleConfiguration": {
+                "Rules": Match.array_with([
+                    Match.object_like({"Transitions": [{"StorageClass": "GLACIER_IR", "TransitionInDays": 2}]})
+                 ])
+        }},
+        "Metadata": { "aws:cdk:path": Match.string_like_regexp( f"{constants.CDK_APP_NAME}-backend-[a-zA-Z0-9-]+-Buckets/etl_data_sets/Resource" ) },
+    })

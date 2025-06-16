@@ -122,18 +122,46 @@ class LambdaOnlyConstructs(Construct):
         a_lambda :dict
 
         for a_lambda in lambda_configs.list:
+
+            index   = LambdaConfigs.get_lambda_index( a_lambda )
             handler = LambdaConfigs.get_handler(a_lambda)
-            index = LambdaConfigs.get_lambda_index( a_lambda )
-            handler = LambdaConfigs.get_handler(a_lambda)
-            entry = LambdaConfigs.get_lambda_entry( a_lambda )
-            # TODO: should be fixed to allow lambdas which happen to use api gw to have function name lambda_handler. as is anything using name lambda_handler is assumed to not use gw
-            if handler == DEFAULT_LAMBDA_HANDLER:
-                ### This is for ETL-Lambdas that can NOT be accessed via APIGW.
-                h = re.sub(r"\./", "_", index.replace(".py", ""))
-                function_name= aws_names.gen_lambda_name( tier=tier, simple_lambda_name = h )
-            else:
-                function_name= aws_names.gen_lambda_name( tier=tier, simple_lambda_name=handler )
-            http_method = LambdaConfigs.get_http_method(a_lambda)
+            entry   = LambdaConfigs.get_lambda_entry( a_lambda )
+            apigw_res_path :Optional[str] = LambdaConfigs.get_apigw_path(a_lambda)
+            simple_name = LambdaConfigs.get_simple_name(a_lambda)
+            print(f'simple_name={simple_name}:index={index}:apigw_res_path={apigw_res_path}:handler={handler}:entry={entry}')
+            # TODO: Should fix this more
+            # now the criteria for ETL Lambda is not having api_gw_path and having default handler name
+            """ SCENARIO:
+                When .. for this item, the name of the python-handler is the worldwide default (`lambda_handler`).
+                .. and the name of the PY-module is --NO-- good to be used as the Lambda's name (for whatever reason)
+                that's when you use the "simple-name" of a lambda (without CDK_APP_NAME and TIER) .. ..
+                It defaults to the value returned by `get_handler(item)` ONLY if that is a unique-value.
+                ELSE it next defaults to the value returned by `get_apigw_path(item)` which better be Not `None`.
+                Else, an exception is raised.
+            """
+            if not simple_name:
+                if (not handler or handler == DEFAULT_LAMBDA_HANDLER):
+                    if not apigw_res_path:
+                        simple_name = re.sub(r"\./", "_", index.replace(".py", ""))
+                        # raise Exception(f"get_simple_name() is not defined, when the Handler-method is the generic '{DEFAULT_LAMBDA_HANDLER}' for item = '{a_lambda}'")
+                    else:
+                        simple_name = apigw_res_path
+                else:
+                    if not apigw_res_path:
+                        simple_name = handler
+                    else:
+                        simple_name = apigw_res_path
+
+            # if not apigw_res_path and handler == DEFAULT_LAMBDA_HANDLER:
+            #     ### This is for ETL-Lambdas that can NOT be accessed via APIGW.
+            #     h = re.sub(r"\./", "_", index.replace(".py", ""))
+            #     function_name= aws_names.gen_lambda_name( tier=tier, simple_lambda_name = h )
+            # else:
+            #     function_name= aws_names.gen_lambda_name( tier=tier, simple_lambda_name=simple_name )
+            function_name= aws_names.gen_lambda_name( tier=tier, simple_lambda_name=simple_name )
+            http_method :Optional[str] = LambdaConfigs.get_http_method(a_lambda)
+
+            ### -------
             print(f"{handler}:\t{http_method}\t-\t{index}\t-\t{handler}")
             print(f"lambda_name = '{function_name}'")
 
@@ -146,6 +174,7 @@ class LambdaOnlyConstructs(Construct):
             lambda_layers_names: Optional[list] = LambdaConfigs.get_lambda_layers_names(a_lambda)
             # override_content_type_to_BINARY: bool = LambdaConfigs.get_mime-response', None) != None
 
+            ### -------
             if lambda_rolename:
                 if not self.__role_cache:
                     self.__role_cache: Dict[str, aws_iam.Role] = {}

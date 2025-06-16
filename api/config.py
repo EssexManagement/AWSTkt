@@ -97,11 +97,17 @@ class LambdaConfigs():
     # @staticmethod
     # def get_handler_file(item :dict) -> Optional[str]: return item.get('handler_file', LambdaConfigs.get_handler_id(item=item))
     @staticmethod
-    def get_handler(item :dict) -> Optional[str]: return item.get('handler')   or   DEFAULT_LAMBDA_HANDLER
+    def get_handler(item :dict) -> Optional[str]:
+        """ If not explicitly specified, then return-value is `LambdaConfigs.DEFAULT_LAMBDA_HANDLER`
+        """
+        return item.get('handler')   or   DEFAULT_LAMBDA_HANDLER
     @staticmethod
     def get_http_method(item :dict) -> Optional[str]: return item.get('http_method', None)
     @staticmethod
     def get_apigw_path(item :dict) -> Optional[str]: return item.get("apigw-path", None)
+        ### Attention: `get_apigw_path(item)` can NEVER return None!!
+    @staticmethod
+    def get_simple_name(item :dict) -> Optional[str]: return item.get("simple_name", None)
     @staticmethod
     def get_memory_size(item :dict) -> Optional[str]: return item.get('memory')
     @staticmethod

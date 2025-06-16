@@ -15,6 +15,7 @@ from aws_cdk import (
 from constructs import Construct
 
 import constants
+import common.cdk.constants_cdk as constants_cdk
 
 ### ---------------------------------------------------------------------------------
 
@@ -64,7 +65,7 @@ class AwsServiceNamesForKmsKeys(Enum):
 def lkp_waf_acl_for_cloudFront(
     cdk_context,
     effective_tier :str,
-) -> str:
+) -> Optional[str]:
     """ Lookup ARN for WAF-ACL to be associated with CloudFRONT.
         Assumes following structure in `cdk.json`
 
@@ -104,7 +105,7 @@ def lkp_waf_acl_for_cloudFront(
 def lkp_waf_acl_for_apigw(
     cdk_context,
     effective_tier :str,
-) -> str:
+) -> Optional[str]:
     """ Lookup ARN for WAF-ACL to be associated with APIGW.
         Assumes following structure in `cdk.json`
 
@@ -130,7 +131,7 @@ def lkp_waf_acl_for_apigw(
 def lkp_waf_acl_for_cognito(
     cdk_context,
     effective_tier :str,
-) -> str:
+) -> Optional[str]:
     """ Lookup ARN for WAF-ACL to be associated with COGNITO USER-POOL.
         Assumes following structure in `cdk.json`
 
@@ -148,23 +149,31 @@ def lkp_waf_acl_for_cognito(
     return _lkp_waf_acl_for_aws_resource(
         cdk_context = cdk_context,
         effective_tier = effective_tier,
-        lkp_key = "Cognito-WAF-ACLs",
+        lkp_key = "regional",
+        # lkp_key = "Cognito-WAF-ACLs",
     )
 
 ### -----------------------
+
+debug_already_printed_waf_acl_details = False
 
 def _lkp_waf_acl_for_aws_resource(
     cdk_context,
     effective_tier :str,
     lkp_key :str,
-) -> str:
+) -> Optional[str]:
+    stk = Stack.of(cdk_context)
+
     security_config = cdk_context.node.try_get_context("security")
     # print(f"security_config = {security_config}")
     if security_config and "WAF-ACL" in security_config:
         web_acl_json = security_config["WAF-ACL"]
     else:
         web_acl_json = None
-    print( f"DEBUG: web_acl_json = '{web_acl_json}'")
+    global debug_already_printed_waf_acl_details
+    if debug_already_printed_waf_acl_details:
+        print( f"DEBUG: web_acl_json = '{web_acl_json}'")
+        debug_already_printed_waf_acl_details = True
 
     # if web_acl_json and "regional" in web_acl_json:
     #     web_acl_regional_json = web_acl_json["regional"]
@@ -181,7 +190,31 @@ def _lkp_waf_acl_for_aws_resource(
             web_acl_arn = None
     else:
         web_acl_arn = None
+
+    if web_acl_arn:
+        web_acl_arn = web_acl_arn.format( stk.region, stk.account )
     return web_acl_arn
+
+### -----------------------
+
+def lkp_waf_IPSet_arn(
+    cdk_context,
+    tier :str,
+    ip_list_name :str,
+) -> str:
+    """ Given the NAME of an IP-Set, lookup cdk.json for the ARN (within appropriate account)
+    """
+    stk = Stack.of(cdk_context)
+    effective_tier = tier if (tier in constants.STD_TIERS or tier in constants.ACCT_TIERS) else "dev"
+    nonprod_or_prod = constants_cdk.TIER_TO_AWSENV_MAPPING[ effective_tier ]
+
+    ipset_details = cdk_context.node.try_get_context("security")["WAF-IPSets"]
+    ipset_details = ipset_details[ ip_list_name ]
+    ipset_arn = ipset_details[ nonprod_or_prod ]
+    print( f"IP-Set's ARN = '{ipset_arn}'")
+    ipset_arn = ipset_arn.format( stk.region, stk.account )
+    print( f"IP-Set's ARN (formatted) = '{ipset_arn}'")
+    return ipset_arn
 
 ### ---------------------------------------------------------------------------------
 ### .................................................................................
@@ -201,6 +234,7 @@ def lkp_cdk_json_for_VPCEndPts(
     """
 
     stk = Stack.of(cdk_scope)
+    raise Exception("Not implemented!!!")
 
 ### ---------------------------------------------------------------------------------
 
@@ -211,15 +245,17 @@ def get_cdk_json_vpc_details(
     scope :Construct,
     aws_env :str,
     tier :str,
-) -> tuple[  dict[str,dict[str, Union[str,list[dict[str,str]]]]],     dict[str, Union[str,list[dict[str,str]]]] ]:
+) -> tuple[  dict[str,dict[str, Union[str,list[dict[str,str]]]]],     dict[str, Union[str,list[dict[str,str]]]] | None ]:
     """
         Reads cdk.json context, and Returns the following as a tuple:
             1. acct_wide_vpc_details :dict[str,dict[str, Union[str,list[dict[str,str]]]]]
             2. vpc_details_for_tier  :dict[str, Union[str,list[dict[str,str]]]]
     """
-    vpc_ctx :any = scope.node.try_get_context("vpc")
+
+    effective_tier = tier if (tier in constants.STD_TIERS or tier in constants.ACCT_TIERS) else "dev"
+    vpc_ctx = scope.node.try_get_context("vpc")
     acct_wide_vpc_details :dict[str,dict[str, Union[str,list[dict[str,str]]]]];
-    vpc_details_for_tier :dict[str, Union[str,list[dict[str,str]]]];
+    vpc_details_for_tier :dict[str, Union[str,list[dict[str,str]]]] | None;
     global already_printed_debug_output_1;
     if not already_printed_debug_output_1:
         print( "vpc_ctx..............................")
@@ -234,17 +270,18 @@ def get_cdk_json_vpc_details(
         print( json.dumps(acct_wide_vpc_details, indent=4, default=str) )
         already_printed_debug_output_1 = True
 
-    if acct_wide_vpc_details and tier in acct_wide_vpc_details:
-        vpc_details_for_tier = acct_wide_vpc_details[tier]
-    elif tier is None or tier in [ constants.ACCT_NONPROD, constants.ACCT_PROD ]:
+    if tier is None or tier in [ constants.ACCT_NONPROD, constants.ACCT_PROD ]:
         vpc_details_for_tier = None
+        ### Attention: It makes sense to have TIER-specific vpc, when this stack is ACCT-Wide and to be SHARED/INDEPENDENT of tiers.
+    elif acct_wide_vpc_details and effective_tier in acct_wide_vpc_details:
+        vpc_details_for_tier = acct_wide_vpc_details[effective_tier]
     else:
         raise ValueError(f"cdk.json file is MISSING the JSON-details for tier=`{tier}` (under `vpc.{aws_env}`) /// FYI: tier='{tier}'.")
 
     print( f"vpc_details_for_tier for tier={tier}..............................")
     print( json.dumps(vpc_details_for_tier, indent=4, default=str) )
 
-    return [ acct_wide_vpc_details, vpc_details_for_tier ]
+    return acct_wide_vpc_details, vpc_details_for_tier
 
 ### ..........................................................................................
 
@@ -266,7 +303,7 @@ def get_list_of_azs(
         atleast_one_az_found = False
         for subnet_details in vpc_details_for_tier["subnets"]:
             if "az" in subnet_details:
-                list_of_azs.append(subnet_details["az"])
+                list_of_azs.append(subnet_details["az"]) # type: ignore
                 atleast_one_az_found = True
         if not atleast_one_az_found:
             raise ValueError(f"vpc_details_for_tier '{tier}' is missing 'az' json-element under 'subnets' array-of-elements")
@@ -283,9 +320,9 @@ one_time_debug_output_completed_2 :bool = False
 def lkp_cdk_json_for_kms_key(
     cdk_scope :Construct,
     tier :str,
-    aws_env :str,
+    aws_env :Optional[str],
     aws_rsrc_type :AwsServiceNamesForKmsKeys,
-) -> str:
+) -> Optional[str]:
     """ Looks up `cdk.json` file and .. .. returns the KMS-Key-ARN :str
         Parameter #1 - cdk_scope :Construct => Pass in any Construct within a Stack
         Parameter #2 - tier :str            => dev|int|uat|prod
@@ -298,7 +335,7 @@ def lkp_cdk_json_for_kms_key(
     stk = Stack.of(cdk_scope)
     effective_tier = tier if (tier in constants.STD_TIERS or tier in constants.ACCT_TIERS) else "dev"
 
-    cdk_json_security_config :any = cdk_scope.node.try_get_context("security")
+    cdk_json_security_config = cdk_scope.node.try_get_context("security")
     global one_time_debug_output_completed_2
     if not one_time_debug_output_completed_2:
         print("cdk.json's Git-SourceCode configuration JSON is:")
@@ -314,8 +351,10 @@ def lkp_cdk_json_for_kms_key(
         if "default" in kms_key_config and effective_tier in kms_key_config["default"]:
             default_kms_key_arn = kms_key_config["default"][effective_tier]
         ### Next look up any KMS-key for use by --SPECIFIC-- AWS-Service
-        if aws_rsrc_type.name in kms_key_config and effective_tier in kms_key_config[aws_rsrc_type.name]:
+        if   aws_rsrc_type.name in kms_key_config and   effective_tier in kms_key_config[aws_rsrc_type.name]:
             kms_key_arn = kms_key_config[aws_rsrc_type.name][effective_tier]
+        elif aws_rsrc_type.name in kms_key_config and   "default"      in kms_key_config[aws_rsrc_type.name]:
+            kms_key_arn = kms_key_config[aws_rsrc_type.name]["default"]
         ### If no relevant AWS-specific KMS-Key found, use default KMS-Key
         if not kms_key_arn:
             kms_key_arn = default_kms_key_arn
@@ -346,7 +385,7 @@ def lkp_cdk_json(
         4. pipeline_source_gitbranch :str
     """
 
-    git_src_code_config :any = cdk_scope.node.try_get_context("git-source")
+    git_src_code_config = cdk_scope.node.try_get_context("git-source")
     global one_time_debug_output_completed_1
     if not one_time_debug_output_completed_1:
         print("cdk.json's Git-SourceCode configuration JSON is:")
@@ -392,7 +431,7 @@ def lkp_cdk_json_for_codestar_arn(
     cdk_scope :Construct,
     tier :str,
     aws_env :str,
-    git_src_code_config :any,
+    git_src_code_config,
 ) -> str:
     """ Looks up `cdk.json` file and .. .. returns codestar_connection_arn :str
         Parameter #1 - cdk_scope :Construct => Pass in any Construct within a Stack
@@ -417,11 +456,13 @@ def lkp_cdk_json_for_codestar_arn(
 
         print( f"codestar_connection_name = '{codestar_connection_name}' within "+ __file__ )
         print( f"codestar_connection_arn = '{codestar_connection_arn}' within "+ __file__ )
+        codestar_connection_arn = codestar_connection_arn.format( stk.region, stk.account )
+        print( f"codestar_connection_arn (formatted) = '{codestar_connection_arn}' within "+ __file__ )
 
         return codestar_connection_arn # , codestar_connection_name
 
     else:
-        raise Exception( f"ERROR! Missing 'codestar-connection' in 'cdk.json' for '{aws_env}' environment" )
+        raise Exception( f"ERROR! For '{aws_env}' -- Missing 'codestar-connection' in 'cdk.json' (under '.context.git-source')" )
 
 ### ---------------------------------------------------------------------------------
 ### .................................................................................
@@ -433,7 +474,7 @@ def lkp_cdk_json_for_github_webhooks(
     aws_env :str,
     # git_src_code_config :any,
     # gitTokenRef :str,
-) -> Tuple[any,aws_secretsmanager.ISecret]:
+) -> Tuple[ object, aws_secretsmanager.ISecret ]:
     """ Looks up `cdk.json` file and .. .. returns Modern GitHub connection ..
         .. without (REPEAT: without) use of CodeStarConnection. Without!!!
         Parameter #1 - cdk_scope :Construct => Pass in any Construct within a Stack
@@ -442,6 +483,7 @@ def lkp_cdk_json_for_github_webhooks(
     """
 
     stk = Stack.of(cdk_scope)
+    raise Exception("Not implemented!!!")
 
     # source = pipelines.CodePipelineSource.connection(
     #     repo_string = git_repo_url.replace('.git', ''),
@@ -475,7 +517,7 @@ def lkp_cdk_json_for_github_webhooks(
 
 def lkp_gitrepo_details(
     cdk_scope :Construct,
-) -> Tuple[str,str]:
+) -> Tuple[str,str,str]:
     """ Based on `--context` CDK-CLI arguments -or- by looking-up `cdk.json` file.. ..
         .. returns a tuple in the following ORDER:
         1. git repo's URL    :str
@@ -483,7 +525,7 @@ def lkp_gitrepo_details(
         3. git_repo_org_name :str
     """
 
-    gitRepoURL :str = None
+    gitRepoURL :str
     if isinstance(cdk_scope, Stack) or isinstance(cdk_scope, Construct):
         gitRepoURL = cdk_scope.node.try_get_context("git_repo")
     else:
@@ -545,7 +587,7 @@ def lkp_git_branch(
                 }
     """
 
-    git_src_code_config :any = cdk_scope.node.try_get_context("git-source")
+    git_src_code_config = cdk_scope.node.try_get_context("git-source")
     global one_time_debug_output_completed_1
     if not one_time_debug_output_completed_1:
         print("cdk.json's Git-SourceCode configuration JSON is:")
@@ -574,7 +616,7 @@ def lkp_git_branch(
 def lkp_website_details(
     cdk_scope :Construct,
     tier :str,
-) -> Tuple[str,str]:
+) -> Tuple[str, Optional[str], Optional[str]]:
     """ Given the tier, this function looks inside cdk.json
         1. first looks for the "root_domain"            -- within cdk.json
         2. NEXT looks for the "frontend_domain"         -- within cdk.json
@@ -582,20 +624,41 @@ def lkp_website_details(
         Returns a tuple of Strings:
             root_domain/FQDN       :str
             frontend_website_FQDN  :str
+            frontend_website_ssl_cert_ARN  :str
     """
 
     root_domain :str  = cdk_scope.node.try_get_context("root_domain")
     print( f"root_domain = '{root_domain}' within "+ __file__ )
 
-    frontend_domain_names :any =  cdk_scope.node.try_get_context("frontend_domain")[root_domain]
+    frontend_domain_names = cdk_scope.node.try_get_context("frontend_domain")[root_domain]
     print( f"frontend_domain_names = '{frontend_domain_names}' within "+ __file__ )
 
-    frontend_website_FQDN  :str =  frontend_domain_names[tier]
+    frontend_website_tier_info = None
+    if tier in frontend_domain_names:
+        frontend_website_tier_info = frontend_domain_names[tier]
+    print (f"TIER-specific frontend_website info = '{frontend_website_tier_info}' within "+ __file__ )
+    frontend_website_FQDN  :Optional[str] =  None
+    if frontend_website_tier_info and "FQDN" in frontend_website_tier_info:
+        frontend_website_FQDN = frontend_website_tier_info["FQDN"]
     print (f"frontend_website_FQDN = '{frontend_website_FQDN}' within "+ __file__ )
-    frontend_website_FQDN = frontend_website_FQDN.format( constants.WEBSITE_DOMAIN_PREFIX )
+    frontend_website_FQDN = frontend_website_FQDN.format( constants.WEBSITE_DOMAIN_PREFIX ) if frontend_website_FQDN else None
     print (f"frontend_website_FQDN (formatted) = '{frontend_website_FQDN}' within "+ __file__ )
 
-    return root_domain, frontend_website_FQDN
+    stk = Stack.of(cdk_scope)
+    frontend_website_ssl_cert  :Optional[str] = None
+    if frontend_website_tier_info and "AWS-ACM-ssl-cert" in frontend_website_tier_info:
+        frontend_website_ssl_cert =  frontend_website_tier_info["AWS-ACM-ssl-cert"]
+    if frontend_website_ssl_cert == "None":
+        frontend_website_ssl_cert = None
+    if frontend_website_ssl_cert:
+        print (f"frontend_website_ssl_cert = '{frontend_website_ssl_cert}' within "+ __file__ )
+        print ( type(frontend_website_ssl_cert) )
+    else:
+        print (f"frontend_website_ssl_cert = undefined/None within "+ __file__ )
+    frontend_website_ssl_cert = frontend_website_ssl_cert.format( stk.region, stk.account ) if frontend_website_ssl_cert else None
+    print (f"frontend_website_ssl_cert (formatted) = '{frontend_website_ssl_cert}' within "+ __file__ )
+
+    return root_domain, frontend_website_FQDN, frontend_website_ssl_cert
 
 ### ---------------------------------------------------------------------------------
 

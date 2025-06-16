@@ -14,7 +14,7 @@ from aws_cdk import (
     aws_logs,
 )
 
-from constants import DEV_TIER, UPPER_TIERS, STD_TIERS
+from constants import DEV_TIER, UPPER_TIERS, STD_TIERS, PROD_TIERS
 
 ### ======================================================================================================
 
@@ -63,92 +63,38 @@ class DataClassification:
     @staticmethod
     def glacierinstant_transition_after(tier: str, data_type: DATA_CLASSIFICATION_TYPES) -> int:
         """# of days (to move to GLACIER-INSTANT-RETRIEVAL), based on the data-type specified as parameter."""
-        if not data_type in DATA_CLASSIFICATION_TYPES:
-            raise DataClassificationException(
-                f"invalid data-classification-type '{data_type}'. Valid values are: {list(DATA_CLASSIFICATION_TYPES)}"
-            )
-        if data_type == DATA_CLASSIFICATION_TYPES.INTERNAL_DATA:
-            return 2
-        elif data_type == DATA_CLASSIFICATION_TYPES.USER_REQUESTS:
-            return 2
-        elif data_type == DATA_CLASSIFICATION_TYPES.CLOUD_AUDITTRAILS:
-            return 2
-        elif data_type == DATA_CLASSIFICATION_TYPES.CLOUD_TEMPORARY:
-            return 2
-        elif data_type == DATA_CLASSIFICATION_TYPES.SCRATCH:
-            return 2
-        else:
-            raise DataClassificationException(
-                f"!!! INTERNAL-ERROR !!! code is NOT ready to handle data-classification-type '{data_type}'. Valid values are: {list(DATA_CLASSIFICATION_TYPES)}"
-            )
-        # match data_type:
-        #     case DATA_CLASSIFICATION_TYPES.INTERNAL_DATA:     return 1
-        #     case DATA_CLASSIFICATION_TYPES.USER_REQUESTS:     return 1
-        #     case DATA_CLASSIFICATION_TYPES.CLOUD_AUDITTRAILS: return 1
-        #     case DATA_CLASSIFICATION_TYPES.CLOUD_TEMPORARY:   return 1
-        #     case DATA_CLASSIFICATION_TYPES.SCRATCH:    return 1
-        #     case _:
-        #         raise DataClassificationException( f"!!! INTERNAL-ERROR !!! code is NOT ready to handle data-classification-type '{data_type}'. Valid values are: {list(DATA_CLASSIFICATION_TYPES)}")
+        match data_type:
+            case DATA_CLASSIFICATION_TYPES.INTERNAL_DATA:     return 2
+            case DATA_CLASSIFICATION_TYPES.USER_REQUESTS:     return 2
+            case DATA_CLASSIFICATION_TYPES.CLOUD_AUDITTRAILS: return 2
+            case DATA_CLASSIFICATION_TYPES.CLOUD_TEMPORARY:   return 2
+            case DATA_CLASSIFICATION_TYPES.SCRATCH:    return 2
+            case _:
+                raise DataClassificationException( f"!!! INTERNAL-ERROR !!! code is NOT ready to handle data-classification-type '{data_type}'. Valid values are: {list(DATA_CLASSIFICATION_TYPES)}")
 
     @staticmethod
     def deeparchive_transition_after(tier: str, data_type: DATA_CLASSIFICATION_TYPES) -> int:
         """# of days (to move to GLACIER-DEEP-ARCHIVE), based on the data-type specified as parameter."""
-        if not data_type in DATA_CLASSIFICATION_TYPES:
-            raise DataClassificationException(
-                f"invalid data-classification-type '{data_type}'. Valid values are: {list(DATA_CLASSIFICATION_TYPES)}"
-            )
-        if data_type == DATA_CLASSIFICATION_TYPES.INTERNAL_DATA:
-            return 365 * 7
-        elif data_type == DATA_CLASSIFICATION_TYPES.USER_REQUESTS:
-            return -1  ###  that is, NEVER.
-        elif data_type == DATA_CLASSIFICATION_TYPES.CLOUD_AUDITTRAILS:
-            return 91
-        elif data_type == DATA_CLASSIFICATION_TYPES.CLOUD_TEMPORARY:
-            return 91
-        elif data_type == DATA_CLASSIFICATION_TYPES.SCRATCH:
-            return 91
-        else:
-            raise DataClassificationException(
-                f"!!! INTERNAL-ERROR !!! code is NOT ready to handle data-classification-type '{data_type}'. Valid values are: {list(DATA_CLASSIFICATION_TYPES)}"
-            )
-        # match data_type:
-        # case DATA_CLASSIFICATION_TYPES.INTERNAL_DATA:     return 365*7
-        # case DATA_CLASSIFICATION_TYPES.USER_REQUESTS:     return -1 ### that is, never.
-        # case DATA_CLASSIFICATION_TYPES.CLOUD_AUDITTRAILS: return 91
-        # case DATA_CLASSIFICATION_TYPES.CLOUD_TEMPORARY:   return 91
-        # case DATA_CLASSIFICATION_TYPES.SCRATCH:    return 91
-        # case _:
-        #     raise DataClassificationException( f"!!! INTERNAL-ERROR !!! code is NOT ready to handle data-classification-type '{data_type}'. Valid values are: {list(DATA_CLASSIFICATION_TYPES)}")
+        match data_type:
+            case DATA_CLASSIFICATION_TYPES.INTERNAL_DATA:     return 365*7
+            case DATA_CLASSIFICATION_TYPES.USER_REQUESTS:     return -1 ### that is, never.
+            case DATA_CLASSIFICATION_TYPES.CLOUD_AUDITTRAILS: return 91
+            case DATA_CLASSIFICATION_TYPES.CLOUD_TEMPORARY:   return 91
+            case DATA_CLASSIFICATION_TYPES.SCRATCH:    return 91
+            case _:
+                raise DataClassificationException( f"!!! INTERNAL-ERROR !!! code is NOT ready to handle data-classification-type '{data_type}'. Valid values are: {list(DATA_CLASSIFICATION_TYPES)}")
 
     @staticmethod
     def retention_for(tier: str, data_type: DATA_CLASSIFICATION_TYPES) -> int:
         """# of days (to retain data/content), based on the data-type specified as parameter."""
-        if not data_type in DATA_CLASSIFICATION_TYPES:
-            raise DataClassificationException(
-                f"invalid data-classification-type '{data_type}'. Valid values are: {list(DATA_CLASSIFICATION_TYPES)}"
-            )
-        if data_type == DATA_CLASSIFICATION_TYPES.INTERNAL_DATA:
-            return -1  ### -1 means Never
-        elif data_type == DATA_CLASSIFICATION_TYPES.USER_REQUESTS:
-            return -1  ### -1 means Never
-        elif data_type == DATA_CLASSIFICATION_TYPES.CLOUD_AUDITTRAILS:
-            return 1 * 365
-        elif data_type == DATA_CLASSIFICATION_TYPES.CLOUD_TEMPORARY:
-            return 1 * 365
-        elif data_type == DATA_CLASSIFICATION_TYPES.SCRATCH:
-            return 365  ### Just 1 day!!!
-        else:
-            raise DataClassificationException(
-                f"!!! INTERNAL-ERROR !!! code is NOT ready to handle data-classification-type '{data_type}'. Valid values are: {list(DATA_CLASSIFICATION_TYPES)}"
-            )
-        # match data_type:
-        #     case DATA_CLASSIFICATION_TYPES.INTERNAL_DATA:     return 7 * 365
-        #     case DATA_CLASSIFICATION_TYPES.USER_REQUESTS:     return 5 * 365
-        #     case DATA_CLASSIFICATION_TYPES.CLOUD_AUDITTRAILS: return 1 * 365
-        #     case DATA_CLASSIFICATION_TYPES.CLOUD_TEMPORARY:   return 1 * 365
-        #     case DATA_CLASSIFICATION_TYPES.SCRATCH:    return 1 ### Just 1 day!
-        #     case _:
-        #         raise DataClassificationException( f"!!! INTERNAL-ERROR !!! code is NOT ready to handle data-classification-type '{data_type}'. Valid values are: {list(DATA_CLASSIFICATION_TYPES)}")
+        match data_type:
+            case DATA_CLASSIFICATION_TYPES.INTERNAL_DATA:     return -1  ### -1 means Never
+            case DATA_CLASSIFICATION_TYPES.USER_REQUESTS:     return -1  ### -1 means Never
+            case DATA_CLASSIFICATION_TYPES.CLOUD_AUDITTRAILS: return 1 * 365
+            case DATA_CLASSIFICATION_TYPES.CLOUD_TEMPORARY:   return 1 * 365
+            case DATA_CLASSIFICATION_TYPES.SCRATCH:    return 7 ### Just 1 day!
+            case _:
+                raise DataClassificationException( f"!!! INTERNAL-ERROR !!! code is NOT ready to handle data-classification-type '{data_type}'. Valid values are: {list(DATA_CLASSIFICATION_TYPES)}")
 
     @staticmethod
     def retention_enum_for(tier: str, data_type: DATA_CLASSIFICATION_TYPES) -> aws_logs.RetentionDays:
@@ -198,72 +144,26 @@ class DataClassification:
     @staticmethod
     def removal_policy(tier: str, data_type: DATA_CLASSIFICATION_TYPES) -> RemovalPolicy:
         """determining CloudFormation removal_policy, based on the tier + data_type specified as parameter."""
-        if not data_type in DATA_CLASSIFICATION_TYPES:
-            raise DataClassificationException(
-                f"invalid data-classification-type '{data_type}'. Valid values are: {list(DATA_CLASSIFICATION_TYPES)}"
-            )
-        if data_type == DATA_CLASSIFICATION_TYPES.INTERNAL_DATA:
-            return RemovalPolicy.RETAIN if tier in UPPER_TIERS else RemovalPolicy.DESTROY
-            # return RemovalPolicy.RETAIN if tier in PROD_TIER_NAMES else RemovalPolicy.DESTROY
-
-        elif data_type == DATA_CLASSIFICATION_TYPES.USER_REQUESTS:
-            return RemovalPolicy.RETAIN if tier in UPPER_TIERS else RemovalPolicy.DESTROY
-            # return RemovalPolicy.RETAIN if tier in PROD_TIER_NAMES else RemovalPolicy.DESTROY
-
-        elif data_type == DATA_CLASSIFICATION_TYPES.CLOUD_AUDITTRAILS:
-            return RemovalPolicy.RETAIN if tier in UPPER_TIERS else RemovalPolicy.DESTROY
-
-        elif data_type == DATA_CLASSIFICATION_TYPES.CLOUD_TEMPORARY:
-            return RemovalPolicy.DESTROY  ### <--- irrespective of tier!!!
-        elif data_type == DATA_CLASSIFICATION_TYPES.SCRATCH:
-            return RemovalPolicy.DESTROY  ### <--- irrespective of tier!!!
-        else:
-            raise DataClassificationException(
-                f"!!! INTERNAL-ERROR !!! code is NOT ready to handle data-classification-type '{data_type}'. Valid values are: {list(DATA_CLASSIFICATION_TYPES)}"
-            )
-        # match data_type:
-        #     case DATA_CLASSIFICATION_TYPES.INTERNAL_DATA:     return RemovalPolicy.RETAIN if tier in UPPER_TIER_NAMES else RemovalPolicy.DESTROY
-        #     case DATA_CLASSIFICATION_TYPES.USER_REQUESTS:     return RemovalPolicy.RETAIN if tier in UPPER_TIER_NAMES else RemovalPolicy.DESTROY
-        #     case DATA_CLASSIFICATION_TYPES.CLOUD_AUDITTRAILS: return RemovalPolicy.RETAIN if tier in PROD_TIER_NAMES  else RemovalPolicy.DESTROY
-        #     case DATA_CLASSIFICATION_TYPES.CLOUD_TEMPORARY:   return RemovalPolicy.DESTROY ### <--- irrespective of tier!!!
-        #     case DATA_CLASSIFICATION_TYPES.SCRATCH:    return RemovalPolicy.DESTROY ### <--- irrespective of tier!!!
-        #     case _:
-        #         raise DataClassificationException( f"!!! INTERNAL-ERROR !!! code is NOT ready to handle data-classification-type '{data_type}'. Valid values are: {list(DATA_CLASSIFICATION_TYPES)}")
+        match data_type:
+            case DATA_CLASSIFICATION_TYPES.INTERNAL_DATA:     return RemovalPolicy.RETAIN if tier in PROD_TIERS else RemovalPolicy.DESTROY
+            case DATA_CLASSIFICATION_TYPES.USER_REQUESTS:     return RemovalPolicy.RETAIN if tier in PROD_TIERS else RemovalPolicy.DESTROY
+            case DATA_CLASSIFICATION_TYPES.CLOUD_AUDITTRAILS: return RemovalPolicy.RETAIN if tier in PROD_TIERS  else RemovalPolicy.DESTROY
+            case DATA_CLASSIFICATION_TYPES.CLOUD_TEMPORARY:   return RemovalPolicy.DESTROY ### <--- irrespective of tier!!!
+            case DATA_CLASSIFICATION_TYPES.SCRATCH:    return RemovalPolicy.DESTROY ### <--- irrespective of tier!!!
+            case _:
+                raise DataClassificationException( f"!!! INTERNAL-ERROR !!! code is NOT ready to handle data-classification-type '{data_type}'. Valid values are: {list(DATA_CLASSIFICATION_TYPES)}")
 
     @staticmethod
     def versioning(tier: str, data_type: DATA_CLASSIFICATION_TYPES) -> bool:
         """determining if S3-bucket should have VERSIONING turned-ON, based on the tier + data-type specified as parameter."""
-        if not data_type in DATA_CLASSIFICATION_TYPES:
-            raise DataClassificationException(
-                f"invalid data-classification-type '{data_type}'. Valid values are: {list(DATA_CLASSIFICATION_TYPES)}"
-            )
-
-        if data_type == DATA_CLASSIFICATION_TYPES.INTERNAL_DATA:
-            return True if tier in UPPER_TIERS else False
-
-        elif data_type == DATA_CLASSIFICATION_TYPES.USER_REQUESTS:
-            return True if tier in UPPER_TIERS else False
-
-        elif data_type == DATA_CLASSIFICATION_TYPES.CLOUD_AUDITTRAILS:
-            return False  ### <--- irrespective of tier!!!
-
-        elif data_type == DATA_CLASSIFICATION_TYPES.CLOUD_TEMPORARY:
-            return False  ### <--- irrespective of tier!!!
-        elif data_type == DATA_CLASSIFICATION_TYPES.SCRATCH:
-            return False  ### <--- irrespective of tier!!!
-
-        else:
-            raise DataClassificationException(
-                f"!!! INTERNAL-ERROR !!! code is NOT ready to handle data-classification-type '{data_type}'. Valid values are: {list(DATA_CLASSIFICATION_TYPES)}"
-            )
-        # match data_type:
-        #     case DATA_CLASSIFICATION_TYPES.INTERNAL_DATA:     return True if tier in PROD_TIER_NAMES else False
-        #     case DATA_CLASSIFICATION_TYPES.USER_REQUESTS:     return True if tier in PROD_TIER_NAMES else False
-        #     case DATA_CLASSIFICATION_TYPES.CLOUD_AUDITTRAILS: return False ### <--- irrespective of tier!!!
-        #     case DATA_CLASSIFICATION_TYPES.CLOUD_TEMPORARY:   return False ### <--- irrespective of tier!!!
-        #     case DATA_CLASSIFICATION_TYPES.SCRATCH:   return False ### <--- irrespective of tier!!!
-        #     case _:
-        #         raise DataClassificationException( f"!!! INTERNAL-ERROR !!! code is NOT ready to handle data-classification-type '{data_type}'. Valid values are: {list(DATA_CLASSIFICATION_TYPES)}")
+        match data_type:
+            case DATA_CLASSIFICATION_TYPES.INTERNAL_DATA:     return True if tier in PROD_TIERS else False
+            case DATA_CLASSIFICATION_TYPES.USER_REQUESTS:     return True if tier in PROD_TIERS else False
+            case DATA_CLASSIFICATION_TYPES.CLOUD_AUDITTRAILS: return False ### <--- irrespective of tier!!!
+            case DATA_CLASSIFICATION_TYPES.CLOUD_TEMPORARY:   return False ### <--- irrespective of tier!!!
+            case DATA_CLASSIFICATION_TYPES.SCRATCH:   return False ### <--- irrespective of tier!!!
+            case _:
+                raise DataClassificationException( f"!!! INTERNAL-ERROR !!! code is NOT ready to handle data-classification-type '{data_type}'. Valid values are: {list(DATA_CLASSIFICATION_TYPES)}")
 
 
 ### EoF

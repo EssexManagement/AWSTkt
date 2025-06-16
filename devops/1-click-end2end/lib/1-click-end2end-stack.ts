@@ -319,17 +319,17 @@ constructor(scope: Construct,
     // Check whether All of the CodePipeline Executions have ended for the specific pipeline named "postBackendDeploySfnName"
 
     const waitAfterBackendCodePipelineExecution = new sfn.Wait(this, "wait-state-2 after STARTING Pipeline "+backendCodePipelineName, {
-        time: sfn.WaitTime.duration(cdk.Duration.seconds(300)),
+        time: sfn.WaitTime.duration(cdk.Duration.seconds(120)),
         comment: `after kicking OFF Pipeline ${backendCodePipelineName} .. wait-in-loop to check if Pipeline ended`,
     })
 
     const waitAfterFrontendCodePipelineExecution = new sfn.Wait(this, "wait-state-1 after STARTING Pipeline "+frontendCodePipelineName, {
-        time: sfn.WaitTime.duration(cdk.Duration.seconds(300)),
+        time: sfn.WaitTime.duration(cdk.Duration.seconds(120)),
         comment: `after kicking OFF Pipeline ${frontendCodePipelineName} .. wait-in-loop to check if Pipeline ended`,
     })
 
     const waitAfterBDDsCodePipelineExecution = new sfn.Wait(this, "wait-state-2 after STARTING Pipeline "+BDDsCodePipelineName, {
-        time: sfn.WaitTime.duration(cdk.Duration.seconds(300)),
+        time: sfn.WaitTime.duration(cdk.Duration.seconds(120)),
         comment: `after kicking OFF Pipeline ${BDDsCodePipelineName} .. wait-in-loop to check if Pipeline ended`,
     })
 
@@ -344,6 +344,7 @@ constructor(scope: Construct,
     const checkFrontendPipelineStatus = new sfn.Choice(this, "What is "+frontendCodePipelineName+" Pipeline Status");
     const checkWhetherAnyAWSInspector2Findings = new sfn.Choice(this, "Any High+ AWS-Inspector Findings: cdk-hnb659fds-container-assets-");
     const whetherWipeCleanDB = new sfn.Choice(this, "Whether to WipeCleanDB during POST-Deploy SFn-invocation?", { comment: "post-deploy Sfn "+postBackendDeploySfnName+" .. whether it should WipeCleanDB when invoked?" })
+    const whetherExecutePostBackendDeploySfn = new sfn.Choice(this, "Whether to execute the POST-Backend-Deploy SFn ?", { comment: "post-deploy Sfn "+postBackendDeploySfnName+" .. whether it should be invoked?" })
 
     //// --------------------------------------------------
     preDeploySfnInvoke.next(preDeploySfnInvoke_again)
@@ -379,35 +380,14 @@ constructor(scope: Construct,
     )
     checkBackendPipelineStatus.when(
         sfn.Condition.stringEquals("$.Status"+backendCodePipelineName+".Status", "Succeeded"),
-        whetherWipeCleanDB
+        checkWhetherToDeployFrontend
     )
     checkBackendPipelineStatus.otherwise( taskSNSTopicAborted )
 
-    whetherWipeCleanDB.when(sfn.Condition.isPresent("$.run-rds-init"), invokeDevopsRDSInstanceSetupLambda )
-    whetherWipeCleanDB.when(sfn.Condition.isPresent("$.runRdsInit"),   invokeDevopsRDSInstanceSetupLambda )
-    whetherWipeCleanDB.otherwise( postBackendDeploySfnInvoke )
-
-    invokeDevopsRDSInstanceSetupLambda.next( postBackendDeploySfnWipeCleanDBInvoke )
-    invokeDevopsRDSInstanceSetupLambda.addCatch(taskSNSTopicAborted, {
-        errors: [ "States.ALL" ],
-        resultPath: "$.error",
-    })
-
-    postBackendDeploySfnWipeCleanDBInvoke.next(checkWhetherToDeployFrontend)
-    postBackendDeploySfnWipeCleanDBInvoke.addCatch(taskSNSTopicAborted, {
-        errors: [ "States.ALL" ],
-        resultPath: "$.error",
-    })
-
-    postBackendDeploySfnInvoke.next(checkWhetherToDeployFrontend)
-    postBackendDeploySfnInvoke.addCatch(taskSNSTopicAborted, {
-        errors: [ "States.ALL" ],
-        resultPath: "$.error",
-    })
-
     checkWhetherToDeployFrontend.when(
         sfn.Condition.isPresent("$.skipFrontendDeployment"),
-        invokeAWSInspector2FindingsAPI
+        whetherWipeCleanDB
+        // invokeAWSInspector2FindingsAPI
     )
     checkWhetherToDeployFrontend.otherwise(deployFrontend)
 
@@ -429,9 +409,39 @@ constructor(scope: Construct,
     )
     checkFrontendPipelineStatus.when(
         sfn.Condition.stringEquals("$.Status"+frontendCodePipelineName+".Status", "Succeeded"),
-        runBDDs,
+        whetherWipeCleanDB,
     )
     checkFrontendPipelineStatus.otherwise( taskSNSTopicAborted )
+
+    whetherWipeCleanDB.when(sfn.Condition.or(
+        sfn.Condition.isPresent("$.run-rds-init"),
+        sfn.Condition.isPresent("$.runRdsInit")
+    ), invokeDevopsRDSInstanceSetupLambda )
+    whetherWipeCleanDB.otherwise( whetherExecutePostBackendDeploySfn )
+
+    invokeDevopsRDSInstanceSetupLambda.next( postBackendDeploySfnWipeCleanDBInvoke )
+    invokeDevopsRDSInstanceSetupLambda.addCatch(taskSNSTopicAborted, {
+        errors: [ "States.ALL" ],
+        resultPath: "$.error",
+    })
+
+    postBackendDeploySfnWipeCleanDBInvoke.next( runBDDs )
+    postBackendDeploySfnWipeCleanDBInvoke.addCatch(taskSNSTopicAborted, {
+        errors: [ "States.ALL" ],
+        resultPath: "$.error",
+    })
+
+    whetherExecutePostBackendDeploySfn.when(sfn.Condition.and(
+        sfn.Condition.isNotPresent("$.skip-sfn-after-backend-deploy"),
+        sfn.Condition.isNotPresent("$.skipSFnAfterBackendDeploy")
+    ), postBackendDeploySfnInvoke )
+    whetherExecutePostBackendDeploySfn.otherwise( runBDDs )
+
+    postBackendDeploySfnInvoke.next( runBDDs )
+    postBackendDeploySfnInvoke.addCatch(taskSNSTopicAborted, {
+        errors: [ "States.ALL" ],
+        resultPath: "$.error",
+    })
 
     runBDDs.next(waitAfterBDDsCodePipelineExecution)
     runBDDs.addCatch(taskSNSTopicAborted, {
@@ -504,6 +514,8 @@ constructor(scope: Construct,
             frontendCodePipeline.pipelineArn+'/*', // STAGE & ACTIONS of a pipeline
             backendCodePipeline.pipelineArn,  // pipeline itself
             backendCodePipeline.pipelineArn+'/*',  // STAGE & ACTIONS of a pipeline
+            BDDsCodePipeline.pipelineArn,  // pipeline itself
+            BDDsCodePipeline.pipelineArn+'/*',  // STAGE & ACTIONS of a pipeline
         ],
     }))
 

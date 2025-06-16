@@ -1,4 +1,6 @@
 import os
+from typing import Optional
+
 from aws_cdk import (
     Stack,
     RemovalPolicy,
@@ -122,8 +124,8 @@ class BackendAppDeployPipelineStack(Stack):
                 git_repo_url = f"{git_repo_org_name}/{git_repo_name}",
                 cdk_app_pyfile="cdk_lambda_layers_app.py",
                 whether_to_use_adv_caching = constants_cdk.use_advanced_codebuild_cache( tier ),
-                my_pipeline_artifact_bkt = my_pipeline_v2.my_pipeline_artifact_bkt,
-                my_pipeline_artifact_bkt_name = my_pipeline_v2.my_pipeline_artifact_bkt_name,
+                my_pipeline_artifact_bkt = my_pipeline_v2.my_pipeline_artifact_bkt, # type: ignore
+                my_pipeline_artifact_bkt_name = my_pipeline_v2.my_pipeline_artifact_bkt_name, # type: ignore
                 addl_cdk_context = {
                     "CPU_ARCH": cpu_arch_str
                 }
@@ -139,7 +141,7 @@ class BackendAppDeployPipelineStack(Stack):
         ### -----------------------------------
         ### Pipeline-stage to Build+Deploy the application
 
-        a_build_action :aws_codepipeline_actions.CodeBuildAction = None
+        a_build_action :Optional[aws_codepipeline_actions.CodeBuildAction] = None
 
         # Build action within CodePipeline
         a_build_action, a_build_output = common.cdk.StandardCodeBuild.adv_CodeBuildCachingSynthAndDeploy_Python(
@@ -153,8 +155,8 @@ class BackendAppDeployPipelineStack(Stack):
             git_repo_url = f"{git_repo_org_name}/{git_repo_name}",
             cdk_app_pyfile="cdk_backend_app.py",
             whether_to_use_adv_caching = constants_cdk.use_advanced_codebuild_cache( tier ),
-            my_pipeline_artifact_bkt = my_pipeline_v2.my_pipeline_artifact_bkt,
-            my_pipeline_artifact_bkt_name = my_pipeline_v2.my_pipeline_artifact_bkt_name,
+            my_pipeline_artifact_bkt = my_pipeline_v2.my_pipeline_artifact_bkt, # type: ignore
+            my_pipeline_artifact_bkt_name = my_pipeline_v2.my_pipeline_artifact_bkt_name, # type: ignore
             addl_cdk_context = {
                 "CPU_ARCH": constants_cdk.DEFAULT_CPU_ARCH_NAMESTR
             }
@@ -162,7 +164,7 @@ class BackendAppDeployPipelineStack(Stack):
 
         ### all of these above build-actions MUST happen in parallel, as they are same builds happening on different CPUs-architectures.
         my_pipeline_v2.add_stage(
-            stage_name = f"codebuild_projname-{cpu_arch_str}",
+            stage_name = f"{codebuild_projname}-{constants_cdk.DEFAULT_CPU_ARCH_NAMESTR}",
             actions = [ a_build_action ],
         )
 

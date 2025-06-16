@@ -39,10 +39,11 @@ npm i --include-dev
 unset BUILDPLATFORM; unset DOCKER_DEFAULT_PLATFORM; unset TARGETPLATFORM;
 
 
-CdkAppCmd="npx ts-node --prefer-ts-exts bin/cdk-service_catalog_item.ts",
+CdkAppCmd="npx ts-node --prefer-ts-exts bin/cdk_app.ts"
 
 ### build TypeScript-based Lambda
-( cd src/ServiceCatalogItemHandler/; \rm -rf dist node_modules/; npm i --include-dev; npm run build )
+( cd src/; \rm -rf package-lock.json build/ dist/ node_modules/; npm i --include-dev; npm run build )
+### OLD way - ( cd src/ServiceCatalogItemHandler/; \rm -rf package-lock.json build/ dist/ node_modules/ ; npm i --include-dev; npm run build )
 
 npx cdk synth \
         --context TIER="${TIER}"            \

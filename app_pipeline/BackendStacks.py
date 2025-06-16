@@ -44,6 +44,7 @@ from common.cdk.StandardSQS import StandardSQS
 
 from backend.common_aws_resources_stack import CommonAWSResourcesStack
 from cognito.infrastructure import MyUserPool
+from backend.infra.backend_security_construct import BackendWAFConstruct, XOriginVerifyCloudFrontHdrTokenRotationLambdaConstruct
 from api import config
 from backend.database.vpc_rds.infrastructure import SqlDatabaseConstruct
 from backend.database.rds_init.infrastructure import RdsInit
@@ -109,8 +110,8 @@ class Gen_AllApplicationBackendStacks:
         acct_wide_vpc_details :dict[str,dict[str, Union[str,list[dict[str,str]]]]];
         vpc_details_for_tier :dict[str, Union[str,list[dict[str,str]]]];
         [ acct_wide_vpc_details, vpc_details_for_tier ] = get_cdk_json_vpc_details( app, aws_env, tier )
-        sg_for_vpc_endpts :Optional[list[str]] = vpc_details_for_tier["VPCEndPts-SG"]
-        print( f"vpc_endpts = '{sg_for_vpc_endpts}'")
+        SG_IDs_for_vpc_endpts :Optional[list[str]] = vpc_details_for_tier["VPCEndPts-SG"]
+        print( f"SGs for vpc_endpts = '{SG_IDs_for_vpc_endpts}'")
 
         ### ----------------------------------------------
         bundling_stks :list[str] = app.node.try_get_context("aws:cdk:bundling-stacks")
@@ -140,8 +141,8 @@ class Gen_AllApplicationBackendStacks:
         stk_refs.stateful_stk = stateful
 
         sg_list_for_all_lambdas = [stateful.rds_security_group]
-        if sg_for_vpc_endpts:
-            for sgid in sg_for_vpc_endpts:
+        if SG_IDs_for_vpc_endpts:
+            for sgid in SG_IDs_for_vpc_endpts:
                 sg_con = aws_ec2.SecurityGroup.from_lookup_by_id( scope=stateful, id="lkpSg-"+sgid, security_group_id=sgid )
                 if sg_con:
                     sg_list_for_all_lambdas.append( sg_con )
@@ -300,7 +301,6 @@ class Gen_AllApplicationBackendStacks:
         # addl_entry = { 'http_method': 'POST',    "handler": 'report',     "apigw-path": 'report' }
         # lambda_configs.append_addl_api( addl_entry )
 
-
         stateless_apigw = StatelessStackAPIGW( scope=app,
             id_ = stack_prefix + "-StatelessAPIGW",
             tier=tier,
@@ -319,6 +319,34 @@ class Gen_AllApplicationBackendStacks:
             stateless_apigw.add_dependency( a_stk )  ### Wait for Lambda-stacks to finish deploying before deploying APIGW-stack.
         stk_refs.stateless_apigw_stack = stateless_apigw
 
+        waf_con = BackendWAFConstruct(
+            scope = stateless_apigw, ### <---- scope is the above stack.
+            construct_id = "waf",
+            tier = tier,
+        )
+        print(f"waf_con.waf_acl_arn = '{waf_con.waf_acl_arn}'")
+        rest_api = stateless_apigw.apigw.api
+        waf_con.protect_api_w_waf(
+            rest_api = rest_api,
+            apigw_stage_name = rest_api.deployment_stage.stage_name,
+        )
+        # CfnOutput( stateless_apigw,
+        #     id="waf-acl",
+        #     export_name=f"{self.stack_name}-regional-waf-acl",
+        #     value = waf_con.waf_acl,
+        # )
+
+        XOriginVerifyCloudFrontHdrTokenRotationLambdaConstruct(
+            cdk_scope = stateless_apigw, ### <---- scope is the above stack.
+            construct_id = "XOriginVerifyHdrTokenRotate",
+            tier = tier,
+            waf_rule_name = BackendWAFConstruct.waf_rule_name(),
+            waf_acl_arn = waf_con.waf_acl_arn,
+            inside_vpc_lambda_factory = inside_vpc_lambda_factory,
+            # eventbridge_busname = "default",
+        )
+
+        ### ----------------------------------------
         # ### Integrate above "rpt_lmbda" with APIGW
         # get_lambda_int_resource_method(
         #     handler = dckr_con.rpt_constr.lambda_function,
@@ -464,7 +492,7 @@ class CognitoStack(Stack):
             self,
             id="UserPoolDomain",
             export_name=f"{self.stack_name}-UserPoolDomain",
-            value=_user_pool.user_pool_domain.domain_name,
+            value = _user_pool.user_pool_domain.domain_name if _user_pool.user_pool_domain else "undefined-in-cdk.json",
         )
 
         self._user_pool_client_id = CfnOutput(
@@ -625,7 +653,7 @@ class SqsStack(Stack):
         construct_id='fact_trial_criteria_queue'
         qcon = StandardSQS(scope=self,
             construct_id = construct_id,
-            uniq_queue_name = construct_id,  ### For legacy-reasons ONLY. Do NOT use this param otherwise!
+            # uniq_queue_name = construct_id,  ### For legacy-reasons ONLY. Do NOT use this param otherwise!
             tier=tier,
             visibility_timeout=Duration.seconds(900),
             ### !! ATTENTION !! CDK-deploy ERROR = Queue visibility timeout: 180 seconds is less than Function timeout: 900 seconds
@@ -635,7 +663,7 @@ class SqsStack(Stack):
         construct_id='fact_make_dataset_queue'
         qcon = StandardSQS(scope=self,
             construct_id = construct_id,
-            uniq_queue_name = construct_id,  ### For legacy-reasons ONLY. Do NOT use this param otherwise!
+            # uniq_queue_name = construct_id,  ### For legacy-reasons ONLY. Do NOT use this param otherwise!
             tier=tier,
             visibility_timeout=Duration.seconds(900),
         )
@@ -644,7 +672,7 @@ class SqsStack(Stack):
         construct_id='create_report_queue'
         qcon = StandardSQS(scope=self,
             construct_id = construct_id,
-            uniq_queue_name = construct_id,  ### For legacy-reasons ONLY. Do NOT use this param otherwise!
+            # uniq_queue_name = construct_id,  ### For legacy-reasons ONLY. Do NOT use this param otherwise!
             tier=tier,
             visibility_timeout=Duration.seconds(60)
         )
@@ -653,7 +681,7 @@ class SqsStack(Stack):
         construct_id='fact_etl_queue'
         qcon = StandardSQS(scope=self,
             construct_id = construct_id,
-            uniq_queue_name = construct_id,  ### For legacy-reasons ONLY. Do NOT use this param otherwise!
+            # uniq_queue_name = construct_id,  ### For legacy-reasons ONLY. Do NOT use this param otherwise!
             tier=tier,
             visibility_timeout=Duration.seconds(900)
         )

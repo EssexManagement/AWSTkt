@@ -1,0 +1,146 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  network-tester
+Transform:
+- AWS::Serverless-2016-10-31
+
+Parameters:
+  SubnetId:
+    Type: String
+    Description: The Subnet ID where the test will be performed.
+    AllowedPattern: ^(subnet-)([a-f0-9]{8,17})$ # subnet-xxxxxxxxxxxxxxxxx
+  SecurityGroupId:
+    Type: String
+    Description: The Security Group ID to be used for the test.
+    AllowedPattern: ^(sg-)([a-f0-9]{8,17})$ # sg-xxxxxxxxxxxxxxxxx
+  # VpcId:
+  #   Type: String
+  #   Description: The VPC ID where the test will be performed.
+  #   AllowedPattern: ^(vpc-)([a-f0-9]{8,17})$ # vpc-xxxxxxxxxxxxxxxxx
+
+  Tier:
+    Type: String
+    Description: dev | int | uat | prod | some-developer-branch
+
+  EnterpriseName:
+    Type: String
+    Description: For valid-values Look for the 'application' tag for Lambdas
+    Default: "nih-nci"  ### Used in bucket-name.  So, must be 100% lower-case!!!
+
+  AppName:
+    Type: String
+    Description: For valid-values Look for the 'application' tag for Lambdas
+    Default: "CTF"
+
+  # ApplnGroupName:
+  #   Type: String
+  #   Description: >-
+  #       This is mandatory for organizing multiple 𝜆s into one App (under Application-section of 𝜆-console)
+  #   Default: "CTF"
+
+  DateTimeStamp:
+    Description: Date & Time
+    Type: String
+    # AllowedPattern: >-
+    #   [0-9]-[0-9][0-9]-[0-9][0-9]
+    #   [0-9]:[0-9][0-9]:[0-9][0-9]
+    AllowedPattern: >-
+      ^\d{4}(-\d{2}){2}T(\d{2}:){2}\d{2}$
+    ConstraintDescription: "Date and time of STACK-creation"
+
+
+
+
+Conditions:
+  IsValidTier: !Or
+    - !Equals [!Ref Tier, "dev"]
+    - !Equals [!Ref Tier, "int"]
+    - !Equals [!Ref Tier, "uat"]
+    - !Equals [!Ref Tier, "prod"]
+
+
+
+
+
+### More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Tracing: Active
+    ### You can add LoggingConfig parameters such as the Logformat, Log Group, and SystemLogLevel or ApplicationLogLevel
+    ### Learn more here https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html#sam-function-loggingconfig.
+    LoggingConfig:
+      LogFormat: JSON
+    Tags:
+      PRODUCT: 'CTF' ### CRRI rules.  Must be all lowercase.
+      VERSION: 'v3.0.0'   ### CRRI rules.  Must be all lowercase.
+      ENVIRONMENT: !If [IsValidTier, !Ref Tier, 'dev']
+      ENVIRONMENT: !Sub '${Tier}'
+      application: !Ref AppName
+      component: 'devops'
+      env: !Sub '${Tier}'
+      branch: 'main'
+      BUILD: !Sub "${DateTimeStamp}"
+      SOURCE: "https://github.com/BIAD/cloud_eng.git/AWS-SAM/lambdas/wipeout-bucket/"
+
+  # Api:
+  #   TracingEnabled: true
+
+
+
+
+
+
+
+
+# Resources declares the AWS resources that you want to include in the stack
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/resources-section-structure.html
+Resources:
+  # Each Lambda function is defined by properties:
+  # https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+
+  NetworkTesterFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: vpc-network-tester
+      Description: >-
+        To test networking-configuration (VPC+Subnet+SG combination) inside a VPC (when EC2 is NOT feasible).
+      CodeUri: ./src/vpc-network-tester
+      Handler: index.handler
+      Runtime: nodejs22.x
+      Timeout: 100
+      MemorySize: 128
+      Architectures:
+        - arm64
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref SecurityGroupId
+        SubnetIds:
+          - !Ref SubnetId
+      Policies:
+        # Give Lambda basic execution Permission to the helloFromLambda
+        - AWSLambdaBasicExecutionRole
+
+
+  VPCEndPtSecretsMgrTesterFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: VPCEndPt-SecretsMgr-tester
+      Description: >-
+        To test networking-configuration whether VPC-EndPoints are working within a PRIVATE-NO-Egress-subnet (with proper-use of SGs), specifically testing the SecretsMgr API.
+      CodeUri: ./src/VPCEndPt-SecretsMgr-tester
+      Handler: index.handler
+      Runtime: nodejs22.x
+      Timeout: 100
+      MemorySize: 128
+      Architectures:
+        - arm64
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref SecurityGroupId
+        SubnetIds:
+          - !Ref SubnetId
+      Policies:
+        # Give Lambda basic execution Permission to the helloFromLambda
+        - AWSLambdaBasicExecutionRole
+
+### EoF

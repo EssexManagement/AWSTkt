@@ -11,15 +11,18 @@ if [ $# -ge 1 ]; then
         shift  ### <---------
     fi
 fi
-if [ $# -ne 1 ]; then
-    echo "Usage: $0 ${TIER}"
-    echo "Usage: $0 --PRE-register-users ${TIER}"
-    echo "WARNING !! Advanced-Usage: $0 --resend ${TIER}"
+if [ $# -ne 2 ]; then
+    echo "Usage: $0 {TIER} {AWSPROFILE}"
+    echo "Usage: $0 --PRE-register-users {TIER} {AWSPROFILE}"
+    echo "WARNING !! Advanced-Usage: $0 --resend {TIER} {AWSPROFILE}"
     echo ''; echo ''; # read -p "CONTINUE? [^C to cancel]>>" ANS
     exit 1
 fi
-Tier="$1"
+export Tier="$1"
+export TIER="${Tier}"
+export AWSPROFILE="$2"
 printf "\t\tYou've specified Tier ='${Tier}'\n"
+printf "\t\tYou've specified AWSPROFILE ='${AWSPROFILE}'\n\n"
 
 ###---------------------------------------------------------------
 
@@ -41,14 +44,14 @@ CWD="$(pwd)"
 ### Section: derived variables & TEMP-FILES
 
 echo \
-aws cognito-idp describe-user-pool --user-pool-id ${COGNITO_USERPOOL_ID} --output json
-aws cognito-idp describe-user-pool --user-pool-id ${COGNITO_USERPOOL_ID} --output json > /dev/null
+aws cognito-idp describe-user-pool --user-pool-id ${COGNITO_USERPOOL_ID} ${AWSPROFILEREGION[@]} --output json
+aws cognito-idp describe-user-pool --user-pool-id ${COGNITO_USERPOOL_ID} ${AWSPROFILEREGION[@]} --output json > /dev/null
 if [ $? -ne 0 ]; then
     printf "\n!! ERROR !! Invalid AWS-Credentials or Invalid USERPOOL-ID='${COGNITO_USERPOOL_ID}'\n"
     exit 88
 fi
 
-EXISTING_COGNITO_GROUPNAME=$( aws cognito-idp list-groups --user-pool-id ${COGNITO_USERPOOL_ID} --output json | jq '.Groups[0].GroupName' --raw-output )
+EXISTING_COGNITO_GROUPNAME=$( aws cognito-idp list-groups --user-pool-id ${COGNITO_USERPOOL_ID} ${AWSPROFILEREGION[@]} --output json | jq '.Groups[0].GroupName' --raw-output )
 
 if [ "${EXISTING_COGNITO_GROUPNAME}" == "null" ]; then
     printf "\t\t👉🏾👉🏾 EXISTING_COGNITO_GROUPNAME='${EXISTING_COGNITO_GROUPNAME}'\n"
@@ -56,7 +59,11 @@ if [ "${EXISTING_COGNITO_GROUPNAME}" == "null" ]; then
     aws cognito-idp create-group --user-pool-id ${COGNITO_USERPOOL_ID}   \
             --group-name ${COGNITO_GROUPID}                         \
             --description "The only valid Group containing ALL users - internal as well as external/internet-users"     \
-            ${AWSPROFILEREGION}
+            ${AWSPROFILEREGION[@]}
+    aws cognito-idp create-group --user-pool-id ${COGNITO_USERPOOL_ID}   \
+            --group-name ${COGNITO_ADMIN_GROUPID}                         \
+            --description "The only valid Group containing ADMIN-users - Super-power privileges alert!!"     \
+            ${AWSPROFILEREGION[@]}
 else
     printf "\t\t✅ EXISTING_COGNITO_GROUPNAME='${EXISTING_COGNITO_GROUPNAME}'\n"
 fi
@@ -114,14 +121,15 @@ else
                     --username ${USERNAME}                          \
                     ${ADDL_CLI_ARG}                                 \
                     --user-attributes Name=email,Value=${EMAIL}     \
-                    ${AWSPROFILEREGION}
+                    ${AWSPROFILEREGION[@]}
             set +x
 
             ### Do NOT use for NEW-USER ----->  --message-action RESEND
 
             set -x
             aws cognito-idp admin-add-user-to-group --user-pool-id ${COGNITO_USERPOOL_ID}    \
-                    --username ${USERNAME} --group-name ${COGNITO_GROUPID}
+                    --username ${USERNAME} --group-name ${COGNITO_GROUPID}  \
+                    ${AWSPROFILEREGION[@]}
             set +x
 
         done

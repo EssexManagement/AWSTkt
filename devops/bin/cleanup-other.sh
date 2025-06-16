@@ -28,14 +28,16 @@ PYTHON_VERSION="3.12"
 SCRIPT_FOLDER="$(dirname ${BASH_SOURCE[0]})"
 SCRIPT_NAME="$(basename ${BASH_SOURCE[0]})"
 CWD="$(pwd)"
+# OPS_SCRIPT_FOLDER="$( \cd "${SCRIPT_FOLDER}/../../operations/bin"; pwd  )"
 
-# .  "${SCRIPT_FOLDER}/settings.sh"
+#   .   "${OPS_SCRIPT_FOLDER}/common-settings.sh"
 
 # if [ ! -z "${PROJECT_NAME+x}" ]; then
 #     KNOWN_PROJ_ITEMS=~/LocalDevelopment/etc/cfn-lint-ignore_${PROJECT_NAME}.txt
 #     echo "Will compare with KNOWN warnings stored in ${KNOWN_PROJ_ITEMS}"
 # fi
 
+RootDir_FrontendCode="./frontend/ui"
 RootDir_BackendCode="./backend"
 RootDir_OperationsCode="./operations"
 echo "RootDir_OperationsCode = '${RootDir_OperationsCode}'"
@@ -46,6 +48,7 @@ set +o noglob
 
 DirEntry_List=$(   ### <------------------------ Unique to this file !!!! <------------------------
     ls -d "${RootDir_OperationsCode}/CDK/"*
+    ls -d "${RootDir_OperationsCode}/CDK/ServiceCatalogItem/src/"*
     ls -d "${RootDir_OperationsCode}/AWS-SAM/"*
     ls -d "${RootDir_BackendCode}/lambda_layer/"*
 )
@@ -62,12 +65,19 @@ DirEntry_List=$(   ### <------------------------ Unique to this file !!!! <-----
 
 # echo ''; printf '%.0s=' {1..160}; echo ''; printf '%.0s=' {1..160}; echo ''; echo '';
 
-\rm -rf ~/.cache/ ~/.local/ ~/.venv/ ~/node_modules  ./node_modules  ./.venv   ./__pycache__
+while read -r -t 1; do read -r -t 1; done ### "read -r -t0" will return true if stdin-stream is NOT empty
+read -p "Wipe out PROJECT-ROOT's .venv and node_modules? [Yn] >>" ANS
+if [ "${ANS}" != "N" ] && [ "${ANS}" != "n" ]; then
+    \rm -rf ~/.cache/ ~/.local/ ~/.venv/ ~/node_modules  ./node_modules  ./.venv   ./__pycache__
+fi
 
-\rm -rf ./frontend/ui/dist/   ./frontend/ui/node_modules
+echo "cleaning out build-artifacts from under frontend/ui/build .."
+\rm -rf ./${RootDir_FrontendCode}/dist/   ./${RootDir_FrontendCode}/node_modules
 
+echo "cleaning out build-artifacts from under operations/.."
 \rm -rf ${RootDir_OperationsCode}/node_modules  ${RootDir_OperationsCode}/__pycache__
 
+echo "Wiping out build-artifacts SUB-SUB-Folders .."
 # Loop over each subfolder of RootDir_OperationsCode and if subfolder does Not have a "Pipfile" skip it
 for subfolder in ${DirEntry_List[@]}; do
     if [ ! -d "${subfolder}" ]; then

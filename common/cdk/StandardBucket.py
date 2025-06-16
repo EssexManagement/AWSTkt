@@ -51,7 +51,7 @@ def _int_to_duration(i: int) -> Optional[Duration]:
 s3_accessLogsBkt_lookup :dict[str,aws_s3.IBucket] = {}
 
 
-def lookup_access_logs_bucket(scope: Construct, id :str, tier: str) -> Optional[aws_s3.Bucket]:
+def lookup_access_logs_bucket(scope: Construct, id :str, tier: str) -> Optional[aws_s3.IBucket]:
 
     s3logging_config :dict = scope.node.try_get_context("s3_access_logging_bucket")
 
@@ -93,7 +93,7 @@ def __calculate_s3_props(
     tier: str,
     data_classification_type: DATA_CLASSIFICATION_TYPES,
     versioned: bool,
-    removal_policy: RemovalPolicy,
+    removal_policy: Optional[RemovalPolicy],
 ):
     versionedX = (
         versioned if versioned else DataClassification.versioning(tier=tier, data_type=data_classification_type)
@@ -125,8 +125,8 @@ def create_std_bucket(
     data_classification_type: DATA_CLASSIFICATION_TYPES,
     lifecycle_rules: list[aws_s3.LifecycleRule],
     versioned: bool = False,
-    removal_policy: RemovalPolicy = None,
-    encryption: aws_s3.BucketEncryption = None,
+    removal_policy: Optional[RemovalPolicy] = None,
+    encryption: Optional[aws_s3.BucketEncryption] = None,
     cors_rule_list: Optional[list] = None,
     bucket_name: Optional[str] = None,
     enable_S3PreSignedURLs :bool = False,
@@ -172,8 +172,12 @@ def create_std_bucket(
         aws_env = None,
         aws_rsrc_type = CdkDotJson_util.AwsServiceNamesForKmsKeys.s3
     )
-    encryption_key = aws_kms.Key.from_key_arn(scope, 'kmslkp-'+bucket_name, encryption_key_arn) if encryption_key_arn else None
+    print( f"encryption_key_arn='{encryption_key_arn}'" )
+    construct_id = 'kmslkp-'+ (bucket_name if bucket_name else "NoBucketName")
+    encryption_key = aws_kms.Key.from_key_arn(scope, construct_id, encryption_key_arn) if encryption_key_arn else None
+    print( f"encryption_key='{encryption_key}'" )
     # encryption_key = aws_kms.Key.from_key_arn( scope, 'kmslkp-'+bucket_name, f"arn:aws:kms:{stk.region}:{stk.account}:alias/aws/s3"),
+    if not encryption_key: raise Exception( f"encryption_key is None, when creating a STANDARDIZED-S3-bucket")
 
     newbkt = aws_s3.Bucket(
         scope = scope,
@@ -198,7 +202,8 @@ def create_std_bucket(
         ),
         **kwargs,
     )
-    Tags.of(newbkt).add(key="ResourceName", value = bucket_name)
+    if bucket_name:
+        Tags.of(newbkt).add(key="ResourceName", value = bucket_name)
     return newbkt
 
 
@@ -211,8 +216,8 @@ def gen_s3_bucket_props(
     data_classification_type: DATA_CLASSIFICATION_TYPES,
     lifecycle_rules: list[aws_s3.LifecycleRule],
     versioned: bool = False,
-    removal_policy: RemovalPolicy = None,
-    encryption: aws_s3.BucketEncryption = None,
+    removal_policy: Optional[RemovalPolicy] = None,
+    encryption: Optional[aws_s3.BucketEncryption] = None,
     cors_rule_list: Optional[list] = None,
     bucket_name: Optional[str] = None,
     enable_S3PreSignedURLs :bool = False,
@@ -223,7 +228,7 @@ def gen_s3_bucket_props(
     stk = Stack.of(scope)
 
     print(f"tier='{tier}' :" + HDR )
-    server_access_logs_bucket = lookup_access_logs_bucket(scope=scope, tier=tier)
+    server_access_logs_bucket = lookup_access_logs_bucket(scope=scope, id="cdkjsonLkpS3AccessLogsbkt", tier=tier)
     versioned2, removal_policy2, auto_delete_objects2 = __calculate_s3_props(
         tier, data_classification_type, versioned, removal_policy
     )
@@ -258,8 +263,9 @@ def gen_s3_bucket_props(
         aws_env = None,
         aws_rsrc_type = CdkDotJson_util.AwsServiceNamesForKmsKeys.s3
     )
-    encryption_key = aws_kms.Key.from_key_arn(scope, 'kmslkp-'+bucket_name, encryption_key_arn) if encryption_key_arn else None
-    # encryption_key = aws_kms.Key.from_key_arn( scope, 'kmslkp-'+bucket_name, f"arn:aws:kms:{stk.region}:{stk.account}:alias/aws/s3"),
+    construct_id = 'kmslkp-'+ (bucket_name if bucket_name else "NoBucketName")
+    encryption_key = aws_kms.Key.from_key_arn(scope, construct_id, encryption_key_arn) if encryption_key_arn else None
+    # encryption_key = aws_kms.Key.from_key_arn( scope, construct_id, f"arn:aws:kms:{stk.region}:{stk.account}:alias/aws/s3"),
 
     s3_bucket_props = aws_s3.BucketProps(
         auto_delete_objects = auto_delete_objects2,
@@ -297,7 +303,7 @@ def gen_bucket_lifecycle(
     data_classification_type: DATA_CLASSIFICATION_TYPES,
     keep_older_versions: bool = False,  ### Whether to QUICKLY-delete the OLDER versions of ANY S3-object -- or not.
     enabled: bool = True,
-    prefixes_for_s3_tiers: dict = None,
+    prefixes_for_s3_tiers: Optional[dict] = None,
 ) -> dict[str, Sequence[aws_s3.LifecycleRule]]:
 
     expire_timer = _int_to_duration(DataClassification.retention_for(tier=tier, data_type=data_classification_type))
@@ -378,11 +384,11 @@ def gen_bucket_lifecycle(
             abort_incomplete_multipart_upload_after=common_rule.abort_incomplete_multipart_upload_after,
             noncurrent_versions_to_retain=common_rule.noncurrent_versions_to_retain,
             noncurrent_version_expiration=common_rule.noncurrent_version_expiration,
-            prefix=prefix,
+            transitions=transitions,
             # expired_object_delete_marker=True, ### Resolution error: ExpiredObjectDeleteMarker cannot be specified with expiration, ExpirationDate, or TagFilters..
             # tag_filters={ "tier": tier }, <---- AbortIncompleteMultipartUpload cannot be specified with TagsFilter.
+            prefix = prefix,
             id=f"{tier}'s 'INTELLIGENT-Tiering - default for --ALL-- buckets",
-            transitions=transitions,
             expiration=expire_timer,
         )
         intelligent_tiering_rule.append(newrule)
@@ -400,12 +406,12 @@ def gen_bucket_lifecycle(
             abort_incomplete_multipart_upload_after=common_rule.abort_incomplete_multipart_upload_after,
             noncurrent_versions_to_retain = None,   ### !!! Different from all other LifeCycle-rules.
             noncurrent_version_expiration = Duration.days(1), ### !!! Different from all other LifeCycle-rules.
-            prefix=prefix,
+            transitions=None,
             # expired_object_delete_marker=True, ### Resolution error: ExpiredObjectDeleteMarker cannot be specified with expiration, ExpirationDate, or TagFilters..
             # tag_filters={ "tier": tier }, <---- AbortIncompleteMultipartUpload cannot be specified with TagsFilter.
-            id=f"{tier}'s s3-lifecycle-rule for ATHENA-Bucket only - to delete ALL QueryResults S3-objects after 1-day",
-            transitions=None,
-            expiration=Duration.days(1),
+            prefix = prefix,
+            id=f"{tier}'s s3-lifecycle-rule for Bucket - to delete S3-objects after just 1-day",
+            expiration=expire_timer,
         )
         athena_queryres_tiering_rule.append(newrule)
 
@@ -434,11 +440,11 @@ def gen_bucket_lifecycle(
             abort_incomplete_multipart_upload_after=common_rule.abort_incomplete_multipart_upload_after,
             noncurrent_versions_to_retain=common_rule.noncurrent_versions_to_retain,
             noncurrent_version_expiration=common_rule.noncurrent_version_expiration,
-            prefix=prefix,
+            transitions=transitions,
             # expired_object_delete_marker=True, ### Resolution error: ExpiredObjectDeleteMarker cannot be specified with expiration, ExpirationDate, or TagFilters..
             # tag_filters={ "tier": tier }, <---- AbortIncompleteMultipartUpload cannot be specified with TagsFilter.
+            prefix = prefix,
             id=f"{tier}'s GLACIER_INSTANT_RETRIEVAL s3-lifecycle-rule - default for all buckets",
-            transitions=transitions,
             expiration=expire_timer,
         )
         instantretrieval_rule.append(newrule)
@@ -449,7 +455,7 @@ def gen_bucket_lifecycle(
         DataClassification.deeparchive_transition_after(tier=tier, data_type=data_classification_type)
     )
     min_coldsto_transition_timer = _int_to_duration(
-        min(MOVE_TO_DEEP_ARCHIVE_AFTER, coldsto_transition_timer.to_days())
+        int(min(MOVE_TO_DEEP_ARCHIVE_AFTER, coldsto_transition_timer.to_days()))
         if coldsto_transition_timer
         else MOVE_TO_DEEP_ARCHIVE_AFTER
     )
@@ -481,18 +487,18 @@ def gen_bucket_lifecycle(
             abort_incomplete_multipart_upload_after=common_rule.abort_incomplete_multipart_upload_after,
             noncurrent_versions_to_retain=common_rule.noncurrent_versions_to_retain,
             noncurrent_version_expiration=common_rule.noncurrent_version_expiration,
-            prefix=prefix,
+            transitions=transitions,
             # expired_object_delete_marker=True, ### Resolution error: ExpiredObjectDeleteMarker cannot be specified with expiration, ExpirationDate, or TagFilters..
             # tag_filters={ "tier": tier }, <---- AbortIncompleteMultipartUpload cannot be specified with TagsFilter.
+            prefix = prefix,
             id=f"{tier}'s 'DEEP-ARCHIVE s3-lifecycle-rule - default for all buckets",
-            transitions=transitions,
             expiration=expire_timer,
         )
         deeparchive_rule.append(newrule)
 
     ### -----------------------------------------------------------------------
     return {
-        S3_LIFECYCLE_RULES.COMMON.name: common_rule,
+        S3_LIFECYCLE_RULES.COMMON.name: common_rule, # type: ignore
         S3_LIFECYCLE_RULES.STD_EXPIRY.name: std_cloud_expiry_rule,
         S3_LIFECYCLE_RULES.INTELLIGENT_TIERING.name: intelligent_tiering_rule,
         S3_LIFECYCLE_RULES.LOW_COST.name: instantretrieval_rule,
@@ -525,9 +531,8 @@ def add_lifecycle_rule_to_bucket(
         return bucket
 
     bucket.add_lifecycle_rule(
-        id=rule.id,
-        abort_incomplete_multipart_upload_after=rule.abort_incomplete_multipart_upload_after,
         enabled=rule.enabled,
+        abort_incomplete_multipart_upload_after=rule.abort_incomplete_multipart_upload_after,
         expiration=rule.expiration,
         expiration_date=rule.expiration_date,
         expired_object_delete_marker=rule.expired_object_delete_marker,
@@ -538,9 +543,10 @@ def add_lifecycle_rule_to_bucket(
         ),  ### shallow clone
         object_size_greater_than=rule.object_size_greater_than,
         object_size_less_than=rule.object_size_less_than,
-        prefix=rule.prefix,
-        tag_filters=Mapping(rule.tag_filters) if rule.tag_filters else None,  ### shallow clone
+        tag_filters=rule.tag_filters if rule.tag_filters else None,  ### shallow clone
         transitions=rule.transitions.copy() if rule.transitions else None,  ### shallow clone
+        id = rule.id,
+        prefix = rule.prefix,
     )
     return bucket
 

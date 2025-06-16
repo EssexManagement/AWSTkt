@@ -168,7 +168,7 @@ class StandardLambda():
         description: str = None,
         environment: dict = None,
         memory_size: int = None,
-        timeout: int = None,
+        timeout: Duration = None,
         architecture: Optional[aws_lambda.Architecture] = None,
         runtime :Optional[aws_lambda.Runtime] = None,
         layers :Optional[list[aws_lambda.ILayerVersion]] = None,

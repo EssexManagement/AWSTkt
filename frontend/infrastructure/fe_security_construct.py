@@ -1,7 +1,7 @@
-"""CDK construct for API Gateway and lambda functions"""
+"""CDK construct for protecting API Gateway and CloudFront-distribution"""
 
 import typing
-from typing import Optional
+from typing import Optional, Literal
 
 from os import path
 import pathlib
@@ -16,24 +16,42 @@ from aws_cdk import (
     Stack,
     RemovalPolicy,
     aws_logs as logs,
+    aws_iam,
     aws_apigateway as apigateway,
-    aws_iam as iam,
-    aws_kms,
+    aws_cloudfront,
     aws_wafv2,
-    aws_secretsmanager,
 )
 
-from constants import CDK_APP_NAME
+import constants
+import common.cdk.constants_cdk as constants_cdk
+import cdk_utils.CdkDotJson_util as CdkDotJson_util
 
-THIS_DIR = path.dirname(__file__)
+### ---------------------------------------------------------------------------------------------
+### .............................................................................................
+### ---------------------------------------------------------------------------------------------
 
+IPAllowedLists = [
+    ### Use these strings to LOOKUP "cdk.json" for the ARN to the WAF-IP-Sets.
+    ### Ideally, these strings are very-very similar to the names of the WAF-IP-Sets on WAF-Console.
+    "AllowNIHWhitelistIPs",
+    "NATGWs",
+]
 
-class FrontEndWAFConstruct(Construct):
+### ---------------------------------------------------------------------------------------------
+### .............................................................................................
+### ---------------------------------------------------------------------------------------------
+
+class FrontendWAFConstruct(Construct):
     """
-        CDK construct for creating WAF-ACL w/ WAF-Rules mimicking CBIIT's Firewall-managed rules.
+        CDK construct for creating WAF-ACL w/ WAF-Rules mimicking Enterprise Firewall-managed rules.
         This new TIER-specific WAF-ACL will be associated with the TIER-specific CloudFront-Distribution.
         It just contains AWS-Managed RuleSets + One Custom-Rule to throttle per-user (to prevent malware-infected end-user-laptops from beating the solution)
     """
+
+    @staticmethod
+    def waf_acl_name( tier :str ) -> str:
+        waf_acl_name = constants.CDK_APP_NAME + "-Global-Custom-WAFACL-"+ tier
+        return waf_acl_name
 
     @property
     def waf_acl_id(self) -> str:
@@ -44,40 +62,20 @@ class FrontEndWAFConstruct(Construct):
         return self._waf_acl.attr_arn
 
     @property
-    def waf_acl(self) -> str:
+    def waf_acl(self) -> aws_wafv2.CfnWebACL:
         return self._waf_acl
-
-    @staticmethod
-    def origin_token_http_header_name() -> str:
-        """ Static method that returns a hardcoded-constant to be shared across Constructs"""
-        return 'x-origin-verify'
-
-    @staticmethod
-    def waf_rule_name() -> str:
-        """ Static method that returns a hardcoded-constant to be shared across Constructs"""
-        return "HttpHeaderToken-"+FrontEndWAFConstruct.origin_token_http_header_name()
-
-    @property
-    def x_origin_verify_hdr_token_value(self) -> str:
-        return self._x_origin_verify_hdr_token_value
-
-    # @property
-    # def x_origin_verify_hdr_secret(self) -> aws_secretsmanager.ISecret:
-    #     return self._x_origin_verify_hdr_secret
-        """
-           This Secret needs to be accessible in the frontend_2nd_origin construct.
-           This Secret's value must be readable over there.
-           Hence, this property returns `Secret` and NOT `ISecret`.
-        """
 
     def __init__(
         self,
-        scope: "Construct",
+        cdk_scope: "Construct",
         construct_id: str,
         tier :str,
-    ) -> None:
-        super().__init__(scope=scope, id_=construct_id)
+    ):
+        super().__init__(scope=cdk_scope, id=construct_id)
+
         stk = Stack.of(self)
+        effective_tier = tier if (tier in constants.STD_TIERS or tier in constants.ACCT_TIERS) else "dev"
+        nonprod_or_prod = constants_cdk.TIER_TO_AWSENV_MAPPING[ effective_tier ]
 
         ### -------------------
         waf_rule_priority = 0
@@ -86,9 +84,9 @@ class FrontEndWAFConstruct(Construct):
 
         ### HOW-TO: aws wafv2 list-available-managed-rule-groups --scope REGIONAL
         aws_managed_waf_rule_groups = [
-            # "AWSManagedRulesCommonRuleSet",
+            # "AWSManagedRulesCommonRuleSet", ### Limits payloads to just 8KB.  https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-baseline.html#aws-managed-rule-groups-baseline-crs
             "AWSManagedRulesAdminProtectionRuleSet",
-            # "AWSManagedRulesKnownBadInputsRuleSet",
+            "AWSManagedRulesKnownBadInputsRuleSet",  ### prevents `localhost` in host-header https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-baseline.html#aws-managed-rule-groups-baseline-known-bad-inputs
 
             ##__ "AWSManagedRulesSQLiRuleSet",
             ##__ "AWSManagedRulesLinuxRuleSet",
@@ -107,7 +105,7 @@ class FrontEndWAFConstruct(Construct):
 
         ### -------------------
 
-        ### -------- add AWS-Managed WAF-Rules mimicking CBIIT-managed Firewall-Manager-managed rules ------
+        ### -------- add AWS-Managed WAF-Rules mimicking Enterprise Firewall-Manager-managed rules ------
         for mgd_waf_rule_name in aws_managed_waf_rule_groups:
             new_rule = aws_wafv2.CfnWebACL.RuleProperty(
                 ### https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/ensure-waf-prevents-message-lookup-in-log4j2
@@ -127,13 +125,13 @@ class FrontEndWAFConstruct(Construct):
                     managed_rule_group_statement=aws_wafv2.CfnWebACL.ManagedRuleGroupStatementProperty(
                         name=mgd_waf_rule_name,
                         vendor_name="AWS",
-                        # vendor_name="AWS-FMS",  # For Firewall-Manager managed CUSTOM Rules defined at AWS-Org Root-account.
+                        # vendor_name="AWS-FMS",  # For Enterprise Firewall-Manager managed CUSTOM Rules defined at AWS-Org Root-account.
                     )
                 ),
                 visibility_config=aws_wafv2.CfnWebACL.VisibilityConfigProperty(
-                    cloud_watch_metrics_enabled=True,
-                    metric_name=mgd_waf_rule_name,
-                    sampled_requests_enabled=True,
+                    cloud_watch_metrics_enabled = True,
+                    metric_name = f"{tier}-{mgd_waf_rule_name}",
+                    sampled_requests_enabled = True,
                 ),
             )
             waf_rules.append(new_rule)
@@ -143,17 +141,18 @@ class FrontEndWAFConstruct(Construct):
         ### Create the NEW custom WAF rule -- throttling each individual malware-user (Ticket # 2686 - rate-limiting by individual-user)
         ### oobox-WAF-capability: A rate-based rule counts incoming requests and rate limits requests when they are coming at too fast a rate.
 
-        rate_waf_rule_name = "ticket-2686-throttle-each-individual-user-ip"
+        rate_waf_rule_name = "throttle-each-individual-user-ip"
         waf_rule_throttle_each_user = aws_wafv2.CfnWebACL.RuleProperty(
             name = rate_waf_rule_name,
             priority=waf_rule_priority,  # Adjust priority as needed based on other rules
-            action=aws_wafv2.CfnWebACL.RuleActionProperty(block={}),
+            action = aws_wafv2.CfnWebACL.RuleActionProperty(block={}),
             # override_action is ONLY used for ManagedRuleGroups
-            statement=aws_wafv2.CfnWebACL.StatementProperty(
+            statement = aws_wafv2.CfnWebACL.StatementProperty(
                 # not_statement=aws_wafv2.CfnWebACL.NotStatementProperty(
                     rate_based_statement=aws_wafv2.CfnWebACL.RateBasedStatementProperty(
                         ### https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-ratebasedstatement.html
-                        limit = 50,  ### Note: minimum possible limit is 10 per second
+                        evaluation_window_sec = 60,   ### Metrics are captured for each minute; Valid settings are 60, 120, 300, and 600.
+                        limit = 3000,  ### Note: minimum possible limit is 10/sec; This is 50/sec; (CloudFront only, due to SPA & BDDs being very active)
                         ### To aggregate on only the IP-address or only the forwarded-IP-address, do -NOT- use `custom_keys`.
                         ### Instead, set the `aggregate_key_type` to `IP` or `FORWARDED_IP`.
                         aggregate_key_type="IP", ### individual aggregation keys: IP address or HTTP method
@@ -167,77 +166,110 @@ class FrontEndWAFConstruct(Construct):
             ),
             visibility_config=aws_wafv2.CfnWebACL.VisibilityConfigProperty(
                 ### https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-visibilityconfig.html
-                cloud_watch_metrics_enabled=True,
-                metric_name=rate_waf_rule_name,
-                sampled_requests_enabled=True,
+                cloud_watch_metrics_enabled = True,
+                metric_name = f"{tier}-{rate_waf_rule_name}",
+                sampled_requests_enabled = True,
             ),
         )
         waf_rules.append(waf_rule_throttle_each_user)
         waf_rule_priority += 1
 
+        ### -------------------
+        ### !! ATTENTION !! since these are the LAST Rules within this frontend's WAF-ACL, ..
+        ###     .. they are "allow" (unlike Backend-WAF-ACL's equivalent-rule)
+        ### Creates NEW custom WAF rule(s) -- only allowing traffic from the 2 Allowed-IP-lists
+        for ipset_name in IPAllowedLists:
+            ipset_arn = CdkDotJson_util.lkp_waf_IPSet_arn( cdk_scope, tier, ipset_name )
+            new_rule = aws_wafv2.CfnWebACL.RuleProperty(
+                name = ipset_name,
+                priority = waf_rule_priority,  # Adjust priority as needed based on other rules
+                action = aws_wafv2.CfnWebACL.RuleActionProperty(allow={}),
+                statement = aws_wafv2.CfnWebACL.StatementProperty(
+                    ip_set_reference_statement = aws_wafv2.CfnWebACL.IPSetReferenceStatementProperty(arn=ipset_arn)
+                    # ip_set_reference_statement={ "arn": ipset_arn }
+                ),
+                visibility_config=aws_wafv2.CfnWebACL.VisibilityConfigProperty(
+                    cloud_watch_metrics_enabled = True,
+                    metric_name = f"{tier}-{ipset_name}",
+                    sampled_requests_enabled = True,
+                ),
+            )
+            waf_rules.append(new_rule)
+            waf_rule_priority += 1
+
         ### ------ Create a new WAF-ACL -- just for this TIER -- using above WAF-rules -----
-        waf_acl_name = CDK_APP_NAME + "-Custom-WAFACL-"+tier
         self._waf_acl = aws_wafv2.CfnWebACL(
             scope_=self,
             id = tier,
-            name = waf_acl_name,
-            description = f"Custom WAF-ACL for {tier} in {self.account_type} created via CDK - with MANUAL-efforts to mimic CBIIT-owned Firewall-Managed WAF-ACL entries",
+            name = FrontendWAFConstruct.waf_acl_name(tier),
+            description = f"Custom WAF-ACL for {tier} in {nonprod_or_prod} created via CDK - with MANUAL-efforts to mimic Enterprise Firewall-Managed WAF-ACL entries",
             ### description must obey regular-expression pattern (No quotes at all): ^[\w+=:#@/\-,\.][\w+=:#@/\-,\.\s]+[\w+=:#@/\-,\.]$
-            default_action=aws_wafv2.CfnWebACL.DefaultActionProperty(allow={}),
-            scope="REGIONAL",
+            default_action=aws_wafv2.CfnWebACL.DefaultActionProperty(block={}),
+            scope = "CLOUDFRONT",
             visibility_config=aws_wafv2.CfnWebACL.VisibilityConfigProperty(
-                cloud_watch_metrics_enabled=True, metric_name="OriginVerifyHeaderWAF", sampled_requests_enabled=True
+                cloud_watch_metrics_enabled = True,
+                metric_name = f"{tier}-OriginVerifyHeaderWAF",
+                sampled_requests_enabled = True
             ),
-            rules=waf_rules,
+            rules = waf_rules,
         )
 
 
+    ### ---------------------------------------------------------------------------------------------
+    ### .............................................................................................
+    ### ---------------------------------------------------------------------------------------------
 
-    ### ------------------------------------------------------
-
-    def protect_api_w_waf(
-        self,
-        rest_api: apigateway.RestApi,
-        apigw_stage_name: str,
+    def protect_cloudfront_w_waf( self,
+        distribution: aws_cloudfront.Distribution,
     ) -> None:
         """
             Lookup cdk.json, for the ARN to the WAF-ACL.
-            Associate the WAF-ACL to the APIGW.
+            Associate the WAF-ACL to the CloudFront-distribution.
 
-            Note: Adding a custom-WAF-Rule to this WAF-ACL is done inside `backend/runtime/src/nccr/handler/rotate_secret_cloudfront_apigw_hdr_token.py`
+            Note: Adding a custom-WAF-Rule to this WAF-ACL is done inside `backend/src/rotate_secret_cloudfront_apigw_hdr_token/index.py`
                   Why? 'cuz, there's only one way to change a WAF-ACL.  That is  thru AWS-SDk.  No CDK-support.
         """
         stk = Stack.of(self)
 
-        # security_config = self.node.try_get_context("apigw")
-        # if security_config and "WAF-ACL" in security_config:
-        #     waf_acl_arn = security_config["WAF-ACL"]
-        # else:
-        #     waf_acl_arn = None
-        # print(f"DEBUG: waf_acl_arn = '{waf_acl_arn}'")
-        # if waf_acl_arn:
-        #     if self.is_prod_account and C_ENV_PROD in waf_acl_arn:
-        #         waf_acl_arn = waf_acl_arn[C_ENV_PROD]
-        #     elif not self.is_prod_account and C_ENV_NON_PROD in waf_acl_arn:
-        #         waf_acl_arn = waf_acl_arn[C_ENV_NON_PROD]
-        #     else:
-        #         waf_acl_arn = None
-        # else:
-        #     waf_acl_arn = None
-
-        ### -------------------
         if self.waf_acl_arn:
-            # given the ARN to a WAF-ACL, apply it to the above APIGW
-            apigw_stage_arn = f"arn:{stk.partition}:apigateway:{stk.region}::/restapis/{rest_api.rest_api_id}/stages/{apigw_stage_name}"
-            wafaclass = aws_wafv2.CfnWebACLAssociation(
-                scope=self,
-                id="wafv2ForAPIGW",
-                web_acl_arn = self.waf_acl_arn,
-                resource_arn = apigw_stage_arn,
-            )
-            wafaclass.add_dependency( rest_api.node.default_child )
-            wafaclass.add_dependency( rest_api.deployment_stage.node.default_child )
+            ### !!!!!!!! ATTENTION !!!!!!!!
+            ### For CloudFront distributions, you do ---NOT--- use AWS::WAFv2::WebACLAssociation.
+            ### Instead, you specify the WebACL directly in the CloudFront distribution properties.
+            # wafaclass = aws_wafv2.CfnWebACLAssociation( scope = self,
+            #     id="wafv2ForAPIGW",
+            #     web_acl_arn = self.waf_acl_arn,
+            #     resource_arn = distribution.distribution_arn,
+            # )
+            cfn_distribution: aws_cloudfront.CfnDistribution = distribution.node.default_child # type: ignore
+            cfn_distribution.add_property_override( "DistributionConfig.WebACLId", self.waf_acl_arn )
         else:
-            raise Exception("No WAF-ACL ARN defined, within WAFConstruct construct")
+            raise Exception("No WAF-ACL ARN defined, within FrontendWAFConstruct construct")
+
+    ### ---------------------------------------------------------------------------------------------
+    ### .............................................................................................
+    ### ---------------------------------------------------------------------------------------------
+
+    # @staticmethod
+    # def get_global_waf_acl_arn(
+    #     cdk_scope :Construct,
+    #     tier :str,
+    #     waf_acl_name :str = None,
+    # ) -> str:
+    #     stk = Stack.of(cdk_scope)
+    #     if waf_acl_name is None: waf_acl_name = FrontendWAFConstruct.waf_acl_name( tier )
+    #     global_waf_acl_arn = f"arn:{stk.partition}:wafv2:{stk.region}:{stk.account}:global/webacl/" + waf_acl_name;
+    #     return global_waf_acl_arn
+
+    # @staticmethod
+    # def get_global_waf_acl_arn(
+    #     cdk_scope :Construct,
+    #     tier :str,
+    #     waf_acl_name :str = None,
+    # ) -> str:
+    #     stk = Stack.of(cdk_scope)
+    #     if waf_acl_name is None: waf_acl_name = FrontendWAFConstruct.waf_acl_name( tier )
+    #     regional_waf_acl_arn = f"arn:{stk.partition}:wafv2:{stk.region}:{stk.account}:regional/webacl" + waf_acl_name;
+    #     return regional_waf_acl_arn
+
 
 ### EoF

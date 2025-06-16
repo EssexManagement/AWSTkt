@@ -4,10 +4,11 @@ Description: Creates an SNS Topic and optionally subscribes an email address
 Parameters:
   TopicName:
     Type: String
+    Default: Operations
     Description: Name of the SNS Topic
   EmailAddress:
     Type: String
-    Default: ''
+    Default: 'nci-cancer-trials-finder-awsadmins@mail.nih.gov'
     Description: Optional email address to subscribe to the SNS Topic
     AllowedPattern: '^$|^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
     ConstraintDescription: Must be a valid email address or leave blank

@@ -11,6 +11,12 @@
     "test": "jest",
     "cdk": "cdk"
   },
+  "overrides": {
+    "semver": "^7.5.2"
+  },
+  "resolutions": {
+    "semver": "^7.5.2"
+  },
   "devDependencies": {
     "@types/dockerode": "*",
     "@types/jest": "*",
@@ -22,7 +28,8 @@
     "ts-node": "*",
     "ts-node-dev": "*",
     "tsconfig-paths": "*",
-    "typescript": "*"
+    "typescript": "*",
+    "semver": "^7.5.2"
   },
   "dependencies": {
     "aws-cdk-lib": "*",
@@ -31,6 +38,7 @@
     "dockerode": "*",
     "esbuild": "*",
     "js-yaml": "*",
-    "source-map-support": "*"
+    "source-map-support": "*",
+    "semver": "^7.5.2"
   }
 }
