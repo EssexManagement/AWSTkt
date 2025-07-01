@@ -50,5 +50,6 @@ PyYAML
 pandas
 # pandas==2.2.1
 # xlrd==2.0.1
-
+flatten-dict==0.4.2
+jsonref
 ### EoF

@@ -26,18 +26,20 @@ constructor(scope: Construct,
     const codepipelineSourceStageActionName = "BIAD_emFACT-frontend-cdk.git" //// Click on "View Details" under Source-STAGE of codepipeline
 
     //// --------------------------------------------------
-    let preDeploySfnName = "sfn-CleanupStacks"
+    let preDeploySfnName = "sfn-CleanupStacks";
     //// let preDeploySfnName = "sfn-PRE-deployment"
     preDeploySfnName = constants.get_FULL_AWS_RESOURCE_PREFIX(tier, git_branch, preDeploySfnName, THIS_COMPONENT_NAME )
     const preDeploySfn = cdk.aws_stepfunctions.StateMachine.fromStateMachineName(this, preDeploySfnName, preDeploySfnName)
     console.log(`preDeploySfn='${preDeploySfn}'`)
 
-    let postBackendDeploySfnName = "sfn-PostDeployment"
-    postBackendDeploySfnName = constants.get_FULL_AWS_RESOURCE_PREFIX(tier, git_branch, postBackendDeploySfnName, THIS_COMPONENT_NAME )
+    let componentName = "backend";
+
+    let postBackendDeploySfnName = "StatelessETL-etl-sfn";
+    postBackendDeploySfnName = `${constants.CDK_APP_NAME}-${componentName}-${tier}-${postBackendDeploySfnName}`;
+    // postBackendDeploySfnName = constants.get_FULL_AWS_RESOURCE_PREFIX(tier, git_branch, postBackendDeploySfnName, THIS_COMPONENT_NAME )
     const postBackendDeploySfn = cdk.aws_stepfunctions.StateMachine.fromStateMachineName(this, postBackendDeploySfnName, postBackendDeploySfnName)
     console.log(`postBackendDeploySfn='${postBackendDeploySfn}'`)
 
-    let componentName = "backend"
     const backendCodePipelineName = `${constants.CDK_APP_NAME}-${componentName}-pipeline-${tier}`;
     const backendCodePipeline = cdk.aws_codepipeline.Pipeline.fromPipelineArn(this, backendCodePipelineName,
               `arn:${cdk.Stack.of(this).partition}:codepipeline:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:${backendCodePipelineName}`     )

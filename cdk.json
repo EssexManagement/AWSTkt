@@ -20,6 +20,7 @@
       ]
   },
   "context": {
+    "ctf-support-email": "matthew.mariano@nih.gov",
     "git-source": {
         "providerType":  "GitHub",
         "Comment-re-providerType": "https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codestarconnections-connection.html#cfn-codestarconnections-connection-providertype",
@@ -149,7 +150,7 @@
         "cloudfront_georestrictions": ["US","CA"],
         "cancertrialsfinder.cancer.gov": {
             "dev":   { "DISABLED-FQDN": "cancertrialsfinder-dev.cancer.gov",  "AWS-ACM-ssl-cert": "arn:aws:acm:{}:{}:certificate/09e374a4-ea28-4077-8a84-668dd2a19683" },
-            "test":  { "FQDN": "cancertrialsfinder-test.cancer.gov",  "AWS-ACM-ssl-cert": "arn:aws:acm:{}:{}:certificate/4e17d160-3f14-47a4-b39a-00ba95cc0b88" },
+            "test":  { "DISABLED-FQDN": "cancertrialsfinder-test.cancer.gov", "AWS-ACM-ssl-cert": "arn:aws:acm:{}:{}:certificate/4e17d160-3f14-47a4-b39a-00ba95cc0b88" },
             "stage": { "FQDN": "cancertrialsfinder-stage.cancer.gov", "AWS-ACM-ssl-cert": "arn:aws:acm:{}:{}:certificate/68efa2be-3d41-4a02-96db-cc0a2c8b4593" },
             "prod":  { "FQDN": "cancertrialsfinder.cancer.gov", "AWS-ACM-ssl-cert": "arn:aws:acm:{}:{}:certificate/7df5fb4a-795a-46ba-b159-4b9a7711eda4" },
             "main" : { "FQDN": "this-tier-is-NOT-allowed.such.fqdn",  "AWS-ACM-ssl-cert": "main-can-NOT-be-a-deployment-tier" }
@@ -186,6 +187,8 @@
     },
     "s3_access_logging_bucket": {},
     "etl_cron" : {
+        "matt3" : {"hour" : "13", "minute" : "0"},
+        "matt2" : {"hour" : "13", "minute" : "0"},
         "dev" : {"hour" : "13", "minute" : "0"},
         "test" : {"hour" : "13", "minute" : "15"},
         "int" : {"hour" : "13", "minute" : "15"},

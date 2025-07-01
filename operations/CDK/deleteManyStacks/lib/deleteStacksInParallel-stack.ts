@@ -348,6 +348,7 @@ constructor(scope: Construct, id: string,
         sid: "AllowStepFuncToReduceIAMPolicies",
         actions: [
             'iam:DeleteRolePolicy',
+            'iam:DetachRolePolicy',
             'iam:PutRolePolicy',
         ],
         resources: [ genericIAMRoleArn, ],

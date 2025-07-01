@@ -13,7 +13,6 @@ from aws_cdk import (
     aws_lambda,
     Size,
 )
-
 from backend.database.vpc_rds.infrastructure import SqlDatabaseConstruct
 import constants
 import common.cdk.constants_cdk as constants_cdk
@@ -22,20 +21,20 @@ import common.cdk.constants_cdk as constants_cdk
 ### ...............................................................................................
 ### ===============================================================================================
 
-DEFAULT_LAMBDA_HANDLER = "lambda_handler"
+DEFAULT_LAMBDA_HANDLER = 'lambda_handler'
 
 DEFAULT_API_LAMBDAS_ENTRY = "api/runtime"  ### folderpath
 PANDAS_LAMBDA_ENTRY       = 'api/runtime_pandas' ### folderpath
 ETL_LAMBDA_ENTRY          = 'backend/etl/runtime'   ### folderpath
 
-DEFAULT_LAMBDA_LAYER = "psycopg3"
+DEFAULT_LAMBDA_LAYER = 'psycopg3'
 DEFAULT_CPU_ARCH         = aws_lambda.Architecture.ARM_64
 DEFAULT_CPU_ARCH_NAMESTR = aws_lambda.Architecture.ARM_64.name
 # runtime = constants_cdk.LAMBDA_PYTHON_RUNTIME
 
 MIN_MEMORY = 512 ### CDK-Deploy error: Function code combined with layers exceeds the maximum allowed size of 262144000 bytes. The actual size is 375883658 bytes
 DEFAULT_API_TIMEOUT = Duration.seconds(60)  ### Lambda-timeout for Lambdas BEHIND the APIGW.
-LOG_LEVEL = "INFO" ### "DEBUG" "WARN"
+LOG_LEVEL = 'INFO' ### 'DEBUG' 'WARN'
 
 ### ===============================================================================================
 ### ...............................................................................................
@@ -58,6 +57,14 @@ _cache_of_layers_arns["pandas-ext-amd64"] = "arn:aws:lambda:us-east-1:3363929483
 ### ===============================================================================================
 ### ...............................................................................................
 ### ===============================================================================================
+
+def update_dict(adict, remove=None,**kw):
+    adict.update(kw)
+    if remove:
+        if isinstance(remove, str):
+            remove = remove.split(',')
+        [adict.pop(key, None) for key in remove]
+    return adict
 
 class MyLambdaConfigException(Exception):
     pass
@@ -91,23 +98,22 @@ class LambdaConfigs():
         return 55
 
     @staticmethod
-    def get_lambda_entry(item :dict) -> Optional[str]: return item["entry"] if "entry" in item else DEFAULT_API_LAMBDAS_ENTRY
+    def get_lambda_entry(item :dict) -> Optional[str]: return item['entry'] if 'entry' in item else DEFAULT_API_LAMBDAS_ENTRY
     @staticmethod
     def get_lambda_index(item :dict) -> Optional[str]: return item['handler_file'] if 'handler_file' in item else f"{item['handler']}.py"
     # @staticmethod
     # def get_handler_file(item :dict) -> Optional[str]: return item.get('handler_file', LambdaConfigs.get_handler_id(item=item))
     @staticmethod
-    def get_handler(item :dict) -> Optional[str]:
-        """ If not explicitly specified, then return-value is `LambdaConfigs.DEFAULT_LAMBDA_HANDLER`
-        """
-        return item.get('handler')   or   DEFAULT_LAMBDA_HANDLER
+    def get_handler(item :dict) -> Optional[str]: return item.get('handler')   or   DEFAULT_LAMBDA_HANDLER
     @staticmethod
     def get_http_method(item :dict) -> Optional[str]: return item.get('http_method', None)
     @staticmethod
-    def get_apigw_path(item :dict) -> Optional[str]: return item.get("apigw-path", None)
-        ### Attention: `get_apigw_path(item)` can NEVER return None!!
+    def get_apigw_path(item :dict) -> Optional[str]: return item.get('apigw-path', None)
+
     @staticmethod
-    def get_simple_name(item :dict) -> Optional[str]: return item.get("simple_name", None)
+    def get_simple_name(item :dict, default=None) -> Optional[str]:
+        return item.get('simple_name', default)
+
     @staticmethod
     def get_memory_size(item :dict) -> Optional[str]: return item.get('memory')
     @staticmethod
@@ -128,8 +134,8 @@ class LambdaConfigs():
         # if v: retval.extend( v )
     @staticmethod
     def get_time_out(item :str) -> Duration:
-        if "timeout" in item:
-            return item["timeout"]
+        if 'timeout' in item:
+            return item['timeout']
         else:
             if LambdaConfigs.get_http_method(item) == None:
                 return Duration.minutes(15) ### Non-API Lambdas.  Should be the maximum possible.
@@ -144,12 +150,14 @@ class LambdaConfigs():
     def __init__(self,
                  tier: str,
                  scope :Construct,
-                 rds_con :SqlDatabaseConstruct,
+                 rds_con: SqlDatabaseConstruct,
                  dbuser_sm_name :str,
                  dbuser_sm_arn :str,
                  dbadmin_sm_arn :str,
                  user_data_table_name: str,
                  process_status_table_name :str,
+                 curation_status_table_name: str,
+                 trial_criteria_table_name: str,
                  cts_api_v2_unpublished_name :str,
                  bing_maps_key_unpublished_name :str,
                  SEARCH_RESULTS_BUCKET_NAME :str,
@@ -191,35 +199,53 @@ class LambdaConfigs():
         self.curated_trigger_folder = curated_trigger_folder
         self.DATASET_BUCKET_NAME = DATASET_BUCKET_NAME ### f'{constants.ENTERPRISE_NAME}-{constants.CDK_APP_NAME}-backend-{tier}-etl-data-sets'.lower()
         self._common_env = {
-            "LOG_LEVEL": LOG_LEVEL,
-            "USE_CONNECTION_POOL": "False",
-            "CONNECTION_POOL_COUNT": "4",
-            "UNPUBLISHED": dbuser_sm_name,
-            "RDS_PROXY_NAME": rds_con.db_proxy.db_proxy_name,
-            "RDS_PROXY_ARN": rds_con.db_proxy.db_proxy_arn,
-            "BING_MAPS_UNPUBLISHED": bing_maps_key_unpublished_name,
-            "CT_API_UNPUBLISHED": cts_api_v2_unpublished_name,
-            "CT_API_URL"    : CT_API_URL,
-            "CT_API_URL_V2" : CT_API_URL_V2,
-            "CT_API_VERSION": CT_API_VERSION,
+            'LOG_LEVEL': LOG_LEVEL,
+            'USE_CONNECTION_POOL': 'False',
+            'CONNECTION_POOL_COUNT': '4',
+            'UNPUBLISHED': dbuser_sm_name,
+            'RDS_PROXY_NAME': rds_con.db_proxy.db_proxy_name,
+            'RDS_PROXY_ARN': rds_con.db_proxy.db_proxy_arn,
+            'BING_MAPS_UNPUBLISHED': bing_maps_key_unpublished_name,
+            'CT_API_UNPUBLISHED': cts_api_v2_unpublished_name,
+            'CT_API_URL'    : CT_API_URL,
+            'CT_API_URL_V2' : CT_API_URL_V2,
+            'CT_API_VERSION': CT_API_VERSION,
             'UI_UPLOADS_BUCKET' : UI_UPLOADS_BUCKET_NAME,
-            "DATASET_BUCKET": self.DATASET_BUCKET_NAME,
+            'DATASET_BUCKET': self.DATASET_BUCKET_NAME,
             # TODO remove
-            #"DATASET_BUCKET2":
+            #'DATASET_BUCKET2':
             'S3_CURATED_FOLDER' : 'curated',
             'S3_COMPARISON_OUTPUT_FOLDER': 'emfact/comparison',
-            "S3_EVAL_FOLDER": "eval",
-            "TRIAL_CRITERIA_QUEUE_URL": TRIAL_CRITERIA_QUEUE_URL,
-            "MAKE_DATASET_QUEUE_URL": MAKE_DATASET_QUEUE_URL,
-            "ETL_QUEUE_URL": ETL_QUEUE_URL,
-            "DATASET_S3_FOLDER": "emfact/datasets",
+            'S3_EVAL_FOLDER': 'eval',
+            'TRIAL_CRITERIA_QUEUE_URL': TRIAL_CRITERIA_QUEUE_URL,
+            'MAKE_DATASET_QUEUE_URL': MAKE_DATASET_QUEUE_URL,
+            'ETL_QUEUE_URL': ETL_QUEUE_URL,
+            'DATASET_S3_FOLDER': "emfact/datasets",
+            'TRIAL_CRITERIA_TABLE_NAME': trial_criteria_table_name,
+            'CURATION_STATUS_TABLE_NAME': curation_status_table_name,
         }
 
         ### -----------------------------------------------------------------------
-
+        '''
+        unused lambdas
+        api_etl*
+        delete_criteria_type
+        delete_search_sessions
+        delete_trial_criteria
+        etl_start
+        etl_start_mp
+        get_criteria_type_records
+        get_trial_criteria_by_type
+        get_trial_criteria_by_nct_id
+        post_create_trial_criteria
+        post_eval_expression
+        delete_criteria_type
+        put_update_trial_criteria
+        wakeup_db
+        '''
         self.__list = [
-            { 'http_method': 'GET',  "handler": 'get_filtering_criteria',        "apigw-path": 'filtering_criteria', },
-            { 'http_method': 'POST', "handler": 'post_search_and_match',         "apigw-path": 'search_and_match',
+            { 'http_method': 'GET',  'handler': 'get_filtering_criteria',        'apigw-path': 'filtering_criteria', 'simple_name': 'filtering_criteria', },
+            { 'http_method': 'POST', 'handler': 'post_search_and_match',         'apigw-path': 'search_and_match', 'simple_name': 'search_and_match',
                 'handler_file': 'handler.py',
                 'memory': 4096,
                 'lambda-layers-names': [ 'numpy_etc' ],
@@ -228,7 +254,35 @@ class LambdaConfigs():
                     CREATE_REPORT_QUEUE_URL=CREATE_REPORT_QUEUE_URL,
                 )
             },
-            {'http_method': 'POST', "handler": 'send_create_pdf_message', "apigw-path": 'report',
+            {'http_method': 'POST',
+             'handler': DEFAULT_LAMBDA_HANDLER,
+             'apigw-path': 'validate_curated_for_upload',
+             'handler_file': 'validate_curated_for_upload.py',
+             'simple_name': 'validate_curated_for_upload',
+             'memory': 512,
+             'lambda-layers-names': ['psycopg3-pandas'],
+             'extra-env-vars': {
+                 'MAX_EXPRESSION_ERRORS': '0',
+                 'UI_UPLOADS_BUCKET': UI_UPLOADS_BUCKET_NAME,
+                 'CURATED_TRIGGER_FOLDER': curated_trigger_folder,
+                 'TRIAL_CRITERIA_QUEUE_URL': TRIAL_CRITERIA_QUEUE_URL,
+                 'DBPName': rds_con.db_proxy.db_proxy_name,
+             }},
+            {'http_method': 'POST',
+             'handler': DEFAULT_LAMBDA_HANDLER,
+             'apigw-path': 'verify_curation_data',
+             'handler_file': 'verify_curation_data.py',
+             'simple_name': 'verify_curation_data',
+             'memory': 512,
+             'lambda-layers-names': ['psycopg3-pandas'],
+             'extra-env-vars': {
+                 'MAX_EXPRESSION_ERRORS': '0',
+                 'UI_UPLOADS_BUCKET': UI_UPLOADS_BUCKET_NAME,
+                 'CURATED_TRIGGER_FOLDER': curated_trigger_folder,
+                 'TRIAL_CRITERIA_QUEUE_URL': TRIAL_CRITERIA_QUEUE_URL,
+                 'DBPName': rds_con.db_proxy.db_proxy_name,
+             }},
+            {'http_method': 'POST', 'handler': 'send_create_pdf_message', 'apigw-path': 'report', 'simple_name': 'report',
              'handler_file': 'send_create_pdf_message.py',
              'memory': 512,
              'lambda-layers-names': ['numpy_etc'],
@@ -237,300 +291,491 @@ class LambdaConfigs():
                  CREATE_REPORT_QUEUE_URL=CREATE_REPORT_QUEUE_URL,
              )
              },
-            { 'http_method': 'GET',  "handler": 'get_prior_therapy',             "apigw-path": 'prior_therapy',
+            { 'http_method': 'GET',  'handler': 'get_prior_therapy',             'apigw-path': 'prior_therapy', 'simple_name': 'prior_therapy',
               'lambda-layers-names': [ 'numpy_etc' ],},
-            { 'http_method': 'GET',  "handler": 'get_primary_cancer',            "apigw-path": 'primary_cancer',
+            { 'http_method': 'GET',  'handler': 'get_primary_cancer',            'apigw-path': 'primary_cancer', 'simple_name': 'primary_cancer',
               'lambda-layers-names': [ 'numpy_etc' ],},
-            { 'http_method': 'GET',  "handler": 'get_subtype_for_maintype',      "apigw-path": 'subtype_for_maintype',
+            { 'http_method': 'GET',  'handler': 'get_subtype_for_maintype',      'apigw-path': 'subtype_for_maintype', 'simple_name': 'subtype_for_maintype',
               'lambda-layers-names': [ 'numpy_etc' ],},
-            { 'http_method': 'POST', "handler": 'post_stage_for_types',          "apigw-path": 'stage_for_types',
+            { 'http_method': 'POST', 'handler': 'post_stage_for_types',          'apigw-path': 'stage_for_types', 'simple_name': 'stage_for_types',
               'lambda-layers-names': [ 'numpy_etc' ],},
-            { 'http_method': 'GET',  "handler": 'get_biomarkers',                "apigw-path": 'biomarkers',
+            { 'http_method': 'GET',  'handler': 'get_biomarkers',                'apigw-path': 'biomarkers', 'simple_name': 'biomarkers',
               'lambda-layers-names': [ 'numpy_etc' ],},
-            { 'http_method': 'GET',  "handler": 'get_column_info',               "apigw-path": 'column_info',
+            { 'http_method': 'GET',  'handler': 'get_column_info',               'apigw-path': 'column_info', 'simple_name': 'column_info',
               'lambda-layers-names': [ 'numpy_etc' ],},
-            { 'http_method': 'POST', "handler": 'post_ccodes_from_display_names',    "apigw-path": 'ccodes_from_display_names',
+            { 'http_method': 'POST', 'handler': 'post_ccodes_from_display_names',    'apigw-path': 'ccodes_from_display_names', 'simple_name': 'ccodes_from_display_names',
               'lambda-layers-names': [ 'numpy_etc' ],},
-            { 'http_method': 'POST', "handler": 'post_studies_for_lat_lon_distance', "apigw-path": 'studies_for_lat_lon_distance',
+            { 'http_method': 'POST', 'handler': 'post_studies_for_lat_lon_distance', 'apigw-path': 'studies_for_lat_lon_distance', 'simple_name': 'studies_for_lat_lon_distance',
               'lambda-layers-names': [ 'numpy_etc' ],},
-            { 'http_method': 'GET',  "handler": 'get_org_families',              "apigw-path": 'org_families',
+            { 'http_method': 'GET',  'handler': 'get_org_families',              'apigw-path': 'org_families', 'simple_name': 'org_families',
               'lambda-layers-names': [ 'numpy_etc' ],},
-            { 'http_method': 'POST', "handler": 'post_report_data',              "apigw-path": 'report_data',
+            { 'http_method': 'POST', 'handler': 'post_report_data',              'apigw-path': 'report_data', 'simple_name': 'report_data',
+              'memory': 4096,
               'extra-env-vars': dict(
                   USER_DATA_TABLE_NAME=user_data_table_name
               )
               },
-            { 'http_method': 'POST', "handler": 'post_studies_for_cancer_ctrs', "apigw-path": 'studies_for_cancer_centers',
+            { 'http_method': 'POST', 'handler': 'post_studies_for_cancer_ctrs', 'apigw-path': 'studies_for_cancer_centers', 'simple_name': 'studies_for_cancer_centers',
               'lambda-layers-names': [ 'numpy_etc' ],},
-            { 'http_method': 'GET',  "handler": 'get_lead_orgs',                 "apigw-path": 'lead_orgs',
+            { 'http_method': 'GET',  'handler': 'get_lead_orgs',                 'apigw-path': 'lead_orgs', 'simple_name': 'lead_orgs',
               'lambda-layers-names': [ 'numpy_etc' ],},
-            { 'http_method': 'POST', "handler": 'post_studies_for_lead_orgs',    "apigw-path": 'studies_for_lead_orgs',
+            { 'http_method': 'POST', 'handler': 'post_studies_for_lead_orgs',    'apigw-path': 'studies_for_lead_orgs', 'simple_name': 'studies_for_lead_orgs',
               'lambda-layers-names': [ 'numpy_etc' ],},
-            { 'http_method': 'POST', "handler": 'post_disease_tree_data',        "apigw-path": 'disease_tree_data', },
-            { 'http_method': 'GET',  "handler": 'get_possible_disease_trees',    "apigw-path": 'possible_disease_trees',
+            { 'http_method': 'POST', 'handler': 'post_disease_tree_data',        'apigw-path': 'disease_tree_data', 'simple_name': 'disease_tree_data', },
+            { 'http_method': 'GET',  'handler': 'get_possible_disease_trees',    'apigw-path': 'possible_disease_trees', 'simple_name': 'possible_disease_trees',
               'lambda-layers-names': [ 'numpy_etc' ],},
-            { 'http_method': 'GET',  "handler": 'get_search_session_data',       "apigw-path": 'search_session_data', },
-            { 'http_method': 'GET',  "handler": 'get_starred_trials',            "apigw-path": 'get_starred_trials',
+            { 'http_method': 'GET',  'handler': 'get_search_session_data',       'apigw-path': 'search_session_data', 'simple_name': 'search_session_data', },
+            { 'http_method': 'GET',  'handler': 'get_starred_trials',            'apigw-path': 'get_starred_trials', 'simple_name': 'get_starred_trials',
               'lambda-layers-names': ['numpy_etc'],
               'extra-env-vars': dict(
                   USER_DATA_TABLE_NAME=user_data_table_name
               )
               },
-            { 'http_method': 'POST', "handler": 'post_starred_trials',           "apigw-path": 'post_starred_trials',
+            { 'http_method': 'POST', 'handler': 'post_starred_trials',           'apigw-path': 'post_starred_trials', 'simple_name': 'post_starred_trials',
               'lambda-layers-names': ['numpy_etc'],
               'extra-env-vars': dict(
                   USER_DATA_TABLE_NAME=user_data_table_name
               )
               },
-            { 'http_method': 'PUT',  "handler": 'put_rename_search_sessions',    "apigw-path": 'rename_search_sessions', },
-            { 'http_method': 'DELETE', "handler": 'delete_search_sessions',      "apigw-path": 'delete_search_sessions', },
-            { 'http_method': 'GET',  "handler": 'get_criteria_type_records',     "apigw-path": 'get_criteria_type_records',
-              'lambda-layers-names': [ 'numpy_etc' ],},
-            { 'http_method': 'GET',  "handler": 'get_starred_data',              "apigw-path": 'get_starred_data',
+            { 'http_method': 'PUT',  'handler': 'put_rename_search_sessions',    'apigw-path': 'rename_search_sessions', 'simple_name': 'rename_search_sessions', },
+            { 'http_method': 'DELETE', 'handler': 'delete_search_sessions',      'apigw-path': 'delete_search_sessions', 'simple_name': 'delete_search_sessions', },
+            # { 'http_method': 'GET',  'handler': 'get_criteria_type_records',     'apigw-path': 'get_criteria_type_records', 'simple_name': 'get_criteria_type_records',
+            #   'lambda-layers-names': [ 'numpy_etc' ],},
+            { 'http_method': 'GET',  'handler': 'get_starred_data',              'apigw-path': 'get_starred_data', 'simple_name': 'get_starred_data',
               'extra-env-vars': dict(
                   USER_DATA_TABLE_NAME=user_data_table_name
               )
               },
-            { 'http_method': 'POST', "handler": 'post_create_criteria_type',     "apigw-path": 'post_create_criteria_type', },
-            { 'http_method': 'GET',  "handler": 'get_trial_criteria_count_by_id', "apigw-path": 'get_trial_criteria_count_by_id', },
-            { 'http_method': 'DELETE', "handler": 'delete_criteria_type',        "apigw-path": 'delete_criteria_type', },
-            { 'http_method': 'PUT',  "handler": 'put_update_criteria_type',      "apigw-path": 'put_update_criteria_type', },
-            { 'http_method': 'GET',  "handler": 'get_trial_criteria_by_type',    "apigw-path": 'get_trial_criteria_by_type', },
-            { 'http_method': 'GET',  "handler": 'get_trial_criteria_by_nct_id',  "apigw-path": 'get_trial_criteria_by_nct_id', },
-            { 'http_method': 'GET',  "handler": 'get_nct_ids',                   "apigw-path": 'get_nct_ids',
+            { 'http_method': 'POST', 'handler': 'post_create_criteria_type',     'apigw-path': 'post_create_criteria_type', 'simple_name': 'post_create_criteria_type', },
+            { 'http_method': 'GET',  'handler': 'get_trial_criteria_count_by_id', 'apigw-path': 'get_trial_criteria_count_by_id', 'simple_name': 'get_trial_criteria_count_by_id', },
+            # { 'http_method': 'DELETE', 'handler': 'delete_criteria_type',        'apigw-path': 'delete_criteria_type', 'simple_name': 'delete_criteria_type', },
+            # { 'http_method': 'PUT',  'handler': 'put_update_criteria_type',      'apigw-path': 'put_update_criteria_type', 'simple_name': 'put_update_criteria_type', },
+            # { 'http_method': 'GET',  'handler': 'get_trial_criteria_by_type',    'apigw-path': 'get_trial_criteria_by_type', 'simple_name': 'get_trial_criteria_by_type', },
+            # { 'http_method': 'GET',  'handler': 'get_trial_criteria_by_nct_id',  'apigw-path': 'get_trial_criteria_by_nct_id', 'simple_name': 'get_trial_criteria_by_nct_id', },
+            { 'http_method': 'GET',  'handler': 'get_nct_ids',                   'apigw-path': 'get_nct_ids', 'simple_name': 'get_nct_ids',
               'lambda-layers-names': [ 'numpy_etc' ],},
-            { 'http_method': 'POST', "handler": 'post_create_trial_criteria',    "apigw-path": 'post_create_trial_criteria', },
-            { 'http_method': 'PUT',  "handler": 'put_update_trial_criteria',     "apigw-path": 'put_update_trial_criteria', },
-            { 'http_method': 'DELETE', "handler": 'delete_trial_criteria',       "apigw-path": 'delete_trial_criteria', },
-            { 'http_method': 'GET',  "handler": 'get_trial_criteria_by_nct_type',"apigw-path": 'get_trial_criteria_by_nct_type', },
-            { 'http_method': 'POST', "handler": 'post_eval_expression',          "apigw-path": 'post_eval_expression',
-                'memory': 1024,
-                'lambda-layers-names': [ 'numpy_etc' ],
-            },
-            { 'http_method': 'GET', "handler": 'get_emfact_programs_for_user',   "apigw-path": 'get_emfact_programs_for_user',
+            #{ 'http_method': 'POST', 'handler': 'post_create_trial_criteria',    'apigw-path': 'post_create_trial_criteria', 'simple_name': 'post_create_trial_criteria', },
+            #{ 'http_method': 'PUT',  'handler': 'put_update_trial_criteria',     'apigw-path': 'put_update_trial_criteria', 'simple_name': 'put_update_trial_criteria', },
+            #{ 'http_method': 'DELETE', 'handler': 'delete_trial_criteria',       'apigw-path': 'delete_trial_criteria', 'simple_name': 'delete_trial_criteria', },
+            { 'http_method': 'GET',  'handler': 'get_trial_criteria_by_nct_type','apigw-path': 'get_trial_criteria_by_nct_type', 'simple_name': 'get_trial_criteria_by_nct_type', },
+            # { 'http_method': 'POST', 'handler': 'post_eval_expression',          'apigw-path': 'post_eval_expression', 'simple_name': 'post_eval_expression',
+            #     'memory': 1024,
+            #     'lambda-layers-names': [ 'numpy_etc' ],
+            # },
+            { 'http_method': 'GET', 'handler': 'get_emfact_programs_for_user',   'apigw-path': 'get_emfact_programs_for_user', 'simple_name': 'get_emfact_programs_for_user',
               'lambda-layers-names': [ 'numpy_etc' ],},
-            { 'http_method': 'GET', "handler": 'get_lat_lon_from_address',       "apigw-path": 'get_lat_lon_from_address',
+            { 'http_method': 'GET', 'handler': 'get_lat_lon_from_address',       'apigw-path': 'get_lat_lon_from_address', 'simple_name': 'get_lat_lon_from_address',
               'lambda-layers-names': [ 'numpy_etc' ],},
-            { 'http_method': 'GET', "handler": 'get_search_results',             "apigw-path": 'get_search_results',
+            { 'http_method': 'GET', 'handler': 'get_search_results',             'apigw-path': 'get_search_results', 'simple_name': 'get_search_results',
               'lambda-layers-names': ['numpy_etc'],
               'extra-env-vars': {
                 'SEARCH_RESULTS_BUCKET_NAME': SEARCH_RESULTS_BUCKET_NAME,
             }},
-            { 'http_method': 'POST', "handler": 'post_search_results',           "apigw-path": 'post_search_results', 'extra-env-vars':
+            { 'http_method': 'POST', 'handler': 'post_search_results',           'apigw-path': 'post_search_results', 'simple_name': 'post_search_results', 'extra-env-vars':
                 {
                 'SEARCH_RESULTS_BUCKET_NAME':SEARCH_RESULTS_BUCKET_NAME,
                 'USER_DATA_TABLE_NAME' : user_data_table_name,
                 'MAKE_DATASET_QUEUE_URL': MAKE_DATASET_QUEUE_URL
 
-            },
-              },
-            { 'http_method': 'POST', "handler": 'post_process_nct_data',         "apigw-path": 'post_process_nct_data', },
-            { 'http_method': 'GET',  "handler": 'get_sites_from_zip_distance',   "apigw-path": 'get_sites_from_zip_distance',
+            }},
+            { 'http_method': 'POST', 'handler': 'post_process_nct_data',         'apigw-path': 'post_process_nct_data', 'simple_name': 'post_process_nct_data', },
+            { 'http_method': 'GET',  'handler': 'get_sites_from_zip_distance',   'apigw-path': 'get_sites_from_zip_distance', 'simple_name': 'get_sites_from_zip_distance',
                 'memory': 1024,
                 'lambda-layers-names': [ 'numpy_etc' ],
             },
-            { 'http_method': 'GET',  "handler": 'get_sites',                     "apigw-path": 'get_sites', },
-            { 'http_method': 'POST', "handler": 'post_lat_lon_from_addresses',   "apigw-path": 'post_lat_lon_from_addresses', },
-            { 'http_method': 'PUT',  "handler": 'put_presigned_url',             "apigw-path": 'put_presigned_url',
+            { 'http_method': 'GET',  'handler': 'get_sites',                     'apigw-path': 'get_sites', 'simple_name': 'get_sites', },
+            { 'http_method': 'POST', 'handler': 'post_lat_lon_from_addresses',   'apigw-path': 'post_lat_lon_from_addresses', 'simple_name': 'post_lat_lon_from_addresses', },
+            { 'http_method': 'PUT',  'handler': 'put_presigned_url',             'apigw-path': 'put_presigned_url', 'simple_name': 'put_presigned_url',
               'lambda-layers-names': [ 'numpy_etc' ],},
-            { 'http_method': 'POST', "handler": 'validate_curated_for_upload',   "apigw-path": 'validate_curated_for_upload',
-                'lambda-layers-names': [ 'psycopg3-pandas' ],
-                'extra-env-vars': {
-                    'MAX_EXPRESSION_ERRORS'  : '0',
-                    'UI_UPLOADS_BUCKET'      : UI_UPLOADS_BUCKET_NAME,
-                    'CURATED_TRIGGER_FOLDER' : curated_trigger_folder,
-                    'TRIAL_CRITERIA_QUEUE_URL': TRIAL_CRITERIA_QUEUE_URL,
-            }},
-            { 'http_method': 'POST', "handler": 'post_wakeup_db',                "apigw-path": 'wakeup_db', },
-            { 'http_method': None,   "handler": 'process_s3_uploads',
+            { 'http_method': 'POST', 'handler': 'post_wakeup_db',                'apigw-path': 'wakeup_db', 'simple_name': 'wakeup_db', },
+            { 'http_method': None,   'handler': 'process_s3_uploads', 'simple_name': 'process_s3_uploads',
                 'lambda-layers-names': [ 'psycopg3-pandas' ],
                 'extra-env-vars': {
                     'TRIAL_CRITERIA_QUEUE_URL': TRIAL_CRITERIA_QUEUE_URL,
                     'UI_UPLOADS_BUCKET'      : UI_UPLOADS_BUCKET_NAME,
                     'CURATED_TRIGGER_FOLDER' : curated_trigger_folder,
+                    'DBPName': rds_con.db_proxy.db_proxy_name,
             }},
-            { 'http_method': 'POST', "handler": 'post_trial_comparisons',        "apigw-path": 'post_trial_comparisons', },
-            {'http_method': 'POST', "handler": 'create_report_queue_processor',
-             "apigw-path": 'create_report_queue_processor',
+            { 'http_method': 'POST', 'handler': 'post_trial_comparisons',        'apigw-path': 'post_trial_comparisons', 'simple_name': 'post_trial_comparisons', },
+            {'http_method': 'POST', 'handler': 'create_report_queue_processor',
+             'apigw-path': 'create_report_queue_processor', 'simple_name': 'create_report_queue_processor',
              'handler_file': 'create_report_queue_processor.py',
              'lambda-layers-names': ['psycopg3-pandas'],
              'memory': 2048,
              'ephemeral_storage_size': 2048,
              'extra-env-vars': {
-                 "S3_COMPARISON_OUTPUT_FOLDER": "fact/comparison",
-                 "S3_EXCEL_REPORTS_FOLDER": "fact/excel_reports",
-                 "PROCESS_STATUS_TABLE": process_status_table_name,
-                 "CT_API_UNPUBLISHED": cts_api_v2_unpublished_name,
-                 "GDK_PIXBUF_MODULE_FILE": "/opt/lib/loaders.cache",
-                 "XDG_DATA_DIRS": "/opt/lib",
-                 "FONTCONFIG_PATH": "/opt/fonts",
-
+                 'S3_COMPARISON_OUTPUT_FOLDER': 'fact/comparison',
+                 'S3_EXCEL_REPORTS_FOLDER': 'fact/excel_reports',
+                 'PROCESS_STATUS_TABLE': process_status_table_name,
+                 'CT_API_UNPUBLISHED': cts_api_v2_unpublished_name,
+                 'GDK_PIXBUF_MODULE_FILE': '/opt/lib/loaders.cache',
+                 'XDG_DATA_DIRS': '/opt/lib',
+                 'FONTCONFIG_PATH': '/opt/fonts',
+                 'DBPName': rds_con.db_proxy.db_proxy_name
              }},
             ### ! ATTENTION ! the following are ETL-related, and SHOULD NOT be accessible via APIGW.
-            { 'http_method': None,   "handler": None,     'handler_file': 'api_etl.py',    'entry': ETL_LAMBDA_ENTRY,
-                'lambda-layers-names': [ 'psycopg3-pandas' ],
-                'memory': 2048,
-                # ephemeral_storage_size=Size.mebibytes(8192),
-                'extra-env-vars': {
-                    # "UNPUBLISHED": dbuser_sm_name,
-                    # "CT_API_UNPUBLISHED": cts_api_v2_unpublished_name,
-                    # "CT_API_URL"    : CT_API_URL,
-                    # "CT_API_URL_V2" : CT_API_URL_V2,
-                    # "CT_API_VERSION": CT_API_VERSION,
-                    # "DATASET_BUCKET": SEARCH_RESULTS_BUCKET_NAME,
-                    # "DATASET_S3_FOLDER": 'emfact/datasets',
-                    "ETL_QUEUE_URL": ETL_QUEUE_URL,
-                    "ETL_TOPIC_ARN": ETL_TOPIC_ARN,
-                    'S3_EVAL_FOLDER': 'eval',
-                    "thread_count": "25",
-                    "count_per_thread": "50",
-                    "PROCESS_STATUS_TABLE": process_status_table_name,
-            }},
-            { 'http_method': None,   "handler": None,     'handler_file': 'refresh_ncit.py',    'entry': ETL_LAMBDA_ENTRY,
-                'lambda-layers-names': [ 'psycopg3-pandas' ],
-                'memory': 2048,
-                'ephemeral_storage_size': 2048,
-                'extra-env-vars': {
-                    # "UNPUBLISHED": dbuser_sm_name,
-                    "NCIT_VERSION": "",
-                    "NUM_CONCEPTS_PER_EVS_CALL": "575",
-                    "EVS_THREAD_COUNT": "10",
-                    "USE_EVS_FOR_PREF_NAMES": "false",
-                    "PROCESS_STATUS_TABLE": process_status_table_name,
-            }},
-            { 'http_method': None,   "handler": None,     'handler_file': 'etl_start.py',    'entry': ETL_LAMBDA_ENTRY,
-                'lambda-layers-names': [ 'psycopg3-pandas' ],
-                'memory': 10240,
-                'extra-env-vars': {
-                    # "UNPUBLISHED": dbuser_sm_name,
-                    # "CT_API_UNPUBLISHED": cts_api_v2_unpublished_name,
-                    # "CT_API_URL"    : CT_API_URL,
-                    # "CT_API_URL_V2" : CT_API_URL_V2,
-                    # "CT_API_VERSION": CT_API_VERSION,
-                    # "DATASET_BUCKET": SEARCH_RESULTS_BUCKET_NAME,
-                    # "DATASET_S3_FOLDER": 'emfact/datasets',
-                    "ETL_QUEUE_URL": ETL_QUEUE_URL,
-                    "ETL_TOPIC_ARN": ETL_TOPIC_ARN,
-                    'S3_EVAL_FOLDER': 'eval',
-                    "thread_count": "25",
-                    "count_per_thread": "50",
-                    "PROCESS_STATUS_TABLE": process_status_table_name,
-            }},
-            { 'http_method': None,   "handler": None,     'handler_file': 'etl_start_mp.py',    'entry': ETL_LAMBDA_ENTRY,
-                'lambda-layers-names': [ 'psycopg3-pandas' ],
-                'memory': 10240,
-                'ephemeral_storage_size': 4096,
-                'extra-env-vars': {
-                    # "UNPUBLISHED": dbuser_sm_name,
-                    # "CT_API_UNPUBLISHED": cts_api_v2_unpublished_name,
-                    # "CT_API_URL"    : CT_API_URL,
-                    # "CT_API_URL_V2" : CT_API_URL_V2,
-                    # "CT_API_VERSION": CT_API_VERSION,
-                    # "DATASET_BUCKET": SEARCH_RESULTS_BUCKET_NAME,
-                    # "DATASET_S3_FOLDER": 'emfact/datasets',
-                    "ETL_QUEUE_URL": ETL_QUEUE_URL,
-                    'S3_EVAL_FOLDER': 'eval',
-                    "thread_count": "25",
-                    "count_per_thread": "50",
-                    "PROCESS_STATUS_TABLE": process_status_table_name,
-                    "DB_THREAD_COUNT": "1",
-                    "DB_COUNT_PER_THREAD": "200",
-            }},
-            { 'http_method': None,   "handler": None,     'handler_file': 'etl_sqs_processor.py',    'entry': ETL_LAMBDA_ENTRY,
+            # { 'http_method': None,   'handler': None,     'handler_file': 'api_etl.py', 'simple_name': 'api_etl',    'entry': ETL_LAMBDA_ENTRY,
+            #     'lambda-layers-names': [ 'psycopg3-pandas' ],
+            #     'memory': 2048,
+            #     # ephemeral_storage_size=Size.mebibytes(8192),
+            #     'extra-env-vars': {
+            #         # 'UNPUBLISHED': dbuser_sm_name,
+            #         # 'CT_API_UNPUBLISHED': cts_api_v2_unpublished_name,
+            #         # 'CT_API_URL'    : CT_API_URL,
+            #         # 'CT_API_URL_V2' : CT_API_URL_V2,
+            #         # 'CT_API_VERSION': CT_API_VERSION,
+            #         # 'DATASET_BUCKET': SEARCH_RESULTS_BUCKET_NAME,
+            #         # 'DATASET_S3_FOLDER': 'emfact/datasets',
+            #         'ETL_QUEUE_URL': ETL_QUEUE_URL,
+            #         'ETL_TOPIC_ARN': ETL_TOPIC_ARN,
+            #         'S3_EVAL_FOLDER': 'eval',
+            #         'thread_count': '25',
+            #         'count_per_thread': '50',
+            #         'PROCESS_STATUS_TABLE': process_status_table_name,
+            #         'DBPName': rds_con.db_proxy.db_proxy_name,
+            # }},
+            # { 'http_method': None,   'handler': None,     'handler_file': 'refresh_ncit.py', 'simple_name': 'refresh_ncit',    'entry': ETL_LAMBDA_ENTRY,
+            #     'lambda-layers-names': [ 'psycopg3-pandas' ],
+            #     'memory': 2048,
+            #     'ephemeral_storage_size': 2048,
+            #     'extra-env-vars': {
+            #         # 'UNPUBLISHED': dbuser_sm_name,
+            #         'NCIT_VERSION': '',
+            #         'NUM_CONCEPTS_PER_EVS_CALL': '575',
+            #         'EVS_THREAD_COUNT': '10',
+            #         'USE_EVS_FOR_PREF_NAMES': 'false',
+            #         'PROCESS_STATUS_TABLE': process_status_table_name,
+            #         'DBPName': rds_con.db_proxy.db_proxy_name,
+            # }},
+            #
+            # {'http_method': None, 'handler': None, 'handler_file': 'etl_upload_thesaurus.py', 'simple_name': 'etl_upload_thesaurus', 'entry': ETL_LAMBDA_ENTRY,
+            #  'lambda-layers-names': ['psycopg3-pandas'],
+            #  'memory': 2048,
+            #  'ephemeral_storage_size': 2048,
+            #  'extra-env-vars': {
+            #      # 'UNPUBLISHED': dbuser_sm_name,
+            #      'NCIT_VERSION': '',
+            #      'NUM_CONCEPTS_PER_EVS_CALL': '575',
+            #      'EVS_THREAD_COUNT': '10',
+            #      'USE_EVS_FOR_PREF_NAMES': 'false',
+            #      'PROCESS_STATUS_TABLE': process_status_table_name,
+            #      'DBPName': db_proxy.db_proxy_name,
+            #  }},
+            # {'http_method': None, 'handler': None, 'handler_file': 'etl_upload_trials.py', 'simple_name': 'etl_upload_trials', 'entry': ETL_LAMBDA_ENTRY,
+            #  'lambda-layers-names': ['psycopg3-pandas'],
+            #  'memory': 2048,
+            #  'ephemeral_storage_size': 2048,
+            #  'extra-env-vars': {
+            #      # 'UNPUBLISHED': dbuser_sm_name,
+            #      'NCIT_VERSION': '',
+            #      'NUM_CONCEPTS_PER_EVS_CALL': '575',
+            #      'EVS_THREAD_COUNT': '10',
+            #      'USE_EVS_FOR_PREF_NAMES': 'false',
+            #      'PROCESS_STATUS_TABLE': process_status_table_name,
+            #      'DBPName': db_proxy.db_proxy_name,
+            #  }},
+            # {'http_method': None, 'handler': None, 'handler_file': 'etl_process_db.py', 'simple_name': 'etl_process_db', 'entry': ETL_LAMBDA_ENTRY,
+            #  'lambda-layers-names': ['psycopg3-pandas'],
+            #  'memory': 2048,
+            #  'ephemeral_storage_size': 2048,
+            #  'extra-env-vars': {
+            #      # 'UNPUBLISHED': dbuser_sm_name,
+            #      'NCIT_VERSION': '',
+            #      'NUM_CONCEPTS_PER_EVS_CALL': '575',
+            #      'EVS_THREAD_COUNT': '10',
+            #      'USE_EVS_FOR_PREF_NAMES': 'false',
+            #      'PROCESS_STATUS_TABLE': process_status_table_name,
+            #      'DBPName': db_proxy.db_proxy_name,
+            #  }},
+            # {'http_method': None, 'handler': None, 'handler_file': "etl_make_datasets.py", 'simple_name': 'etl_make_datasets', 'entry': ETL_LAMBDA_ENTRY,
+            #  'lambda-layers-names': ['psycopg3-pandas'],
+            #  'memory': 3000,
+            #  'ephemeral_storage_size': 3000,
+            #  'extra-env-vars': {
+            #      # 'UNPUBLISHED': dbuser_sm_name,
+            #      'NCIT_VERSION': '',
+            #      'NUM_CONCEPTS_PER_EVS_CALL': '575',
+            #      'EVS_THREAD_COUNT': '10',
+            #      'USE_EVS_FOR_PREF_NAMES': 'false',
+            #      'PROCESS_STATUS_TABLE': process_status_table_name,
+            #      'DBPName': db_proxy.db_proxy_name,
+            #  }},
+            #
+            # { 'http_method': None,   'handler': None,     'handler_file': 'etl_start.py', 'simple_name': 'etl_start',    'entry': ETL_LAMBDA_ENTRY,
+            #     'lambda-layers-names': [ 'psycopg3-pandas' ],
+            #     'memory': 10240,
+            #     'extra-env-vars': {
+            #         # 'UNPUBLISHED': dbuser_sm_name,
+            #         # 'CT_API_UNPUBLISHED': cts_api_v2_unpublished_name,
+            #         # 'CT_API_URL'    : CT_API_URL,
+            #         # 'CT_API_URL_V2' : CT_API_URL_V2,
+            #         # 'CT_API_VERSION': CT_API_VERSION,
+            #         # 'DATASET_BUCKET': SEARCH_RESULTS_BUCKET_NAME,
+            #         # 'DATASET_S3_FOLDER': 'emfact/datasets',
+            #         'ETL_QUEUE_URL': ETL_QUEUE_URL,
+            #         'ETL_TOPIC_ARN': ETL_TOPIC_ARN,
+            #         'S3_EVAL_FOLDER': 'eval',
+            #         'thread_count': '25',
+            #         'count_per_thread': '50',
+            #         'PROCESS_STATUS_TABLE': process_status_table_name,
+            #         'DBPName': rds_con.db_proxy.db_proxy_name,
+            # }},
+            # { 'http_method': None,   'handler': None,     'handler_file': 'etl_start_mp.py', 'simple_name': 'etl_start_mp',    'entry': ETL_LAMBDA_ENTRY,
+            #     'lambda-layers-names': [ 'psycopg3-pandas' ],
+            #     'memory': 10240,
+            #     'ephemeral_storage_size': 4096,
+            #     'extra-env-vars': {
+            #         # 'UNPUBLISHED': dbuser_sm_name,
+            #         # 'CT_API_UNPUBLISHED': cts_api_v2_unpublished_name,
+            #         # 'CT_API_URL'    : CT_API_URL,
+            #         # 'CT_API_URL_V2' : CT_API_URL_V2,
+            #         # 'CT_API_VERSION': CT_API_VERSION,
+            #         # 'DATASET_BUCKET': SEARCH_RESULTS_BUCKET_NAME,
+            #         # 'DATASET_S3_FOLDER': 'emfact/datasets',
+            #         'ETL_QUEUE_URL': ETL_QUEUE_URL,
+            #         'S3_EVAL_FOLDER': 'eval',
+            #         'thread_count': '25',
+            #         'count_per_thread': '50',
+            #         'PROCESS_STATUS_TABLE': process_status_table_name,
+            #         'DB_THREAD_COUNT': '1',
+            #         'DB_COUNT_PER_THREAD': '200',
+            #         'DBPName': rds_con.db_proxy.db_proxy_name,
+            # }},
+            {'http_method': None, 'handler': None, 'handler_file': 'etl_upload_trials.py', 'simple_name': 'etl_upload_trials', 'entry': ETL_LAMBDA_ENTRY,
+             'lambda-layers-names': ['psycopg3-pandas'],
+             'memory': 4096,
+             'ephemeral_storage_size': 2048,
+             'extra-env-vars': {
+                 # 'UNPUBLISHED': dbuser_sm_name,
+                 # 'CT_API_UNPUBLISHED': cts_api_v2_unpublished_name,
+                 # 'CT_API_URL'    : CT_API_URL,
+                 # 'CT_API_URL_V2' : CT_API_URL_V2,
+                 # 'CT_API_VERSION': CT_API_VERSION,
+                 # 'DATASET_BUCKET': SEARCH_RESULTS_BUCKET_NAME,
+                 # 'DATASET_S3_FOLDER': 'emfact/datasets',
+                 'DATASET_BUCKET_NAME': self.DATASET_BUCKET_NAME,
+                 'ETL_QUEUE_URL': ETL_QUEUE_URL,
+                 'S3_EVAL_FOLDER': 'eval',
+                 'thread_count': '25',
+                 'count_per_thread': '50',
+                 'PROCESS_STATUS_TABLE': process_status_table_name,
+                 'DB_THREAD_COUNT': '1',
+                 'DB_COUNT_PER_THREAD': '200',
+                 'DBPName': rds_con.db_proxy.db_proxy_name,
+             }},
+            {'http_method': None, 'handler': None, 'handler_file': 'etl_upload_thesaurus.py', 'simple_name': 'etl_upload_thesaurus', 'entry': ETL_LAMBDA_ENTRY,
+             'lambda-layers-names': ['psycopg3-pandas'],
+             'memory': 4096,
+             'ephemeral_storage_size': 2048,
+             'extra-env-vars': {
+                 # 'UNPUBLISHED': dbuser_sm_name,
+                 # 'CT_API_UNPUBLISHED': cts_api_v2_unpublished_name,
+                 # 'CT_API_URL'    : CT_API_URL,
+                 # 'CT_API_URL_V2' : CT_API_URL_V2,
+                 # 'CT_API_VERSION': CT_API_VERSION,
+                 # 'DATASET_BUCKET': SEARCH_RESULTS_BUCKET_NAME,
+                 # 'DATASET_S3_FOLDER': 'emfact/datasets',
+                 'DATASET_BUCKET_NAME': self.DATASET_BUCKET_NAME,
+                 'ETL_QUEUE_URL': ETL_QUEUE_URL,
+                 'S3_EVAL_FOLDER': 'eval',
+                 'thread_count': '25',
+                 'count_per_thread': '50',
+                 'PROCESS_STATUS_TABLE': process_status_table_name,
+                 'DB_THREAD_COUNT': '1',
+                 'DB_COUNT_PER_THREAD': '200',
+                 'DBPName': rds_con.db_proxy.db_proxy_name,
+             }},
+            #
+            {'http_method': None, 'handler': None, 'handler_file': 'etl_process_db.py', 'simple_name': 'etl_process_db', 'entry': ETL_LAMBDA_ENTRY,
+             'lambda-layers-names': ['psycopg3-pandas'],
+             'memory': 4096,
+             'ephemeral_storage_size': 2048,
+             'extra-env-vars': {
+                 # 'UNPUBLISHED': dbuser_sm_name,
+                 # 'CT_API_UNPUBLISHED': cts_api_v2_unpublished_name,
+                 # 'CT_API_URL'    : CT_API_URL,
+                 # 'CT_API_URL_V2' : CT_API_URL_V2,
+                 # 'CT_API_VERSION': CT_API_VERSION,
+                 # 'DATASET_BUCKET': SEARCH_RESULTS_BUCKET_NAME,
+                 # 'DATASET_S3_FOLDER': 'emfact/datasets',
+                 'DATASET_BUCKET_NAME': self.DATASET_BUCKET_NAME,
+                 'ETL_QUEUE_URL': ETL_QUEUE_URL,
+                 'S3_EVAL_FOLDER': 'eval',
+                 'thread_count': '25',
+                 'count_per_thread': '50',
+                 'PROCESS_STATUS_TABLE': process_status_table_name,
+                 'DB_THREAD_COUNT': '1',
+                 'DB_COUNT_PER_THREAD': '200',
+                 'DBPName': rds_con.db_proxy.db_proxy_name,
+             }},
+            {'http_method': None, 'handler': None, 'handler_file': 'etl_make_datasets.py', 'simple_name': 'etl_make_datasets', 'entry': ETL_LAMBDA_ENTRY,
+             'lambda-layers-names': ['psycopg3-pandas'],
+             'memory': 10240,
+             'ephemeral_storage_size': 4096,
+             'extra-env-vars': {
+                 # 'UNPUBLISHED': dbuser_sm_name,
+                 # 'CT_API_UNPUBLISHED': cts_api_v2_unpublished_name,
+                 # 'CT_API_URL'    : CT_API_URL,
+                 # 'CT_API_URL_V2' : CT_API_URL_V2,
+                 # 'CT_API_VERSION': CT_API_VERSION,
+                 # 'DATASET_BUCKET': SEARCH_RESULTS_BUCKET_NAME,
+                 # 'DATASET_S3_FOLDER': 'emfact/datasets',
+                 'DATASET_BUCKET_NAME': self.DATASET_BUCKET_NAME,
+                 'ETL_QUEUE_URL': ETL_QUEUE_URL,
+                 'S3_EVAL_FOLDER': 'eval',
+                 'thread_count': '25',
+                 'count_per_thread': '50',
+                 'PROCESS_STATUS_TABLE': process_status_table_name,
+                 'DB_THREAD_COUNT': '1',
+                 'DB_COUNT_PER_THREAD': '200',
+                 'DBPName': rds_con.db_proxy.db_proxy_name,
+             }},
+            {'http_method': None, 'handler': None, 'handler_file': 'etl_upload_db.py', 'simple_name': 'etl_upload_db', 'entry': ETL_LAMBDA_ENTRY,
+             'lambda-layers-names': ['psycopg3-pandas'],
+             'memory': 10240,
+             'ephemeral_storage_size': 10240,
+             'extra-env-vars': {
+                 # 'UNPUBLISHED': dbuser_sm_name,
+                 # 'CT_API_UNPUBLISHED': cts_api_v2_unpublished_name,
+                 # 'CT_API_URL'    : CT_API_URL,
+                 # 'CT_API_URL_V2' : CT_API_URL_V2,
+                 # 'CT_API_VERSION': CT_API_VERSION,
+                 # 'DATASET_BUCKET': SEARCH_RESULTS_BUCKET_NAME,
+                 # 'DATASET_S3_FOLDER': 'emfact/datasets',
+                 'DATASET_BUCKET_NAME': self.DATASET_BUCKET_NAME,
+                 'ETL_QUEUE_URL': ETL_QUEUE_URL,
+                 'S3_EVAL_FOLDER': 'eval',
+                 'thread_count': '25',
+                 'count_per_thread': '50',
+                 'PROCESS_STATUS_TABLE': process_status_table_name,
+                 'DB_THREAD_COUNT': '1',
+                 'DB_COUNT_PER_THREAD': '200',
+                 'DBPName': rds_con.db_proxy.db_proxy_name,
+             }},
+            {'http_method': None, 'handler': None, 'handler_file': 'etl_restore_db_from_backup.py', 'simple_name': 'etl_restore_db_from_backup', 'entry': ETL_LAMBDA_ENTRY,
+             'lambda-layers-names': ['psycopg3-pandas'],
+             'memory': 10240,
+             'ephemeral_storage_size': 10240,
+             'extra-env-vars': {
+                 # 'UNPUBLISHED': dbuser_sm_name,
+                 # 'CT_API_UNPUBLISHED': cts_api_v2_unpublished_name,
+                 # 'CT_API_URL'    : CT_API_URL,
+                 # 'CT_API_URL_V2' : CT_API_URL_V2,
+                 # 'CT_API_VERSION': CT_API_VERSION,
+                 # 'DATASET_BUCKET': SEARCH_RESULTS_BUCKET_NAME,
+                 # 'DATASET_S3_FOLDER': 'emfact/datasets',
+                 'S3_BACKUP_FOLDER': 'db_backups',
+                 'DATASET_BUCKET_NAME': self.DATASET_BUCKET_NAME,
+                 'ETL_QUEUE_URL': ETL_QUEUE_URL,
+                 'S3_EVAL_FOLDER': 'eval',
+                 'thread_count': '25',
+                 'count_per_thread': '50',
+                 'PROCESS_STATUS_TABLE': process_status_table_name,
+                 'DB_THREAD_COUNT': '1',
+                 'DB_COUNT_PER_THREAD': '200',
+                 'DBPName': rds_con.db_proxy.db_proxy_name,
+             }},
+            #
+            { 'http_method': None,   'handler': None,     'handler_file': 'etl_sqs_processor.py', 'simple_name': 'etl_sqs_processor',    'entry': ETL_LAMBDA_ENTRY,
                 'lambda-layers-names': [ 'psycopg3-pandas' ],
                 'memory': 1024,
                 'extra-env-vars': {
-                    "UNPUBLISHED": dbuser_sm_name,
-                    # "CT_API_UNPUBLISHED": cts_api_v2_unpublished_name,
-                    # "CT_API_URL"    : CT_API_URL,
-                    # "CT_API_URL_V2" : CT_API_URL_V2,
-                    # "CT_API_VERSION": CT_API_VERSION,
-                    # "DATASET_BUCKET": SEARCH_RESULTS_BUCKET_NAME,
-                    "DATASET_S3_BUCKET": "emfact/datasets",
+                    'UNPUBLISHED': dbuser_sm_name,
+                    # 'CT_API_UNPUBLISHED': cts_api_v2_unpublished_name,
+                    # 'CT_API_URL'    : CT_API_URL,
+                    # 'CT_API_URL_V2' : CT_API_URL_V2,
+                    # 'CT_API_VERSION': CT_API_VERSION,
+                    # 'DATASET_BUCKET': SEARCH_RESULTS_BUCKET_NAME,
+                    'DATASET_S3_BUCKET': 'emfact/datasets',
                     'S3_EVAL_FOLDER': 'eval',
-                    "thread_count": "10",
-                    "count_per_thread": "50",
-                    "PROCESS_STATUS_TABLE": process_status_table_name,
+                    'thread_count': '10',
+                    'count_per_thread': '50',
+                    'PROCESS_STATUS_TABLE': process_status_table_name,
+                    'DBPName': rds_con.db_proxy.db_proxy_name,
             }},
-            { 'http_method': None,   "handler": None,     'handler_file': 'post_make_comparison_report.py',    'entry': ETL_LAMBDA_ENTRY,
+
+            { 'http_method': None,   'handler': None,     'handler_file': 'post_make_comparison_report.py', 'simple_name': 'post_make_comparison_report',    'entry': ETL_LAMBDA_ENTRY,
                 'lambda-layers-names': [ 'psycopg3-pandas' ],
                 'memory': 2048,
                 'extra-env-vars': {
-                    # "UNPUBLISHED": dbuser_sm_name,
-                    # "CT_API_UNPUBLISHED": cts_api_v2_unpublished_name,
-                    # "CT_API_URL"    : CT_API_URL,
-                    # "CT_API_URL_V2" : CT_API_URL_V2,
-                    # "CT_API_VERSION": CT_API_VERSION,
-                    "NCIT_VERSION": "",
-                    "CTS_DOWNLOAD_DIR": "/tmp/cts_download_dir",
-                    "NCIT_DOWNLOAD_DIR": "/tmp/NCIT_download_dir",
-                    # "DATASET_BUCKET": SEARCH_RESULTS_BUCKET_NAME,
+                    # 'UNPUBLISHED': dbuser_sm_name,
+                    # 'CT_API_UNPUBLISHED': cts_api_v2_unpublished_name,
+                    # 'CT_API_URL'    : CT_API_URL,
+                    # 'CT_API_URL_V2' : CT_API_URL_V2,
+                    # 'CT_API_VERSION': CT_API_VERSION,
+                    'NCIT_VERSION': '',
+                    'CTS_DOWNLOAD_DIR': '/tmp/cts_download_dir',
+                    'NCIT_DOWNLOAD_DIR': '/tmp/NCIT_download_dir',
+                    # 'DATASET_BUCKET': SEARCH_RESULTS_BUCKET_NAME,
                     'S3_EVAL_FOLDER': 'eval',
-                    # "DATASET_S3_FOLDER": "emfact/datasets",
-                    "COMPARE_TYPE": "cartesian",
-                    "PROCESS_STATUS_TABLE": process_status_table_name,
+                    # 'DATASET_S3_FOLDER': 'emfact/datasets',
+                    'COMPARE_TYPE': 'cartesian',
+                    'PROCESS_STATUS_TABLE': process_status_table_name,
+                    'DBPName': rds_con.db_proxy.db_proxy_name,
             }},
-            { 'http_method': None,   "handler": None,     'handler_file': 'post_make_datasets.py',    'entry': ETL_LAMBDA_ENTRY,
+            { 'http_method': None,   'handler': None,     'handler_file': 'post_make_datasets.py', 'simple_name': 'post_make_datasets',    'entry': ETL_LAMBDA_ENTRY,
                 'lambda-layers-names': [ 'psycopg3-pandas' ],
                 'extra-env-vars': {
-                    # "UNPUBLISHED": dbuser_sm_name,
-                    # "CT_API_UNPUBLISHED": cts_api_v2_unpublished_name,
-                    # "CT_API_URL"    : CT_API_URL,
-                    # "CT_API_URL_V2" : CT_API_URL_V2,
-                    # "CT_API_VERSION": CT_API_VERSION,
-                    "NCIT_VERSION": "",
-                    "CTS_DOWNLOAD_DIR": "/tmp/cts_download_dir",
-                    "NCIT_DOWNLOAD_DIR": "/tmp/NCIT_download_dir",
-                    # "DATASET_BUCKET": SEARCH_RESULTS_BUCKET_NAME,
-                    # "DATASET_S3_FOLDER": "emfact/datasets",
-                    # "MAKE_REPORT_LAMBDA": make_comparison_report_lambda.function_name,
+                    # 'UNPUBLISHED': dbuser_sm_name,
+                    # 'CT_API_UNPUBLISHED': cts_api_v2_unpublished_name,
+                    # 'CT_API_URL'    : CT_API_URL,
+                    # 'CT_API_URL_V2' : CT_API_URL_V2,
+                    # 'CT_API_VERSION': CT_API_VERSION,
+                    'NCIT_VERSION': '',
+                    'CTS_DOWNLOAD_DIR': '/tmp/cts_download_dir',
+                    'NCIT_DOWNLOAD_DIR': '/tmp/NCIT_download_dir',
+                    # 'DATASET_BUCKET': SEARCH_RESULTS_BUCKET_NAME,
+                    # 'DATASET_S3_FOLDER': 'emfact/datasets',
+                    # 'MAKE_REPORT_LAMBDA': make_comparison_report_lambda.function_name,
                     ### ATTENTION: This above env-var is added DYNAMICALLY within `etl/infrastructure.py`
-                    "COMPARISON_COUNT": '5',
-                    "S3_COMPARISON_OUTPUT_FOLDER": "fact/comparison",
-                    "S3_EXCEL_REPORTS_FOLDER": "fact/excel_reports",
-                    "PROCESS_STATUS_TABLE": process_status_table_name,
-                    "CT_API_UNPUBLISHED": cts_api_v2_unpublished_name,
+                    'COMPARISON_COUNT': '5',
+                    'S3_COMPARISON_OUTPUT_FOLDER': 'fact/comparison',
+                    'S3_EXCEL_REPORTS_FOLDER': 'fact/excel_reports',
+                    'PROCESS_STATUS_TABLE': process_status_table_name,
+                    'CT_API_UNPUBLISHED': cts_api_v2_unpublished_name,
+                    'DBPName': rds_con.db_proxy.db_proxy_name,
             }},
-            { 'http_method': None,   "handler": "process_trial_criteria_queue",    'entry': ETL_LAMBDA_ENTRY,
+            { 'http_method': None,   'handler': 'process_trial_criteria_queue', 'simple_name': 'process_trial_criteria_queue', 'entry': ETL_LAMBDA_ENTRY,
                 'lambda-layers-names': [ 'psycopg3-pandas' ],
                 'memory': 2048,
-                # "timeout": 300 ### Queue visibility timeout: 300 seconds is less than Function timeout: 900 (Default for all API-lambdas)
+                # 'timeout': 300 ### Queue visibility timeout: 300 seconds is less than Function timeout: 900 (Default for all API-lambdas)
                 'extra-env-vars': {
-                    # "UNPUBLISHED": dbuser_sm_name,
-                    # "CT_API_UNPUBLISHED": cts_api_v2_unpublished_name,
-                    # "CT_API_URL"    : CT_API_URL,
-                    # "CT_API_URL_V2" : CT_API_URL_V2,
-                    # "CT_API_VERSION": CT_API_VERSION,
-                    "NCIT_VERSION": "",
-                    "CTS_DOWNLOAD_DIR": "/tmp/cts_download_dir",
-                    "NCIT_DOWNLOAD_DIR": "/tmp/NCIT_download_dir",
-                    # "DATASET_BUCKET": SEARCH_RESULTS_BUCKET_NAME,
+                    # 'UNPUBLISHED': dbuser_sm_name,
+                    # 'CT_API_UNPUBLISHED': cts_api_v2_unpublished_name,
+                    # 'CT_API_URL'    : CT_API_URL,
+                    # 'CT_API_URL_V2' : CT_API_URL_V2,
+                    # 'CT_API_VERSION': CT_API_VERSION,
+                    'NCIT_VERSION': '',
+                    'CTS_DOWNLOAD_DIR': '/tmp/cts_download_dir',
+                    'NCIT_DOWNLOAD_DIR': '/tmp/NCIT_download_dir',
+                    # 'DATASET_BUCKET': SEARCH_RESULTS_BUCKET_NAME,
                     'S3_EVAL_FOLDER': 'eval',
-                    # "DATASET_S3_FOLDER": "emfact/datasets",
-                    "COMPARE_TYPE": "cartesian",
-                    "PROCESS_STATUS_TABLE": process_status_table_name,
+                    # 'DATASET_S3_FOLDER': 'emfact/datasets',
+                    'COMPARE_TYPE': 'cartesian',
+                    'PROCESS_STATUS_TABLE': process_status_table_name,
+                    'DBPName': rds_con.db_proxy.db_proxy_name,
             }},
-            # {'http_method': 'POST', "handler": 'create_report_queue_processor',
-            #  "apigw-path": 'create_report_queue_processor',
-            #  'handler_file': 'create_report_queue_processor.py',
+            # {'http_method': 'POST', 'handler': 'create_report_queue_processor',
+            #  'apigw-path': 'create_report_queue_processor',
+            #  'handler_file': 'create_report_queue_processor.py', 'simple_name': 'create_report_queue_processor',
             #  'lambda-layers-names': ['psycopg3-pandas'],
             #  'memory': 1024,
             #  'ephemeral_storage_size': 2048,
             #  'extra-env-vars': {
-            #      "S3_COMPARISON_OUTPUT_FOLDER": "fact/comparison",
-            #      "S3_EXCEL_REPORTS_FOLDER": "fact/excel_reports",
-            #      "PROCESS_STATUS_TABLE": process_status_table_name,
-            #      "CT_API_UNPUBLISHED": cts_api_v2_unpublished_name,
+            #      'S3_COMPARISON_OUTPUT_FOLDER': 'fact/comparison',
+            #      'S3_EXCEL_REPORTS_FOLDER': 'fact/excel_reports',
+            #      'PROCESS_STATUS_TABLE': process_status_table_name,
+            #      'CT_API_UNPUBLISHED': cts_api_v2_unpublished_name,
             #  }},
 
             ### --------- devops-related Lambdas -----------
 
-            {   'http_method': None,   'handler_file': 'devops_RDSInstanceSetup.py',
+            {   'http_method': None,   'handler_file': 'devops_RDSInstanceSetup.py', 'simple_name': 'devops_RDSInstanceSetup',
                 'handler': DEFAULT_LAMBDA_HANDLER,
                 'lambda-layers-names': [ 'psycopg3' ],
                 'extra-env-vars': {
-                    "DBA": dbadmin_sm_arn,
-                    "DBU": dbuser_sm_arn,
+                    'DBA': dbadmin_sm_arn,
+                    'DBU': dbuser_sm_arn,
             }},
         ]
 
@@ -542,56 +787,62 @@ class LambdaConfigs():
 ### ===========================================================================================================
 
     def deep_clone(self):
-        """
-        Create a deep clone of the "self"(thereby creating a completely-isolated no-shared but new LambdaConfigs object).
+        '''
+        Create a deep clone of the 'self'(thereby creating a completely-isolated no-shared but new LambdaConfigs object).
         :param config: The LambdaConfigs object to clone
         :return: A new LambdaConfigs object with deeply copied attributes
-        """
+        '''
         # Create a new instance of LambdaConfigs
-        new_config = LambdaConfigs(
-            tier=self.tier,
-            scope=self._scope,
-            rds_con=self.rds_con,
-            dbuser_sm_name=self.dbuser_sm_name,
-            dbuser_sm_arn=self.dbuser_sm_arn,
-            dbadmin_sm_arn=self.dbadmin_sm_arn,
-            user_data_table_name=self.user_data_table_name,
-            process_status_table_name=self.process_status_table_name,
-            cts_api_v2_unpublished_name=self.cts_api_v2_unpublished_name,
-            bing_maps_key_unpublished_name=self.bing_maps_key_unpublished_name,
-            SEARCH_RESULTS_BUCKET_NAME=self.SEARCH_RESULTS_BUCKET_NAME,
-            DATASET_BUCKET_NAME=self.DATASET_BUCKET_NAME,
-            UI_UPLOADS_BUCKET_NAME=self.UI_UPLOADS_BUCKET_NAME,
-            TRIAL_CRITERIA_QUEUE_URL=self.TRIAL_CRITERIA_QUEUE_URL,
-            MAKE_DATASET_QUEUE_URL=self.MAKE_DATASET_QUEUE_URL,
-            ETL_QUEUE_URL=self.ETL_QUEUE_URL,
-            CREATE_REPORT_QUEUE_URL=self.CREATE_REPORT_QUEUE_URL,
-            ETL_TOPIC_ARN=self.ETL_TOPIC_ARN,
-            CT_API_URL=self.CT_API_URL,
-            CT_API_URL_V2=self.CT_API_URL_V2,
-            CT_API_VERSION=self.CT_API_VERSION,
-            curated_trigger_folder=self.curated_trigger_folder
-        )
+        # new_config = LambdaConfigs(
+        #     tier=self.tier,
+        #     scope=self._scope,
+        #     rds_con=self.rds_con,
+        #     dbuser_sm_name=self.dbuser_sm_name,
+        #     dbuser_sm_arn=self.dbuser_sm_arn,
+        #     dbadmin_sm_arn=self.dbadmin_sm_arn,
+        #     user_data_table_name=self.user_data_table_name,
+        #     process_status_table_name=self.process_status_table_name,
+        #     cts_api_v2_unpublished_name=self.cts_api_v2_unpublished_name,
+        #     bing_maps_key_unpublished_name=self.bing_maps_key_unpublished_name,
+        #     SEARCH_RESULTS_BUCKET_NAME=self.SEARCH_RESULTS_BUCKET_NAME,
+        #     DATASET_BUCKET_NAME=self.DATASET_BUCKET_NAME,
+        #     UI_UPLOADS_BUCKET_NAME=self.UI_UPLOADS_BUCKET_NAME,
+        #     TRIAL_CRITERIA_QUEUE_URL=self.TRIAL_CRITERIA_QUEUE_URL,
+        #     MAKE_DATASET_QUEUE_URL=self.MAKE_DATASET_QUEUE_URL,
+        #     ETL_QUEUE_URL=self.ETL_QUEUE_URL,
+        #     CREATE_REPORT_QUEUE_URL=self.CREATE_REPORT_QUEUE_URL,
+        #     ETL_TOPIC_ARN=self.ETL_TOPIC_ARN,
+        #     CT_API_URL=self.CT_API_URL,
+        #     CT_API_URL_V2=self.CT_API_URL_V2,
+        #     CT_API_VERSION=self.CT_API_VERSION,
+        #     curated_trigger_folder=self.curated_trigger_folder,
+        # )
+        #
+        # # Perform a deep copy of all attributes
+        # for attr, value in self.__dict__.items():
+        #     setattr(new_config, attr, copy.deepcopy(value))
 
-        # Perform a deep copy of all attributes
-        for attr, value in self.__dict__.items():
-            setattr(new_config, attr, copy.deepcopy(value))
-
-        return new_config
+        return copy.deepcopy(self)
 
 ### -----------------------------------
 
-    """ only keep items in self.list .. whose array-indices are between 'begg' & 'endd' (NOT-inclusive)
-    """
+    ''' only keep items in self.list .. whose array-indices are between 'begg' & 'endd' (NOT-inclusive)
+    '''
     def keep_only_items_between( self,
         begg :int,
         endd :int
     ):
-        """
-        Modifies the list list in-place, keeping only the items whose indices fall within the specified range.
+        '''
+                Modifies the list list in-place, keeping only the items whose indices fall within the specified range.
         :param begg: The beginning index (inclusive)
         :param endd: The ending index (inclusive)
-        """
+        Args:
+            begg: 
+            endd: 
+
+        Returns:
+
+        '''
         if begg < 0 or begg > endd:
             raise ValueError(f"Invalid range specified -- begg='{begg}' and endd='{endd}' -- within LambdaConfigs.self.keep_only_items_between() within "+ __file__)
 
@@ -601,17 +852,17 @@ class LambdaConfigs():
 
     # @staticmethod
     # def num_of_lambdas_in_file(file_path=__file__):
-    #     """
+    #     '''
     #     Reads the specified file, counts occurrences of 'http_method' and 'handler_id',
     #     and returns the maximum of the two counts.
     #     :param file_path: Path to the file to analyze (default is the ./api/config.py)
-    #     """
+    #     '''
     #     try:
     #         with open(file_path, 'r') as file:
     #             content = file.read()
     #         # Count occurrences using regex
-    #         http_method_count = len(re.findall(r"'http_method'", content))
-    #         handler_id_count = len(re.findall(r"'handler_id'", content))
+    #         http_method_count = len(re.findall(r"'http_method''', content))
+    #         handler_id_count = len(re.findall(r"'handler_id''', content))
     #         return max(http_method_count, handler_id_count)
     #     except FileNotFoundError:
     #         print(f"Error: File not found at {file_path}")
@@ -632,14 +883,14 @@ class LambdaConfigs():
         asset_sha256_hash :str,
         overwrite :bool = False,
     ) -> None:
-        """ Caches the specified Lambda-layer's Zip-file artifact -- allowing it to be used ANYWHERE in cdk.
+        ''' Caches the specified Lambda-layer's Zip-file artifact -- allowing it to be used ANYWHERE in cdk.
         param # 1 - layer_name :str -- Unique Name of the Lambda layer (not incl. CPU_ARCH)
         param # 2 - cpu_arch_str :str -- amd64|arm64
         param # 3 - layer_zip_file :Path -- to the Lambda layer zip file
         param # 4 - asset_256_hash :str (usually that of `Pipfile.lock` or `requirements.txt` that is associated with the `layer_zip_file`)
         param # 4 - asset_256_hash :str (usually that of `Pipfile.lock` or `requirements.txt` that is associated with the `layer_zip_file`)
         param # 5 - overwrite :bool -- Whether to overwrite the layer if it already exists (default: False)
-        """
+        '''
         asset_lkp_key = f"{layer_name}-{cpu_arch_str}"
         ### SANITY CHECK: if the layer is valid
         if not layer_asset:
@@ -657,13 +908,13 @@ class LambdaConfigs():
         layer_name :str,
         cpu_arch_str :str,
     ) -> Tuple[aws_lambda.AssetCode, str]:
-        """ Looks up the path to the cached Lambda-layer's Zip-file artifact.
+        ''' Looks up the path to the cached Lambda-layer's Zip-file artifact.
         param # 1 - layer_name :str -- Unique Name of the Lambda layer (not incl. CPU_ARCH)
         param # 2 - cpu_arch_str :str -- amd64|arm64
         returns a Tuple:
             (1) pathlib.Path object to the Lambda-layer's zip-file
             (2) The SHA256 hash (of `Pipfile.lock`) which is then encoded as hex.  See the algorithm inside common/cdk/LambdaLayerUtils.py's `get_sha256_hex_hash_for_file()`
-        """
+        '''
         asset_lkp_key = f"{layer_name}-{cpu_arch_str}"
         if asset_lkp_key not in _cache_of_layers_assets:
             raise MyLambdaConfigException( f"!! ERROR !! Layer '{layer_name}-{cpu_arch_str}' is NOT cached.  Perhaps you are looking it up BEFORE it has been created (within api/infrastructure.py) !!" )
@@ -681,13 +932,13 @@ class LambdaConfigs():
         asset_sha256_hash :str,
         overwrite :bool = False,
     ) -> None:
-        """ Caches the specified Lambda-layer CDK-Construct -- allowing it to be used ANYWHERE in cdk.
+        ''' Caches the specified Lambda-layer CDK-Construct -- allowing it to be used ANYWHERE in cdk.
         param # 1 - layer_name :str -- Unique Name of the Lambda layer (not incl. CPU_ARCH)
         param # 2 - cpu_arch_str :str -- amd64|arm64
         param # 3 - layer :aws_lambda.ILayerVersion -- cdk-construct-resource already created.
         param # 4 - asset_256_hash :str (usually that of `Pipfile.lock` or `requirements.txt` that is associated with the `layer_zip_file`)
         param # 5 - overwrite :bool -- Whether to overwrite the layer if it already exists (default: False)
-        """
+        '''
         lyr_lkp_key = f"{stk_containing_layers.stack_name}-{layer_simple_name}-{cpu_arch_str}"
         lyrARN_lkp_key = f"{layer_simple_name}-{cpu_arch_str}"
         ### SANITY CHECK: if the layer is valid
@@ -706,13 +957,13 @@ class LambdaConfigs():
         stk_containing_layers :Stack,
         cpu_arch_str :str,
     ) -> Tuple[aws_lambda.ILayerVersion, str]:
-        """ Looks up the path to the cached Lambda-layer CDK-Construct.
+        ''' Looks up the path to the cached Lambda-layer CDK-Construct.
         param # 1 - layer_name :str -- Unique Name of the Lambda layer (not incl. CPU_ARCH)
         param # 2 - cpu_arch_str :str -- amd64|arm64
         returns a Tuple:
             (1) aws_lambda.ILayerVersion object
             (2) The SHA256 hash (of `Pipfile.lock`) which is then encoded as hex.  See the algorithm inside common/cdk/LambdaLayerUtils.py's `get_sha256_hex_hash_for_file()`
-        """
+        '''
         lyr_lkp_key = f"{stk_containing_layers.stack_name}-{layer_simple_name}-{cpu_arch_str}"
         lyrARN_lkp_key = f"{layer_simple_name}-{cpu_arch_str}"
 
@@ -739,11 +990,11 @@ class LambdaConfigs():
 
     @staticmethod
     def num_of_lambdas(file_path=__file__):
-        """
+        '''
         Reads the specified file, counts occurrences of 'http_method' and 'handler_id',
         and returns the maximum of the two counts.
         :param file_path: Path to the file to analyze (default is the ./api/config.py)
-        """
+        '''
         try:
             with open(file_path, 'r') as file:
                 content = file.read()
@@ -764,35 +1015,37 @@ class LambdaConfigs():
 
     @staticmethod
     def validate_lambda_config_list( a_list :list):
-        """
+        '''
         Validates self.__list against the Lambda configuration schema.
         Raises ValidationError if the configuration is invalid.
         Returns True if validation passes.
-        """
+        '''
         lambda_config_schema = {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "required": [
-                    "http_method",
-                    "handler",
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'required': [
+                    'http_method',
+                    'handler',
                 ],
-                "properties": {
-                    "apigw-path":   { "type": "string" },
-                    "http_method":  { "type": ["string", "null"],
-                                    "enum": ["GET", "POST", "PUT", "DELETE", None] },
-                    "handler":      { "type": ["string", "null"] },
-                    "handler_file": { "type": "string" },
-                    "entry":        { "type": "string" },
-                    "memory":       { "type": "integer", "minimum": 128 },
-                    "timeout":      { "type": "object" },
-                    "cpu-arch":     { "type": ["string", "null"],
-                                     "enum": ["amd64", "arm64", None] },
-                    "ephemeral_storage_size": { "type": "integer", "minimum": 512 },
-                    "lambda-layers-names": { "type": "array", "items": { "type": "string" } },
-                    "extra-env-vars": { "type": "object" },
+                'properties': {
+                    'apigw-path':   { 'type': 'string' },
+                    'http_method':  {
+                        'type': ['string', 'null'],
+                        'enum': ['GET', 'POST', 'PUT', 'DELETE', None]
+                    },
+                    'handler':      { 'type': ['string', 'null'] },
+                    'handler_file': { 'type': 'string' },
+                    'simple_name': {'type': ['string', 'null']},
+                    'apigw-path':   { 'type': 'string' },
+                    'ephemeral_storage_size': { 'type': 'integer', 'minimum': 512 },
+                    'memory':       { 'type': 'integer', 'minimum': 128 },
+                    'timeout':      { 'type': 'object' },
+                    'entry':        { 'type': 'string' },
+                    "lambda-layers-names": { 'type': 'array', 'items': { 'type': 'string' } },
+                    "extra-env-vars": { 'type': 'object' },
                 },
-                "additionalProperties": False
+                'additionalProperties': False
             }
         }
 
@@ -810,7 +1063,7 @@ class LambdaConfigs():
 ### ===========================================================================================================
 
 
-""" print out the above list in alphabetically-sorted order
+''' print out the above list in alphabetically-sorted order
 python3 <<EOTXT
 from api.config import list
 nl=[]
@@ -819,4 +1072,4 @@ for ar in list:
 nl.sort()
 print( nl )
 EOTXT
-"""
+'''

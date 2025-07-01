@@ -42,6 +42,7 @@ aws-xray-sdk
 
 
 SQLAlchemy==2.0.28
+jsonref
 # SQLAlchemy (2.0.36) ### pip-ERROR: poetry 1.5.1 requires urllib3<2.0.0,>=1.26.0, but you have urllib3 2.2.3 which is incompatible.
-
+flatten-dict==0.4.2
 ### EoF

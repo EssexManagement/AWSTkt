@@ -20,6 +20,7 @@ from aws_cdk import (
     aws_sqs,
     aws_cognito,
     aws_dynamodb,
+    aws_sns_subscriptions,
 )
 
 import constants
@@ -222,6 +223,8 @@ class Gen_AllApplicationBackendStacks:
             dbadmin_sm_arn = stateful.rds_con.db.secret.secret_full_arn,
             user_data_table_name = ddbtbl_stk.user_data_table.table_name,
             process_status_table_name = ddbtbl_stk.process_status_table.table_name,
+            curation_status_table_name = ddbtbl_stk.curation_status_table.table_name,
+            trial_criteria_table_name = ddbtbl_stk.trial_criteria_table.table_name,
             cts_api_v2_unpublished_name = cts_api_v2_unpublished_name,
             bing_maps_key_unpublished_name = bing_maps_key_unpublished_name,
             SEARCH_RESULTS_BUCKET_NAME = buckets_stk.search_results_bucket.bucket_name,
@@ -267,6 +270,9 @@ class Gen_AllApplicationBackendStacks:
                 etl_queue=sqs_stack.etl_queue,
                 create_report_queue=create_report_queue,
                 lambda_configs = lambda_configs,
+                curation_status_table = ddbtbl_stk.curation_status_table,
+                trial_criteria_table=ddbtbl_stk.trial_criteria_table,
+                process_status_table = ddbtbl_stk.process_status_table,
                 # api_construct = stateless_apigw.api,
                 # restapi     = stateless_apigw.api.api,
                 # api_v1_resource = stateless_apigw.api.api_v1_resource,
@@ -362,7 +368,6 @@ class Gen_AllApplicationBackendStacks:
             tier=tier,
             aws_env=aws_env,
             git_branch=git_branch,
-            db = stateful.rds,
             dynamo_stack = ddbtbl_stk,
             inside_vpc_lambda_factory = inside_vpc_lambda_factory,
             lambda_construct_map = lambda_configs.lambda_construct_map(),
@@ -373,6 +378,8 @@ class Gen_AllApplicationBackendStacks:
             make_dataset_queue = make_dataset_queue,
             etl_queue = sqs_stack.etl_queue,
             etl_topic = sns_stack.etl_topic,
+            rds_con=stateful.rds_con,
+            db_cluster=stateful.db_cluster,
             **kwargs,
         )
         stk_refs.stateless_etl = stateless_etl
@@ -458,6 +465,9 @@ class StatefulStack(Stack):
             export_name=f"{self.stack_name}-db-cluster-id",
             value=self.rds.cluster_identifier,
         )
+    @property
+    def db_cluster(self) -> aws_rds.DatabaseCluster:
+        return self._rds
 
 ### ==============================================================================================
 ### ..............................................................................................
@@ -640,6 +650,32 @@ class DynamoDBStack(Stack):
             partition_key=aws_dynamodb.Attribute(name="user_id", type=aws_dynamodb.AttributeType.STRING),
             sort_key=aws_dynamodb.Attribute(name="record_type", type=aws_dynamodb.AttributeType.STRING),
         )
+        self.curation_status_table = standard_dynamodb_table(
+            scope=self,
+            id="curation_status",
+            tier = tier,
+            data_classification_type = DATA_CLASSIFICATION_TYPES.USER_REQUESTS,
+            ddbtbl_name = f"{stk.stack_name}-fact_curation_status",
+            # ddbtbl_name=aws_names.gen_dynamo_table_name(tier, 'fact_process_status'),
+            partition_key=aws_dynamodb.Attribute(name="record_type", type=aws_dynamodb.AttributeType.STRING),
+            sort_key=aws_dynamodb.Attribute(name="action", type=aws_dynamodb.AttributeType.STRING),
+            global_secondary_indexes=[
+                aws_dynamodb.GlobalSecondaryIndexPropsV2(
+                    index_name="gsi",
+                    partition_key=aws_dynamodb.Attribute(name="action", type=aws_dynamodb.AttributeType.STRING),
+                    sort_key=aws_dynamodb.Attribute(name="curator", type=aws_dynamodb.AttributeType.STRING))
+            ]
+        )
+        self.trial_criteria_table = standard_dynamodb_table(
+            scope=self,
+            id="trial_criteria",
+            tier = tier,
+            data_classification_type = DATA_CLASSIFICATION_TYPES.USER_REQUESTS,
+            ddbtbl_name = f"{stk.stack_name}-fact_trial_criteria",
+            # ddbtbl_name=aws_names.gen_dynamo_table_name(tier, 'fact_process_status'),
+            partition_key=aws_dynamodb.Attribute(name="nct_id", type=aws_dynamodb.AttributeType.STRING),
+            sort_key=aws_dynamodb.Attribute(name="criteria", type=aws_dynamodb.AttributeType.STRING),
+        )
 
 class SqsStack(Stack):
     def __init__( self, scope: Construct, id_: str,
@@ -701,7 +737,9 @@ class SnsStack(Stack):
         construct_id = 'etl_topic'
         constr = StandardSNSTopic( self, construct_id=construct_id, tier=tier )
         self.etl_topic = constr.topic
-
+        ctf_support_email = scope.node.try_get_context("ctf-support-email")
+        print(f'ctf_support_email={ctf_support_email}:type={type(ctf_support_email)}')
+        self.etl_topic.add_subscription(aws_sns_subscriptions.EmailSubscription(str(ctf_support_email)))
 ### ==============================================================================================
 ### ..............................................................................................
 ### ==============================================================================================
@@ -731,6 +769,9 @@ class StatelessStackLambdas(Stack):
         make_dataset_queue: aws_sqs.IQueue,
         etl_queue: aws_sqs.IQueue,
         create_report_queue: aws_sqs.IQueue,
+        curation_status_table,
+        trial_criteria_table,
+        process_status_table,
         # api_construct: Api,
         # rest api: aws_apigateway.RestApi,
         **kwargs,
@@ -747,7 +788,7 @@ class StatelessStackLambdas(Stack):
         if ( len(lambda_configs_chunk.list) == 0 ):
             return
 
-        self.lambdas = LambdaOnlyConstructs( scope=self,
+        self.lambdas =    LambdaOnlyConstructs( scope=self,
             id_=f"{beg}-{enddd}",
             tier=tier,
             aws_env=aws_env,
@@ -767,6 +808,9 @@ class StatelessStackLambdas(Stack):
             make_dataset_queue=make_dataset_queue,
             create_report_queue=create_report_queue,
             etl_queue=etl_queue,
+            curation_status_table=curation_status_table,
+            trial_criteria_table=trial_criteria_table,
+            process_status_table=process_status_table,
             # db=db,
             # rest_api_id = api_construct.api.rest_api_id,
             # rest_api_root_rsrc = api_construct.api.rest_api_root_resource_id,
@@ -783,7 +827,6 @@ class StatelessStackETL(Stack):
         tier :str,
         git_branch :str,
         aws_env :str,
-        db: aws_rds.ServerlessCluster,
         dynamo_stack ,
         inside_vpc_lambda_factory :StandardLambda,
         lambda_construct_map :Dict[str, aws_lambda.Function],
@@ -794,6 +837,8 @@ class StatelessStackETL(Stack):
         make_dataset_queue,
         etl_queue,
         etl_topic,
+        rds_con,
+        db_cluster,
         **kwargs,
     ) -> None:
         super().__init__(scope=scope, id=id_, stack_name=id_, **kwargs)
@@ -802,7 +847,6 @@ class StatelessStackETL(Stack):
             tier=tier,
             aws_env=aws_env,
             git_branch=git_branch,
-            db=db,
             dynamo_stack = dynamo_stack,
             buckets_stk=buckets_stk,
             lambda_construct_map = lambda_construct_map,
@@ -812,8 +856,10 @@ class StatelessStackETL(Stack):
             make_dataset_queue=make_dataset_queue,
             etl_queue=etl_queue,
             etl_topic=etl_topic,
+            stk_refs=stk_refs,
+            rds_con=rds_con,
+            db_cluster=db_cluster,
         )
-
         add_tags(self, tier=tier, aws_env=aws_env, git_branch=git_branch)
 
 

@@ -142,6 +142,7 @@ export const handler = async (event: CloudFormationCustomResourceEvent): Promise
 
     //// Scenario 1: New AWS-Account with -NO- other Tiers
     if (  !  otherTierExists) {
+        console.log("Scenario 1: New AWS-Account with -NO- other Tiers")
         inputParams = {
             ...inputParams,
             "run-rds-init": true,
@@ -152,6 +153,7 @@ export const handler = async (event: CloudFormationCustomResourceEvent): Promise
     }
     //// Scenario 2: Existing account, new Tier
     else if (deploymentReason === 'Not Applicable. NO existing Tier') {
+        console.log("Scenario 2: Existing account, new Tier")
         inputParams = {
             ...inputParams,
             "run-rds-init": true,
@@ -161,7 +163,8 @@ export const handler = async (event: CloudFormationCustomResourceEvent): Promise
         };
     }
     //// Scenario 3: Update existing Tier - no issues
-    else if (deploymentReason === "EXISTING Tier needs an update deployed. No issues exist.") {
+    else if (deploymentReason === "EXISTING Tier needs an update deployed. No issues exist") {
+        console.log("Scenario 3: Update existing Tier - no issues")
         inputParams = {
             ...inputParams,
             "skip-SchemaTableInitialization": true,
@@ -169,21 +172,21 @@ export const handler = async (event: CloudFormationCustomResourceEvent): Promise
     }
     //// Scenario 4: Update existing Tier - has some issues
     else if (deploymentReason === "EXISTING Tier has some issues") {
+        console.log("Scenario 4: Update existing Tier - has some issues")
         inputParams = {
             ...inputParams,
             "destroy-app-stacks-only": true,
             "DestroyAppStacksOnly": true,
-            "skip-SchemaTableInitialization": true,
         };
     }
     // Scenario 5 & 6: Fatal problems
     else if ( (deploymentReason === "EXISTING Tier has FATAL-problems") ||
               (deploymentReason === "EXISTING Tier not needed, as git-branch is PR-Merged")
     ) {
-        //// Scenarios 5 & 6
+        console.log("Scenario 5 & 6: Fatal problems")
 
         if (destructionScope === "Destroy but .. RE-deploy ALL Stacks") {
-            //// Scenario 5
+            console.log("Scenario 5")
             inputParams = {
                 ...inputParams,
                 "destroy-all-stacks-NOT-pipelines": true,
@@ -194,7 +197,7 @@ export const handler = async (event: CloudFormationCustomResourceEvent): Promise
                 "body": body || '{ "force_update": "1" }',
             };
         } else if (destructionScope === "Just WIPEOUT everything incl. Pipelines") {
-            //// Scenario 6
+            console.log("Scenario 6")
             inputParams = {
                 ...inputParams,
                 "destroy-all-stacks-incl-pipeline-stacks": true,
@@ -203,18 +206,39 @@ export const handler = async (event: CloudFormationCustomResourceEvent): Promise
         }
     }
 
-    if (DatabaseChange_List.indexOf(databaseChange) < 2) {
+    // If database needs to be wiped and reloaded, add RDS init
+    if  (   (databaseChange === "Wipe entire Database, and Reload everything") &&
+            (databaseChange === DatabaseChange_List[3])
+        ) {
+        console.log("Scenario 3.1 - Wipe ..");
+        inputParams["run-rds-init"] = true;
+        inputParams["runRdsInit"] = true;
+        //// The following 3 "flags" will OVERRIDE the above 2 flags.  Hence, make sure they do NOT exist.
+        delete inputParams["skip-sfn-after-backend-deploy"];
+        delete inputParams["skipSFnAfterBackendDeploy"];
+        delete inputParams["skip-SchemaTableInitialization"];
+    } else if (
+                (databaseChange === "Simply Reload CTAPI data" ) &&
+                (databaseChange === DatabaseChange_List[1])
+            ) {
+        console.log("Scenario 3.2 - Simply Reload CTAPI data");
+        //// The following 2 flags are synonymous with "Simply Reload CTAPI data"
+        delete inputParams["skip-sfn-after-backend-deploy"];
+        delete inputParams["skipSFnAfterBackendDeploy"];
+        // delete inputParams["skip-SchemaTableInitialization"];
+    } else {
+        //// ----- Safety-Checks !! -----
         /// do NOT invoke the `post-backend-deploy` stepfunc AFTER backend-pipeline is success.
+        console.log("Safety-Check: IF-condition is -FALSE-");
         inputParams = {
             ...inputParams,
             "skip-sfn-after-backend-deploy": true,
             "skipSFnAfterBackendDeploy": true,
+            "skip-SchemaTableInitialization": true,
         };
+        // SAFETY-CHECK: Only invoke the `runRdsInit` Lambda (that wipes out DB) if it's a database-wipe scenario
         delete inputParams["run-rds-init"];
         delete inputParams["runRdsInit"];
-    } else {
-        delete inputParams["skip-sfn-after-backend-deploy"];
-        delete inputParams["skipSFnAfterBackendDeploy"];
     }
 
     //// ----------------------------------

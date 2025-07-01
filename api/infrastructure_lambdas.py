@@ -51,6 +51,9 @@ class LambdaOnlyConstructs(Construct):
         etl_queue: aws_sqs.IQueue,
         create_report_queue: aws_sqs.IQueue,
         user_data_table :aws_dynamodb.Table,
+        curation_status_table: aws_dynamodb.Table,
+        trial_criteria_table: aws_dynamodb.Table,
+        process_status_table: aws_dynamodb.Table,
         # rest_api_id: str,
         # rest_api_root_rsrc :str,
         # rest_api_common_rsrc_path :str,
@@ -62,8 +65,13 @@ class LambdaOnlyConstructs(Construct):
 
         stk = Stack.of(self)
         this_dir = path.dirname(__file__)
+        effective_tier = tier if tier in constants.STD_TIERS else constants.DEV_TIER ### ["dev", "int", "uat", "prod"]
 
+        # tier = self.node.try_get_context("tier")
+        # aws_env = tier if tier in constants.STD_TIERS else constants.DEV_TIER ### ["dev", "int", "uat", "prod"]:
+        # git_branch = constants.get_git_branch( tier=tier )
         print( f"tier='{tier}' within "+ __file__ )
+        print( f"effective_tier='{effective_tier}' within "+ __file__ )
         print( f"aws_env='{aws_env}' within "+ __file__ )
         print( f"git_branch='{git_branch}' within "+ __file__ )
 
@@ -80,7 +88,7 @@ class LambdaOnlyConstructs(Construct):
         self.make_dataset_queue = make_dataset_queue
         self.etl_queue = etl_queue
         self.create_report_queue = create_report_queue
-        datadog_destination = Mappings(self).get_dd_subscription_dest( tier=tier, aws_env=aws_env )
+        datadog_destination = Mappings(self).get_dd_subscription_dest( tier=effective_tier, aws_env=aws_env )
         if datadog_destination is None:
             print( f"WARNING !! Datadog's Kinesis-DataStream destination missing for tier='{aws_env}' !!  -- in  DailyEtl(): within ", __file__ )
 
@@ -122,15 +130,19 @@ class LambdaOnlyConstructs(Construct):
         a_lambda :dict
 
         for a_lambda in lambda_configs.list:
-
-            index   = LambdaConfigs.get_lambda_index( a_lambda )
+            index = LambdaConfigs.get_lambda_index( a_lambda )
             handler = LambdaConfigs.get_handler(a_lambda)
-            entry   = LambdaConfigs.get_lambda_entry( a_lambda )
-            apigw_res_path :Optional[str] = LambdaConfigs.get_apigw_path(a_lambda)
-            simple_name = LambdaConfigs.get_simple_name(a_lambda)
-            print(f'simple_name={simple_name}:index={index}:apigw_res_path={apigw_res_path}:handler={handler}:entry={entry}')
+            entry = LambdaConfigs.get_lambda_entry( a_lambda )
+            api_gw_path = LambdaConfigs.get_apigw_path(a_lambda)
+            simple_name = LambdaConfigs.get_simple_name(a_lambda, handler)
+            print(f'simple_name={simple_name}:index={index}:api_gw_path={api_gw_path}:handler={handler}:entry={entry}')
             # TODO: Should fix this more
             # now the criteria for ETL Lambda is not having api_gw_path and having default handler name
+
+
+
+             # TODO: Should fix this more
+             # now the criteria for ETL Lambda is not having api_gw_path and having default handler name
             """ SCENARIO:
                 When .. for this item, the name of the python-handler is the worldwide default (`lambda_handler`).
                 .. and the name of the PY-module is --NO-- good to be used as the Lambda's name (for whatever reason)
@@ -141,27 +153,25 @@ class LambdaOnlyConstructs(Construct):
             """
             if not simple_name:
                 if (not handler or handler == DEFAULT_LAMBDA_HANDLER):
-                    if not apigw_res_path:
+                    if not api_gw_path:
                         simple_name = re.sub(r"\./", "_", index.replace(".py", ""))
                         # raise Exception(f"get_simple_name() is not defined, when the Handler-method is the generic '{DEFAULT_LAMBDA_HANDLER}' for item = '{a_lambda}'")
                     else:
-                        simple_name = apigw_res_path
+                        simple_name = api_gw_path
                 else:
-                    if not apigw_res_path:
+                    if not api_gw_path:
                         simple_name = handler
                     else:
-                        simple_name = apigw_res_path
+                        simple_name = api_gw_path
 
-            # if not apigw_res_path and handler == DEFAULT_LAMBDA_HANDLER:
+            # if not api_gw_path and handler == DEFAULT_LAMBDA_HANDLER:
             #     ### This is for ETL-Lambdas that can NOT be accessed via APIGW.
             #     h = re.sub(r"\./", "_", index.replace(".py", ""))
             #     function_name= aws_names.gen_lambda_name( tier=tier, simple_lambda_name = h )
             # else:
             #     function_name= aws_names.gen_lambda_name( tier=tier, simple_lambda_name=simple_name )
             function_name= aws_names.gen_lambda_name( tier=tier, simple_lambda_name=simple_name )
-            http_method :Optional[str] = LambdaConfigs.get_http_method(a_lambda)
-
-            ### -------
+            http_method = LambdaConfigs.get_http_method(a_lambda)
             print(f"{handler}:\t{http_method}\t-\t{index}\t-\t{handler}")
             print(f"lambda_name = '{function_name}'")
 
@@ -174,7 +184,6 @@ class LambdaOnlyConstructs(Construct):
             lambda_layers_names: Optional[list] = LambdaConfigs.get_lambda_layers_names(a_lambda)
             # override_content_type_to_BINARY: bool = LambdaConfigs.get_mime-response', None) != None
 
-            ### -------
             if lambda_rolename:
                 if not self.__role_cache:
                     self.__role_cache: Dict[str, aws_iam.Role] = {}
@@ -247,6 +256,26 @@ class LambdaOnlyConstructs(Construct):
                     s3n.LambdaDestination(my_lambdafn),
                     filter,
                 )
+                """
+
+            stk_refs.stateful_stk.rds_con.db_proxy.grant_connect(validate_curated_for_upload_lambda)
+            db_cluster.grant_data_api_access(validate_curated_for_upload_lambda)
+            rds_con.db.secret.grant_read(validate_curated_for_upload_lambda)
+            self.cts_api_v2_unpublished.grant_read(validate_curated_for_upload_lambda)
+            emfact_user_unpublished.grant_read(validate_curated_for_upload_lambda)
+            etl_queue.grant_send_messages(validate_curated_for_upload_lambda)
+            etl_queue.grant_purge(validate_curated_for_upload_lambda)
+            buckets_stk.search_results_bucket.grant_read_write(validate_curated_for_upload_lambda)
+            buckets_stk.etl_data_sets_bucket.grant_read_write(validate_curated_for_upload_lambda)
+            etl_topic.grant_publish(validate_curated_for_upload_lambda)
+            self.cts_api_v2_unpublished.grant_read(validate_curated_for_upload_lambda)
+                """
+            print(f'index={index}')
+            if index == 'validate_curated_for_upload':
+                trial_criteria_queue.grant_consume_messages(my_lambdafn)
+                trial_criteria_queue.grant_purge(my_lambdafn)
+                search_results_bucket.grant_read_write(my_lambdafn)
+                dataset_bucket.grant_read_write(my_lambdafn)
 
             ### --------------------------------------------------------
             ### Grant the lambda - as appropriate - access to other AWS resources.
@@ -255,6 +284,12 @@ class LambdaOnlyConstructs(Construct):
 
             ### All Lambdas should have access to RDSProxy
             rds_con.db_proxy.grant_connect(my_lambdafn, constants.RDS_APPLN_USER_NAME)
+            my_lambdafn.add_to_role_policy(
+                aws_iam.PolicyStatement(
+                    resources=["*"],
+                    actions=["rds:DescribeDBProxies"],
+                )
+            )
 
             # if handler_id in ("get_search_results", "post_search_results"):
             if handler in ('post_search_and_match', 'send_create_pdf_message'):
@@ -287,11 +322,21 @@ class LambdaOnlyConstructs(Construct):
                     "post_trial_comparisons",
                     "put_presigned_url",
                     "get_sites_from_zip_distance",
-                    "process_s3_uploads"
+                    "process_s3_uploads",
+                    "post_report_data",
             ):
                 search_results_bucket.grant_read_write(my_lambdafn)
                 dataset_bucket.grant_read_write(my_lambdafn)
                 user_data_table.grant_read_write_data(my_lambdafn)
+
+            if simple_name in ('validate_curated_for_upload', 'verify_curation_data'):
+                create_report_queue.grant_purge(my_lambdafn)
+                create_report_queue.grant_send_messages(my_lambdafn)
+                curation_status_table.grant_read_write_data(my_lambdafn)
+                trial_criteria_table.grant_read_write_data(my_lambdafn)
+                dataset_bucket.grant_read_write(my_lambdafn)
+                trial_criteria_queue.grant_purge(my_lambdafn)
+                trial_criteria_queue.grant_send_messages(my_lambdafn)
 
             if ( "BING_MAPS_UNPUBLISHED" in lambda_specific_environment ):
                 self.bing_maps_key_unpublished.grant_read(my_lambdafn)
@@ -299,7 +344,13 @@ class LambdaOnlyConstructs(Construct):
                 emfact_user_unpublished.grant_read(my_lambdafn)
             if ( "TRIAL_CRITERIA_QUEUE_URL" in lambda_specific_environment ):
                 self.trial_criteria_queue.grant_purge(my_lambdafn)
-                self.trial_criteria_queue.grant_send_messages(my_lambdafn)
+                """
+                TODO: Fix this. Maybe add a 'consumer' key to the underlying config like this
+                'consumer': 'etl_queue,...'
+                consumers of messages should not be producers
+                """
+                if index not in ['validate_curated_for_upload']:
+                    self.trial_criteria_queue.grant_send_messages(my_lambdafn)
             if ( "MAKE_DATASET_QUEUE_URL" in lambda_specific_environment ):
                 self.make_dataset_queue.grant_purge(my_lambdafn)
                 self.make_dataset_queue.grant_send_messages(my_lambdafn)

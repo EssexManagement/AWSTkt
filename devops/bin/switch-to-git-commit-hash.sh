@@ -21,13 +21,12 @@ PYTHON_VERSION="3.12"
 
 ### Derived Variables
 
-
 SCRIPT_FOLDER="$(dirname ${BASH_SOURCE[0]})"
 SCRIPT_NAME="$(basename ${BASH_SOURCE[0]})"
 CWD="$(pwd)"
 OPS_SCRIPT_FOLDER="$( \cd "${SCRIPT_FOLDER}/../../operations/bin"; pwd  )"
 
-  .   "${OPS_SCRIPT_FOLDER}/common-settings.sh"
+source "${OPS_SCRIPT_FOLDER}/common-settings.sh"
 
 ###---------------------------------------------------------------
 ### @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -125,7 +124,8 @@ if [[ ! -z ${SixCharGitHash+x} ]]; then
     if [[ "${UpperTiers[@]}" =~ "${OriginalTIER}" ]]    &&    [ "${TIER}" == "main" ]; then
         ### Scenario 1.1-A
         TIER="${OriginalTIER}"
-        echo "Scenario: 1.1-A: RE-adjusted TIER back to be '${TIER}' in Scenario 1.1 !"
+        whether_to_switch_git_commithash="false" ### Stay on `main` git-branch.
+        echo "Scenario: 1.1-A: Not switching git-branch but RE-adjusted TIER back to be '${TIER}' in Scenario 1.1 !"
     else
         # if [[ "${OriginalTIER}" != "test" && "${OriginalTIER}" != "int" && "${OriginalTIER}" != "stage" && "${OriginalTIER}" != "uat" && "${OriginalTIER}" != "prod" ]]    &&    [ "${TIER}" == "main" ]; then
         if [[   !   "${UpperTiers[@]}" =~ "${OriginalTIER}" ]]    &&    [ "${TIER}" == "main" ]; then
@@ -135,6 +135,7 @@ if [[ ! -z ${SixCharGitHash+x} ]]; then
                 ### Scenario 1.1-BAA -- when manually-triggering a developer-tier's pipeline via AWS-Console.
                 TIER="${OriginalTIER}"
                 echo "Scenario: 1.1-BBB: RE-adjusted TIER back to be '${TIER}' in Scenario 1.1 !"
+                whether_to_switch_git_commithash="false" ### Stay on `main` git-branch.
             else
                 echo "!! Internal error 141 !! Invalid calculated-TIER === '${TIER} and OriginalTIER === '${OriginalTIER}''!!! ❌❌❌";
                 exit 141
@@ -142,7 +143,7 @@ if [[ ! -z ${SixCharGitHash+x} ]]; then
         else
             ### Scenario 1.1-??
             if [ "${TIER}" == "main" ] || [ "${TIER}" == "" ]; then
-                echo "!! Internal error 146 !! Invalid calculated-TIER === '${TIER} and OriginalTIER === '${OriginalTIER}''!!! ❌❌❌";
+                echo "!! Internal error 146 !! Invalid calculated-TIER === '${TIER}' and OriginalTIER === '${OriginalTIER}'!!! ❌❌❌";
                 exit 146
             fi
         fi
@@ -152,16 +153,19 @@ fi
 
 ### ------ now do the actual `git switch` cmd
 
+pwd
+
+### NOTE: For SUB-AWS-SAM-projects .. this IF-condition will be FALSE !!!
 if [ -f cdk.json ]; then
     if [ "${whether_to_switch_git_commithash}" == "True" ] || [ "${whether_to_switch_git_commithash}" == "true" ]; then
         echo \
-        jq ".context.\"git-source\".git_commit_hashes.${TIER}" cdk.json --raw-output
-        jq ".context.\"git-source\".git_commit_hashes.${TIER}" cdk.json --raw-output
+        jq ".context.\"git-source\".git_commit_hashes.\"${TIER}\"" cdk.json --raw-output
+        jq ".context.\"git-source\".git_commit_hashes.\"${TIER}\"" cdk.json --raw-output
         if [ $? -ne 0 ]; then
             echo "Above cmd failed!!! ❌❌❌";
             exit 161
         fi
-        JqOutput=$( jq ".context.\"git-source\".git_commit_hashes.${TIER}" cdk.json --raw-output )
+        JqOutput=$( jq ".context.\"git-source\".git_commit_hashes.\"${TIER}\"" cdk.json --raw-output )
         echo "JqOutput --> '${JqOutput}'"
 
         echo \
@@ -190,16 +194,21 @@ if [ -f cdk.json ]; then
         fi
 
     else
-        echo "Lookup (within cdk.json) returned EMPTY !  Is this a Ticket/Developer-Tier?"
+        echo "Skipping .. Lookup (within cdk.json) !  Is this a Ticket/Developer-Tier -or- Upper-Tier?"
     fi ### if whether_to_switch_git_commithash ..
 
 else
+
     ### For AWS-SAM sub-projects, etc ..
-    echo "Missing cdk.json. So skipping all jq cmds .."
+    echo "Missing cdk.json. So skipping all 'jq' cmds .."
     ### Switch explicitly to the TIER, to support scenario where the pipeline is triggered from AWS-Console (and therefore `git status` will be `main` git-branch)
-    echo \
-    git switch --discard-changes "${TIER}"
-    git switch --discard-changes "${TIER}"
+    if [ "${whether_to_switch_git_commithash}" == "True" ] || [ "${whether_to_switch_git_commithash}" == "true" ]; then
+        echo \
+        git switch --discard-changes "${TIER}"
+        git switch --discard-changes "${TIER}"
+    else
+        echo "Continuing with current 'git-checkout' state .."
+    fi
 
 fi ### if cdk.json exists
 

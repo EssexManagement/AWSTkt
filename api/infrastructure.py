@@ -50,7 +50,7 @@ class Api(Construct):
         print( f"aws_env='{aws_env}' within "+ __file__ )
         print( f"git_branch='{git_branch}' within "+ __file__ )
 
-        datadog_destination = Mappings(self).get_dd_subscription_dest( tier=tier, aws_env=aws_env ) ### TODO
+        datadog_destination = Mappings(self).get_dd_subscription_dest( tier=effective_tier, aws_env=aws_env ) ### TODO
         if datadog_destination is None:
             print( f"WARNING !! Datadog's Kinesis-DataStream destination missing for tier='{aws_env}' !!  -- in  Api(): within ", __file__ )
 
@@ -216,12 +216,13 @@ class Api(Construct):
                 continue
 
             is_auth_needed = True
-            if handler in ("get_search_results", "post_search_results", "post_wakeup_db"):
+            if handler in ("get_search_results", "post_search_results", "post_wakeup_db", "approve_or_decline_curated"):
                 is_auth_needed = False
                 # authorizer_id = None
 
             fn :aws_lambda.IFunction = aws_lambda.Function.from_function_name( scope=self,
-                    id = "lkp-"+(handler if handler else "None"),
+                    # id = "lkp-"+(handler if handler else "None"),
+                    id="lkp-"+simple_name,
                     function_name=function_name,
             )
 

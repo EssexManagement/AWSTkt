@@ -19,11 +19,11 @@ import constants
 
 ### ===============================================================================================
 
-CDK_APP_PYTHON_VERSION = "3.12"
+CDK_APP_PYTHON_VERSION = None
 LAMBDA_PYTHON_RUNTIME = aws_lambda.Runtime.PYTHON_3_12
 LAMBDA_PYTHON_RUNTIME_VER_STR = aws_lambda.Runtime.PYTHON_3_12.name.replace("python","")
 
-CDK_NODEJS_VERSION = "22"
+CDK_NODEJS_VERSION = None
 FRONTEND_NODEJS_VERSION = "20"
 
 ### ===============================================================================================
@@ -150,7 +150,7 @@ CODEBUILD_EC2_SIZE    = aws_codebuild.ComputeType.LARGE
 
 # USE_ADVANCED_CODEBUILD_CACHE = True
 def use_advanced_codebuild_cache( tier :str ) -> bool:
-    if tier in constants.STD_TIERS:
+    if tier in constants.UPPER_TIERS:
         return False ### do --NOT-- touch this line.
     else:
         return True ### <------------- Developers!!! Only edit this line !!!!!!!!!!!!!!

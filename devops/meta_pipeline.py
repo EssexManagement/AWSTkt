@@ -40,6 +40,7 @@ class MetaPipelineUpdatesOtherPipelinesStack(Stack):
         tier :str,
         aws_env :str,
         git_branch :str,
+        pipeline_simplename :str,
         whether_to_switch_git_commithash :bool,
                 ### Attention: only for `dev` TIER, this should be `false`, so that `dev` tier's meta-pipeline will CREATE new tiers.
                 ### But, at the same time, the meta-pipeline for -OTHER- developer-tiers should NOT do that!!
@@ -62,9 +63,11 @@ class MetaPipelineUpdatesOtherPipelinesStack(Stack):
 
         ### -----------------------------------
         pipeline_name = stack_id    ### perhaps it can be named better?
-        stk_prefix = aws_names.gen_awsresource_name_prefix( tier=tier, cdk_component_name="MetaPipeline" )
+        stk_prefix = aws_names.gen_awsresource_name_prefix( tier=tier,
+                        cdk_component_name = pipeline_simplename+"Pipeline" )
         # stk_prefix = f"{constants.CDK_APP_NAME}-MetaPipeline-{tier}"
-        codebuild_projname = "MetaPipeline"
+        codebuild_projname = "advPythonCB"
+        # codebuild_projname = pipeline_simplename +"Pipeline"
         cdk_app_pyfile = "cdk_pipelines_app.py"
 
         ### -----------------------------------

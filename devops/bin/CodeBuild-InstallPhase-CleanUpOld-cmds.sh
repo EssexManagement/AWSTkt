@@ -111,10 +111,10 @@ checkIfS3ObjectExists() {
         > /dev/null 2>&1
     if [ $? -eq 0 ]; then
         echo "checkIfS3ObjectExists(): s3://${CodePipelineS3BktName}/${FullS3ObjectKey} exists"
-        RETCODE=1
+        RETCODE=0
     else
         echo "checkIfS3ObjectExists(): s3://${CodePipelineS3BktName}/${FullS3ObjectKey} does NOT⚠️ exist"
-        RETCODE=0
+        RETCODE=1
     fi
     return ${RETCODE}
 }
@@ -191,7 +191,7 @@ isFileTooOld() {
 
     set +e
     checkIfS3ObjectExists "${FullS3ObjectKey}" "${CodePipelineS3BktName}"
-    if [ $? -eq 0 ]; then
+    if [ $? -ne 0 ]; then
         set -e
         echo "isFileTooOld(): Skipping Get-Tags SDK-call, as s3-object does NOT exist."
         return 0 ### TOOOOO-OLD file or NON-existent file. This differs from the same bash-func in `InstallPhase-Archive-cmds.sh`

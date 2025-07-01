@@ -91,6 +91,7 @@ printDetailsOnFolders() {
     printf '%.0s.' {1..40}; echo ''
     echo ".. printing details on KEY-folders .."
     pwd
+    set +o noglob
     ls -lad ./${CodeBuild_FileCacheFldr}/*.tar || true
     printf '%.0s.' {1..40}; echo ''
     ls -lad ${HOME}/.local/share/virtualenvs* || true
@@ -98,6 +99,7 @@ printDetailsOnFolders() {
     ls -lad .venv/lib/python3.12/site-packages/aws?cdk* || true
     printf '%.0s.' {1..40}; echo ''
     ls -lad .pip-cache.venv* || true
+    # set -o noglob
 }
 
 ### ----------
@@ -115,10 +117,10 @@ checkIfS3ObjectExists() {
         > /dev/null 2>&1
     if [ $? -eq 0 ]; then
         echo "checkIfS3ObjectExists(): s3://${CodePipelineS3BktName}/${FullS3ObjectKey} exists"
-        RETCODE=1
+        RETCODE=0
     else
         echo "checkIfS3ObjectExists(): s3://${CodePipelineS3BktName}/${FullS3ObjectKey} does NOT⚠️ exist"
-        RETCODE=0
+        RETCODE=1
     fi
     return ${RETCODE}
 }
@@ -294,7 +296,7 @@ for ddd in ${Fldrs2bArchivedBeforeCaching[@]}; do
         echo "43: untarring cached-files .."
         set +e
         checkIfS3ObjectExists "${FullS3ObjectKey}" "${CodePipelineS3BktName}"
-        if [ $? -eq 0 ]; then
+        if [ $? -ne 0 ]; then
             set -e
             echo "uploadAndTagNewS3Obj(): Skipping s3-DOWNLOAD, as s3-object does NOT exist."
             continue ### next item in `Fldrs2bArchivedBeforeCaching`

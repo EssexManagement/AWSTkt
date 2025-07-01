@@ -43,12 +43,12 @@
         {
             "deleteInParallel": [
                 "{app}-devops-{tier}-PostDeployment",
-                "{app}-devops-{tier}-1ClickEnd2End",
                 "{app}-devops-{tier}-CleanupOrphanResources"
             ]
         },
         {
             "deleteInParallel": [
+                "{app}-devops-pipeline-{tier}",
                 "{app}-meta-pipeline-{tier}",
                 "{app}-operations-pipeline-{tier}",
                 "{app}-backend-pipeline-{tier}",
@@ -58,7 +58,7 @@
         },
         {
             "deleteInParallel": [
-                "{app}-devops-pipeline-{tier}",
+                "{app}-devops-{tier}-1ClickEnd2End",
                 "{app}-devops-{tier}-CleanupStacks"
             ]
         }

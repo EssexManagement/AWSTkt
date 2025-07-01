@@ -120,7 +120,8 @@ add_tags( a_construct=stk, tier=tier, aws_env=aws_env, git_branch=pipeline_sourc
 
 ### -----------------------------------
 if tier == constants.DEV_TIER or tier not in constants.STD_TIERS:
-    cdk_component_name=f"meta-pipeline"
+    pipeline_simplename = "meta"
+    cdk_component_name=f"{pipeline_simplename}-pipeline"
     stack_id = aws_names.gen_awsresource_name_prefix( tier=tier, cdk_component_name=cdk_component_name )
 
     stk = MetaPipelineUpdatesOtherPipelinesStack(
@@ -129,6 +130,7 @@ if tier == constants.DEV_TIER or tier not in constants.STD_TIERS:
         tier=tier,
         git_branch=git_branch,
         aws_env=aws_env,
+        pipeline_simplename = pipeline_simplename,
         whether_to_switch_git_commithash = True,
                     ### !!! Attention !!!
                     ### For all developer-tiers, must be `True`.  See also `newtier-pipeline` below.
@@ -140,7 +142,8 @@ if tier == constants.DEV_TIER or tier not in constants.STD_TIERS:
 
 ### Next a pipeline to handle NEW git-branches (new developer-tiers)
 if tier == constants.DEV_TIER: ### Only for DEV-tier
-    cdk_component_name=f"newtier-pipeline"
+    pipeline_simplename = "NewTier"
+    cdk_component_name=f"{pipeline_simplename}-ppln"
     stack_id = aws_names.gen_awsresource_name_prefix( tier=tier, cdk_component_name=cdk_component_name )
 
     stk = MetaPipelineUpdatesOtherPipelinesStack(
@@ -150,6 +153,7 @@ if tier == constants.DEV_TIER: ### Only for DEV-tier
         # tier = tmp_tier, ### TODO either --> constants.ACCT_NONPROD or constants.ACCT_PROD
         git_branch=git_branch,
         aws_env=aws_env,
+        pipeline_simplename = pipeline_simplename,
         whether_to_switch_git_commithash = False,
                     ### Attention: only for `dev` TIER, this should be `false`, so that `dev` tier's meta-pipeline will CREATE new tiers.
                     ###                 But, at the same time, the meta-pipeline for -OTHER- developer-tiers should NOT do that!!

@@ -1,4 +1,6 @@
 import pathlib
+from typing import Optional
+
 from aws_cdk import (
     Duration,
     Stack,
@@ -133,7 +135,7 @@ class MyUserPool(Construct):
         domain_prefix = frontend_domain.lower().replace(".", "-") if frontend_domain else None
         ### It must be unique GLOBALLY as: https://{domain_prefix}.auth.us-east-1.amazoncognito.com
 
-        self.user_pool_domain: cognito.IUserPoolDomain = user_pool.add_domain(
+        self.user_pool_domain: Optional[cognito.IUserPoolDomain] = user_pool.add_domain(
             "cognito-domain",
             cognito_domain=cognito.CognitoDomainOptions( domain_prefix=domain_prefix ),
             # cognito_domain=cognito.CustomDomainOptions()
@@ -164,8 +166,8 @@ class MyUserPool(Construct):
                 web_acl_arn = web_acl_arn,
                 resource_arn = user_pool.user_pool_arn,
             )
-            wafaclass.add_dependency(user_pool.node.default_child)
-            if self.user_pool_domain: wafaclass.add_dependency(self.user_pool_domain.node.default_child)
+            wafaclass.add_dependency(user_pool.node.default_child) # type: ignore
+            if self.user_pool_domain: wafaclass.add_dependency(self.user_pool_domain.node.default_child) # type: ignore
 
         # # create a new Lambda function using aws_lambda_python_alpha that is based on the file at: ./src/cognito_custom_msg_handler.py
         # lambda_file_name = "cognito_custom_msg_handler"

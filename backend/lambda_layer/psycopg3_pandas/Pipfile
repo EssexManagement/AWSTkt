@@ -4,44 +4,30 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+"psycopg[binary]" = "*"
+regex = "*"
+"aws-lambda-powertools[tracer]" = "*"
 attrs = "*"
-# certifi
-# chardet
 dictdiffer = "*"
-# greenlet
 idna = "*"
 importlib-metadata = "*"
 jmespath = "*"
 jsonschema = "*"
-
-"psycopg[binary]" = "*"
+psycopg = {extras = ["binary"], version = "*"}
 psycopg-pool = "*"
-
 python-dateutil = "*"
 pytz = "*"
-
 requests = "*"
-# s3transfer
 six = "*"
 typing-extensions = "*"
 urllib3 = "*"
-# wget
-# zipp
-# jsonpickle
-
-regex = "*"
 aws-xray-sdk = "*"
-"aws-lambda-powertools[tracer]" = "*"
-
-SQLAlchemy = "2.0.28"
-# SQLAlchemy (2.0.36) ### pip-ERROR: poetry 1.5.1 requires urllib3<2.0.0,>=1.26.0, but you have urllib3 2.2.3 which is incompatible.
-
-PyYAML = "*"
-# PyYAML==6.0.1
-
+sqlalchemy = "==2.0.28"
+pyyaml = "*"
 pandas = "*"
-# pandas==2.2.1
-# xlrd==2.0.1
+openpyxl = "==3.1.5"
+flatten-dict = "*"
+jsonref = "==1.1.0"
 
 [dev-packages]
 

@@ -186,6 +186,15 @@
             "markers": "python_version >= '3.7'",
             "version": "==1.0.1"
         },
+        "jsonref": {
+            "hashes": [
+                "sha256:32fe8e1d85af0fdefbebce950af85590b22b60f9e95443176adbde4e1ecea552",
+                "sha256:590dc7773df6c21cbf948b5dac07a72a251db28b0238ceecce0a2abfa8ec30a9"
+            ],
+            "index": "pypi",
+            "markers": "python_version >= '3.7'",
+            "version": "==1.1.0"
+        },
         "jsonschema": {
             "hashes": [
                 "sha256:d71497fef26351a33265337fa77ffeb82423f3ea21283cd9467bb03999266bc4",
